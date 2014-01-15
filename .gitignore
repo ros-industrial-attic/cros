@@ -4,3 +4,6 @@ Makefile
 bin/
 cmake_install.cmake
 lib/
+.cproject
+.project
+cros.kdev4
