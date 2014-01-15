@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "cros_api.h"
@@ -56,7 +57,7 @@ void cRosApiPrepareRequest( CrosNode *n )
   
   xmlrpcProcessClear( client_proc );
       
-  if( n->state & CN_STATE_ADVERTISE_PUBLISCER && n->n_pubs )
+  if( n->state & CN_STATE_ADVERTISE_PUBLISHER && n->n_pubs )
   {   
     dynStringPushBackStr( &(client_proc->method), "registerPublisher" );
 
@@ -107,7 +108,7 @@ int cRosApiParseResponse( CrosNode *n )
     {
       ret = 1;
       if(++(n->n_advertised_pubs) >= n->n_pubs )
-        n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_PUBLISCER);
+        n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_PUBLISHER);
     }
   }
   else if( client_proc->request_id == CROS_API_GET_PID )
@@ -123,7 +124,7 @@ int cRosApiParseResponse( CrosNode *n )
     {
       if( n->n_pubs )
       { 
-        n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISCER);
+        n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
         n->n_advertised_pubs = 0;
       }
     }

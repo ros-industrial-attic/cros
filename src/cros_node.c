@@ -66,7 +66,7 @@ static void handleXmlrpcClientError( CrosNode *n )
 
   if( n->n_pubs )
   {
-    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISCER);
+    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
     n->n_advertised_pubs = 0;
   }
 }
@@ -519,7 +519,7 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
 
   n->n_pubs++;
   
-  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISCER);
+  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
   n->n_advertised_pubs = 0;
   
   return 1;
