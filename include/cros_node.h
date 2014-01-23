@@ -122,7 +122,7 @@ void cRosNodeDestroy( CrosNode *n );
  *  \param topic_type The published topic data type (e.g., std_msgs/String, ...)
  *  \param md5sum The md5sum of the message typedef
  *  \param loop_period Period (in msec) for publication cycle 
- *  \param publischerDataCallback The callback called to generate the (raw) packet data 
+ *  \param publisherDataCallback The callback called to generate the (raw) packet data 
  *                                of type topic_type
  * 
  *  \return Returns 1 on success, 0 on failure (e.g., the maximu number of 
@@ -130,7 +130,7 @@ void cRosNodeDestroy( CrosNode *n );
  */
 int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topic_name, 
                                char *topic_type, char *md5sum, int loop_period, 
-                               unsigned char *(*publischerDataCallback)( size_t *num, size_t *size ) );
+                               unsigned char *(*publisherDataCallback)( size_t *num, size_t *size ) );
 
 /*! \brief Register the node in roscore as topic subscriber.
  *
