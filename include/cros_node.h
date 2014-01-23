@@ -54,6 +54,8 @@ struct SubscriberNode
 {
   char *topic_name;                             //! The subscribed topic name
   char *topic_type;                             //! The subscribed topic data type (e.g., std_msgs/String, ...)
+  /*! The callback called to generate the (raw) packet data of type topic_type */
+  unsigned char *(*callback)( size_t *num, size_t *size ) ;
 };
 
 /*! \brief CrosNode object. Don't modify its internal members: use
@@ -89,6 +91,7 @@ struct CrosNode
   int n_pubs;                   //! Number of node's published topics
   int n_advertised_pubs;        //! Number of published topics yet advertised
   int n_subs;                   //! Number of node's subscribed topics
+  int n_advertised_subs;        //! Number of topic subscriptions yet advertised
 };
 
 
@@ -128,6 +131,15 @@ void cRosNodeDestroy( CrosNode *n );
 int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topic_name, 
                                char *topic_type, char *md5sum, int loop_period, 
                                unsigned char *(*publischerDataCallback)( size_t *num, size_t *size ) );
+
+/*! \brief Register the node in roscore as topic subscriber.
+ *
+ *  \param TODO review doxy documentation
+ */
+int cRosNodeRegisterSubscriber(CrosNode *n,
+							   char *topic_name,
+                               char *topic_type,
+                               unsigned char *(*subscriberDataCallback)( size_t *num, size_t *size ) );
 
 /*! \brief Perform a loop of the cROS node main cycle 
  * 

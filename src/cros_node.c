@@ -430,6 +430,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
   }
 
   new_n->n_subs = 0;
+  new_n->n_advertised_subs = 0;
     
   new_n->state = CN_STATE_NONE;
 
@@ -488,7 +489,7 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   if ( n->n_pubs >= CN_MAX_PUBLISHED_TOPICS )
   {
     PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't register a new publisher: \
-                 reached the maximu number of published topics\n");
+                 reached the maximum number of published topics\n");
     return 0;
   }
 
@@ -523,6 +524,46 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   n->n_advertised_pubs = 0;
   
   return 1;
+}
+
+int cRosNodeRegisterSubscriber(CrosNode *n,
+							   char *topic_name,
+                               char *topic_type,
+                               unsigned char *(*subscriberDataCallback)( size_t *num, size_t *size ) )
+{
+	  PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
+	  PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
+
+	  if ( n->n_subs >= CN_MAX_SUBSCRIBED_TOPICS )
+	  {
+	    PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't register a new subscriber: \
+	                 reached the maximum number of published topics\n");
+	    return 0;
+	  }
+
+	  char *pub_topic_name = ( char * ) malloc ( ( strlen ( topic_name ) + 1 ) * sizeof ( char ) );
+	  char *pub_topic_type = ( char * ) malloc ( ( strlen ( topic_type ) + 1 ) * sizeof ( char ) );
+
+	  if ( pub_topic_name == NULL || pub_topic_type == NULL )
+	  {
+	    PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't allocate memory\n" );
+	    return 0;
+	  }
+
+	  strcpy ( pub_topic_name, topic_name );
+	  strcpy ( pub_topic_type, topic_type );
+
+	  n->subs[n->n_subs].topic_name = pub_topic_name;
+	  n->subs[n->n_subs].topic_type = pub_topic_type;
+
+	  n->subs[n->n_subs].callback = subscriberDataCallback;
+
+	  n->n_subs++;
+
+	  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SUBSCRIBER);
+	  n->n_advertised_subs = 0;
+
+	  return 1;
 }
 
 void cRosNodeDoEventsLoop ( CrosNode *n )

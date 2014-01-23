@@ -8,6 +8,7 @@ enum
 {
   CROS_API_GET_PID,
   CROS_API_REGISTER_PUBLISHER,
+  CROS_API_REGISTER_SUBSCRIBER
 };
 
 static const char *CROS_API_TCPROS_STRING = "TCPROS";
@@ -71,6 +72,20 @@ void cRosApiPrepareRequest( CrosNode *n )
     client_proc->request_id = CROS_API_REGISTER_PUBLISHER;
     
   }
+  else if( n->state & CN_STATE_ADVERTISE_SUBSCRIBER && n->n_subs )
+  {
+	PRINT_INFO("cRosApiPrepareRequest() : registerSubscriber\n");
+	dynStringPushBackStr( &(client_proc->method), "registerSubscriber" );
+
+	xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
+	xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[n->n_advertised_subs].topic_name );
+	xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[n->n_advertised_subs].topic_type );
+	char node_uri[256];;
+	sprintf( node_uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+	xmlrpcParamVectorPushBackString( &(client_proc->params), node_uri );
+
+	client_proc->request_id = CROS_API_REGISTER_SUBSCRIBER;
+  }
   else
   {
     PRINT_INFO("cRosApiPrepareRequest() : ping roscore\n");
@@ -82,6 +97,7 @@ void cRosApiPrepareRequest( CrosNode *n )
     
     client_proc->request_id = CROS_API_GET_PID;
   }
+
   client_proc->message_type = XMLRPC_MESSAGE_REQUEST;
   
     // TODO Not only rosore!
@@ -109,6 +125,17 @@ int cRosApiParseResponse( CrosNode *n )
       ret = 1;
       if(++(n->n_advertised_pubs) >= n->n_pubs )
         n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_PUBLISHER);
+    }
+  }
+  else if( client_proc->request_id == CROS_API_REGISTER_SUBSCRIBER )
+  {
+    PRINT_DEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
+    //xmlrpcParamVectorPrint( &(client_proc->params) );
+    if( checkResponseValue( &(client_proc->params) ) )
+    {
+      ret = 1;
+      if(++(n->n_advertised_subs) >= n->n_subs )
+        n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_SUBSCRIBER);
     }
   }
   else if( client_proc->request_id == CROS_API_GET_PID )
@@ -142,7 +169,7 @@ int cRosApiParseResponse( CrosNode *n )
 
 void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
-  PRINT_VDEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
+  PRINT_INFO ( "cRosApiParseRequestPrepareResponse()\n" );
   
   XmlrpcProcess *server_proc = &(n->xmlrpc_server_proc[server_idx]);
   const char *method = dynStringGetData( &(server_proc->method) );
@@ -168,6 +195,74 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
     generateXmlrpcMessage( n->roscore_host, n->roscore_port, server_proc->message_type, 
                     &(server_proc->method), &(server_proc->params), &(server_proc->message) );
+  }
+  else if(strcmp(method, "publisherUpdate") == 0)
+  {
+	PRINT_INFO("publisherUpdate()\n");
+	// TODO Store the subscribed node name
+	XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
+
+	//xmlrpcParamVectorPrint( &(server_proc->params) );
+
+	caller_id_param = xmlrpcParamVectorAt( &(server_proc->params), 0);
+	topic_param = xmlrpcParamVectorAt( &(server_proc->params), 1);
+	publishers_param = xmlrpcParamVectorAt( &(server_proc->params), 2);
+
+	if( xmlrpcParamGetType( caller_id_param ) != XMLRPC_PARAM_STRING ||
+		xmlrpcParamGetType( topic_param ) != XMLRPC_PARAM_STRING ||
+		 xmlrpcParamGetType( publishers_param ) != XMLRPC_PARAM_ARRAY  )
+	{
+	  PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong publisherUpdate message \n" );
+	  xmlrpcProcessClear( server_proc );
+	  fillErrorParams ( &(server_proc->params), "" );
+	}
+	else
+	{
+	  int array_size = xmlrpcParamArrayGetSize( publishers_param );
+	  XmlrpcParam *uri, *proto_name;
+	  int i = 0, topic_found = 0, uri_found = 0;
+
+	  for( i = 0 ; i < n->n_subs; i++)
+	  {
+		if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
+		{
+		  topic_found = 1;
+		  break;
+		}
+	  }
+
+	  if(array_size > 0)
+	  {
+		uri = xmlrpcParamArrayGetParamAt ( publishers_param, 0 );
+		if(xmlrpcParamGetType(uri) == XMLRPC_PARAM_STRING)
+		{
+		uri_found = 1;
+		}
+	  }
+
+	  if( topic_found && uri_found )
+	  {
+
+		  xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
+		  xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
+		  xmlrpcParamVectorPushBackInt( &(server_proc->params), n->pid );
+
+		// WARNING DEBUG CODE
+		//xmlrpcParamVectorPrint( &(server_proc->params) );
+
+	  }
+	  else
+	  {
+		PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic or protocol for publisherUpdate() not supported\n" );
+		xmlrpcProcessClear( server_proc );
+		fillErrorParams ( &(server_proc->params), "" );
+	  }
+
+	}
+
+	generateXmlrpcMessage( n->roscore_host, n->roscore_port, server_proc->message_type,
+	                    &(server_proc->method), &(server_proc->params), &(server_proc->message) );
+
   }
   else if( strcmp( method, "requestTopic") == 0 )
   {
@@ -218,7 +313,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         }
       }
       
-      if( topic_found && protocol_found )
+      if( topic_found)
       {
         xmlrpcProcessClear( server_proc );
         xmlrpcParamVectorPushBackArray( &(server_proc->params) );
@@ -244,17 +339,12 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       
     }
     
-//     xmlrpcProcessClear( server_proc );
-//     xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );  
-//     xmlrpcParamVectorPushBackString( &(server_proc->params), "" );  
-//     xmlrpcParamVectorPushBackInt( &(server_proc->params), n->pid );  
-// 
     generateXmlrpcMessage( n->roscore_host, n->roscore_port, server_proc->message_type, 
                     &(server_proc->method), &(server_proc->params), &(server_proc->message) );
   }
   else
   {
-    PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Unknown metohd \n Message : \n %s", 
+    PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Unknown method \n Message : \n %s",
                   dynStringGetData( &(server_proc->message) ) );
     
     xmlrpcParamVectorPrint( &(server_proc->params) );
