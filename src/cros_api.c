@@ -130,7 +130,7 @@ int cRosApiParseResponse( CrosNode *n )
   else if( client_proc->request_id == CROS_API_REGISTER_SUBSCRIBER )
   {
     PRINT_DEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
-    //xmlrpcParamVectorPrint( &(client_proc->params) );
+    xmlrpcParamVectorPrint( &(client_proc->params) );
     if( checkResponseValue( &(client_proc->params) ) )
     {
       ret = 1;
@@ -169,7 +169,7 @@ int cRosApiParseResponse( CrosNode *n )
 
 void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
-  PRINT_INFO ( "cRosApiParseRequestPrepareResponse()\n" );
+  PRINT_DEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
   
   XmlrpcProcess *server_proc = &(n->xmlrpc_server_proc[server_idx]);
   const char *method = dynStringGetData( &(server_proc->method) );
@@ -202,7 +202,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 	// TODO Store the subscribed node name
 	XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
 
-	//xmlrpcParamVectorPrint( &(server_proc->params) );
+	xmlrpcParamVectorPrint( &(server_proc->params) );
 
 	caller_id_param = xmlrpcParamVectorAt( &(server_proc->params), 0);
 	topic_param = xmlrpcParamVectorAt( &(server_proc->params), 1);
