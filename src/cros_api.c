@@ -8,7 +8,8 @@ enum
 {
   CROS_API_GET_PID,
   CROS_API_REGISTER_PUBLISHER,
-  CROS_API_REGISTER_SUBSCRIBER
+  CROS_API_REGISTER_SUBSCRIBER,
+  CROS_API_REQUEST_TOPIC,
 };
 
 static const char *CROS_API_TCPROS_STRING = "TCPROS";
@@ -57,6 +58,8 @@ void cRosApiPrepareRequest( CrosNode *n )
   XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc);
   
   xmlrpcProcessClear( client_proc );
+
+  client_proc->message_type = XMLRPC_MESSAGE_REQUEST;
       
   if( n->state & CN_STATE_ADVERTISE_PUBLISHER && n->n_pubs )
   {   
@@ -65,11 +68,13 @@ void cRosApiPrepareRequest( CrosNode *n )
     xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
     xmlrpcParamVectorPushBackString( &(client_proc->params), n->pubs[n->n_advertised_pubs].topic_name );
     xmlrpcParamVectorPushBackString( &(client_proc->params), n->pubs[n->n_advertised_pubs].topic_type );
-    char node_uri[256];;
+    char node_uri[256];
     sprintf( node_uri, "http://%s:%d/", n->host, n->xmlrpc_port);
     xmlrpcParamVectorPushBackString( &(client_proc->params), node_uri ); 
     
     client_proc->request_id = CROS_API_REGISTER_PUBLISHER;
+    generateXmlrpcMessage( n->roscore_host, n->roscore_port, client_proc->message_type,
+                        &(client_proc->method), &(client_proc->params), &(client_proc->message) );
     
   }
   else if( n->state & CN_STATE_ADVERTISE_SUBSCRIBER && n->n_subs )
@@ -80,11 +85,29 @@ void cRosApiPrepareRequest( CrosNode *n )
 	xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
 	xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[n->n_advertised_subs].topic_name );
 	xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[n->n_advertised_subs].topic_type );
-	char node_uri[256];;
+	char node_uri[256];
 	sprintf( node_uri, "http://%s:%d/", n->host, n->xmlrpc_port);
 	xmlrpcParamVectorPushBackString( &(client_proc->params), node_uri );
 
 	client_proc->request_id = CROS_API_REGISTER_SUBSCRIBER;
+
+  	generateXmlrpcMessage( n->roscore_host, n->roscore_port, client_proc->message_type,
+                        &(client_proc->method), &(client_proc->params), &(client_proc->message) );
+  }
+  else if( n->state & CN_STATE_ASK_FOR_CONNECTION)
+  {
+	PRINT_INFO("cRosApiPrepareRequest() : requestTopic\n");
+	dynStringPushBackStr( &(client_proc->method), "requestTopic" );
+
+	xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
+	xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[0].topic_name );
+	xmlrpcParamVectorPushBackArray( &(client_proc->params));
+	xmlrpcParamArrayPushBackString(xmlrpcParamVectorAt(&(client_proc->params),2),CROS_API_TCPROS_STRING);
+
+	client_proc->request_id = CROS_API_REQUEST_TOPIC;
+
+	generateXmlrpcMessage( n->subs[0].topic_host, n->subs[0].topic_port, client_proc->message_type,
+                        &(client_proc->method), &(client_proc->params), &(client_proc->message) );
   }
   else
   {
@@ -96,13 +119,11 @@ void cRosApiPrepareRequest( CrosNode *n )
     xmlrpcParamVectorPushBackString( &(client_proc->params), "/rosout");
     
     client_proc->request_id = CROS_API_GET_PID;
-  }
 
-  client_proc->message_type = XMLRPC_MESSAGE_REQUEST;
-  
     // TODO Not only rosore!
-  generateXmlrpcMessage( n->roscore_host, n->roscore_port, client_proc->message_type, 
-                        &(client_proc->method), &(client_proc->params), &(client_proc->message) );  
+  generateXmlrpcMessage( n->roscore_host, n->roscore_port, client_proc->message_type,
+                        &(client_proc->method), &(client_proc->params), &(client_proc->message) );
+  }
 }
 
 int cRosApiParseResponse( CrosNode *n )
@@ -130,13 +151,55 @@ int cRosApiParseResponse( CrosNode *n )
   else if( client_proc->request_id == CROS_API_REGISTER_SUBSCRIBER )
   {
     PRINT_DEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
-    xmlrpcParamVectorPrint( &(client_proc->params) );
-    if( checkResponseValue( &(client_proc->params) ) )
+
+    //Get the next subscriber without a topic host
+    SubscriberNode* requesting_subscriber = NULL;
+    int i ;
+    for(i = 0; i < n->n_subs; i++)
     {
-      ret = 1;
-      if(++(n->n_advertised_subs) >= n->n_subs )
-        n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_SUBSCRIBER);
+    	if(n->subs[i].topic_host == NULL)
+    	{
+    		requesting_subscriber = &(n->subs[i]);
+    		break;
+    	}
     }
+
+    //Check if there is some publishers for the subscription
+    XmlrpcParam *param = xmlrpcParamVectorAt(&(client_proc->params), 0);
+    XmlrpcParam *array = xmlrpcParamArrayGetParamAt(param,2);
+    int available_pubs_n = xmlrpcParamArrayGetSize(array);
+
+    if(available_pubs_n > 0)
+    {
+		for(i = 0; i < available_pubs_n; i++)
+		{
+			XmlrpcParam* pub_host = xmlrpcParamArrayGetParamAt(array, i);
+			char* pub_host_string = xmlrpcParamGetString(pub_host);
+			PRINT_INFO("Publisher host: %s\n", pub_host_string);
+			//manage string for exploit informations
+			//removing the 'http://' and the last '/'
+			int dirty_string_len = strlen(pub_host_string);
+			char* clean_string = calloc(dirty_string_len-8,sizeof(char));
+			strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
+			requesting_subscriber->topic_host = strtok(clean_string,":");
+			requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
+		}
+
+		if( checkResponseValue( &(client_proc->params) ) )
+		{
+		  ret = 1;
+		  if(++(n->n_advertised_subs) >= n->n_subs )
+		  {
+			n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_SUBSCRIBER);
+			n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
+		  }
+		}
+    }
+  }
+  else if( client_proc->request_id == CROS_API_REQUEST_TOPIC )
+  {
+    PRINT_DEBUG ( "cRosApiParseResponse() : requestTopic response \n" );
+    xmlrpcParamVectorPrint( &(client_proc->params) );
   }
   else if( client_proc->request_id == CROS_API_GET_PID )
   {
@@ -313,7 +376,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         }
       }
       
-      if( topic_found)
+      if( topic_found && protocol_found)
       {
         xmlrpcProcessClear( server_proc );
         xmlrpcParamVectorPushBackArray( &(server_proc->params) );

@@ -87,7 +87,7 @@ static void handleTcprosServerError( CrosNode *n, int i )
 }
 
 
-static void doWithXmlrpcClientSocket( CrosNode *n )
+static void doWithXmlrpcClientSocket( CrosNode *n)
 { 
   PRINT_VDEBUG ( "doWithXmlrpcClientSocket()\n" );
   
@@ -141,6 +141,7 @@ static void doWithXmlrpcClientSocket( CrosNode *n )
     PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Reading()\n" );
     TcpIpSocketState sock_state = tcpIpSocketReadString( &(xmlrpc_client_proc->socket), 
                                                          &(xmlrpc_client_proc->message) );
+    //printf("%s\n", xmlrpc_client_proc->message.data);
     XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
     
     switch ( sock_state )
@@ -425,6 +426,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS; i++)
   {
+	new_n->subs[i].topic_host = NULL;
     new_n->subs[i].topic_name = NULL;
     new_n->subs[i].topic_type = NULL;
   }

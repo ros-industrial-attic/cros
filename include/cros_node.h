@@ -32,6 +32,7 @@ typedef enum
   CN_STATE_PING_ROSCORE = 0x1,
   CN_STATE_ADVERTISE_PUBLISHER = 0X2,
   CN_STATE_ADVERTISE_SUBSCRIBER = 0X4,
+  CN_STATE_ASK_FOR_CONNECTION = 0X8
 }CrosNodeState;
 
 
@@ -54,6 +55,9 @@ struct SubscriberNode
 {
   char *topic_name;                             //! The subscribed topic name
   char *topic_type;                             //! The subscribed topic data type (e.g., std_msgs/String, ...)
+  char *topic_host;								//! The host of the topic already contacted.
+  int   topic_port;								//! The host-port of the topic already contacted.
+
   /*! The callback called to generate the (raw) packet data of type topic_type */
   unsigned char *(*callback)( size_t *num, size_t *size ) ;
 };
