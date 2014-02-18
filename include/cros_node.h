@@ -11,13 +11,15 @@
  */
 
 /*! Max num serving XMLRPC connections */
-#define CN_MAX_XMLRPC_CONNECTIONS 3
+#define CN_MAX_XMLRPC_SERVER_CONNECTIONS 3
 /*! Max num serving TCPROS connections */
-#define CN_MAX_TCPROS_CONNECTIONS 4
+#define CN_MAX_TCPROS_SERVER_CONNECTIONS 4
 /*! Max num published topics */
 #define CN_MAX_PUBLISHED_TOPICS 5
 /*! Max num subscribed topics */
 #define CN_MAX_SUBSCRIBED_TOPICS 5
+/*! Max num XMLRPC connections against another subscribed nodes and roscore */
+#define CN_MAX_XMLRPC_CLIENT_CONNECTIONS 1 + CN_MAX_SUBSCRIBED_TOPICS
 /*! Node automatic XMLRPC ping cycle period (in msec) */
 #define CN_PING_LOOP_PERIOD 1000
 /*! Maximum I/O operations timeout (in msec) */
@@ -55,8 +57,10 @@ struct SubscriberNode
 {
   char *topic_name;                             //! The subscribed topic name
   char *topic_type;                             //! The subscribed topic data type (e.g., std_msgs/String, ...)
-  char *topic_host;								//! The host of the topic already contacted.
-  int   topic_port;								//! The host-port of the topic already contacted.
+  char *topic_host;								              //! The hostname of the topic already contacted.
+  int   topic_port;								              //! The host-port of the topic already contacted.
+  int   client_id;                              //! The xmlrpc client that manages the subscription
+  int   tcp_port;
 
   /*! The callback called to generate the (raw) packet data of type topic_type */
   unsigned char *(*callback)( size_t *num, size_t *size ) ;
@@ -79,15 +83,17 @@ struct CrosNode
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
   unsigned short roscore_port;  //! The roscore port
 
-  XmlrpcProcess xmlrpc_client_proc;    //! Manage connections for XMLRPC calls from this node to roscore
+  //! Manage connections for XMLRPC calls from this node to others
+  XmlrpcProcess xmlrpc_client_proc[CN_MAX_XMLRPC_CLIENT_CONNECTIONS];
   XmlrpcProcess xmlrpc_listner_proc;   //! Accept new XMLRPC connections from roscore or other nodes
   /*! Manage connections for XMLRPC calls from roscore or other nodes to this node */
-  XmlrpcProcess xmlrpc_server_proc[CN_MAX_XMLRPC_CONNECTIONS]; 
-                                                          
-                                                          
+  XmlrpcProcess xmlrpc_server_proc[CN_MAX_XMLRPC_SERVER_CONNECTIONS]; 
+
+  //! Manage connections for TCPROS calls from this node to others
+  XmlrpcProcess tcpros_client_proc[CN_MAX_XMLRPC_CLIENT_CONNECTIONS];
   TcprosProcess tcpros_listner_proc;   //! Accept new TCPROS connections from roscore or other nodes
   /*! Manage connections for TCPROS between this and other nodes  */
-  TcprosProcess tcpros_server_proc[CN_MAX_TCPROS_CONNECTIONS]; 
+  TcprosProcess tcpros_server_proc[CN_MAX_TCPROS_SERVER_CONNECTIONS]; 
   
   PublisherNode pubs[CN_MAX_PUBLISHED_TOPICS];            //! All the published topic, defined by PublisherNode structures
   SubscriberNode subs[CN_MAX_SUBSCRIBED_TOPICS];          //! All the subscribed topic, defined by PublisherNode structures

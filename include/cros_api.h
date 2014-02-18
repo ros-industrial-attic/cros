@@ -15,23 +15,25 @@
  */
 
 /*! \brief Prepare a XMLRPC message for a ROS XMLRPC protocol function call,
- *         This function modify the interna member of the XmlrpcProcess client_proc 
+ *         This function modify the internal member of the XmlrpcProcess client_proc
  *         of a cROS node. The function to call is chosen checking the currente 
  *         node's internal state (enum CrosNodeState) ,
  * 
- *  \param n Ponter to the CrosNode object
+ *  \param n Pointer to the CrosNode object
+ *  \param client_idx The client id that manage the request
  */
-void cRosApiPrepareRequest( CrosNode *n );
+void cRosApiPrepareRequest( CrosNode *n, int client_idx );
 
 
 /*! \brief Parse a XMLRPC response generated from a previous API function call ( see cRosApiPrepareRequest() ),
  *         eventually changing the internal state of the node n
  * 
  *  \param n Ponter to the CrosNode object
+ *  \param client_idx The client id that manage the response
  * 
  *  \return Returns 1 on success, 0 on failure
  */
-int cRosApiParseResponse( CrosNode *n );
+int cRosApiParseResponse( CrosNode *n, int client_idx  );
 
 /*! \brief Parse a XMLRPC request (i.e., an API function call generated from roscore or anther node), given 
  *         the XmlrpcProcess server_proc with index server_idx.

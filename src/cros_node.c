@@ -12,13 +12,13 @@
 #include "cros_clock.h"
 #include "cros_defs.h"
 
-static void openXmlrpcClientSocket( CrosNode *n )
+static void openXmlrpcClientSocket( CrosNode *n, int i )
 {
-  if( !tcpIpSocketOpen( &(n->xmlrpc_client_proc.socket) ) ||
-      !tcpIpSocketSetReuse( &(n->xmlrpc_client_proc.socket) ) ||
-      !tcpIpSocketSetNonBlocking( &(n->xmlrpc_client_proc.socket) ) )
+  if( !tcpIpSocketOpen( &(n->xmlrpc_client_proc[i].socket) ) ||
+      !tcpIpSocketSetReuse( &(n->xmlrpc_client_proc[i].socket) ) ||
+      !tcpIpSocketSetNonBlocking( &(n->xmlrpc_client_proc[i].socket) ) )
   {
-    PRINT_ERROR("openXmlrpcClientSocket() failed");
+    PRINT_ERROR("openXmlrpcClientSocket() at index %d failed", i);
     exit( EXIT_FAILURE );
   }
 }
@@ -28,7 +28,7 @@ static void openXmlrpcListnerSocket( CrosNode *n )
   if( !tcpIpSocketOpen( &(n->xmlrpc_listner_proc.socket) ) ||
       !tcpIpSocketSetReuse( &(n->xmlrpc_listner_proc.socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->xmlrpc_listner_proc.socket) ) ||
-      !tcpIpSocketBindListen( &(n->xmlrpc_listner_proc.socket), n->host, 0, CN_MAX_XMLRPC_CONNECTIONS ) )
+      !tcpIpSocketBindListen( &(n->xmlrpc_listner_proc.socket), n->host, 0, CN_MAX_XMLRPC_SERVER_CONNECTIONS ) )
   {
     PRINT_ERROR("openXmlrpcListnerSocket() failed");
     exit( EXIT_FAILURE );
@@ -45,7 +45,7 @@ static void openTcprosListnerSocket( CrosNode *n )
   if( !tcpIpSocketOpen( &(n->tcpros_listner_proc.socket) ) ||
       !tcpIpSocketSetReuse( &(n->tcpros_listner_proc.socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->tcpros_listner_proc.socket) ) ||
-      !tcpIpSocketBindListen( &(n->tcpros_listner_proc.socket), n->host, 0, CN_MAX_TCPROS_CONNECTIONS ) )
+      !tcpIpSocketBindListen( &(n->tcpros_listner_proc.socket), n->host, 0, CN_MAX_TCPROS_SERVER_CONNECTIONS ) )
   {
     PRINT_ERROR("openTcprosListnerSocket() failed");
     exit( EXIT_FAILURE );
@@ -57,12 +57,12 @@ static void openTcprosListnerSocket( CrosNode *n )
   }
 }
 
-static void handleXmlrpcClientError( CrosNode *n )
+static void handleXmlrpcClientError( CrosNode *n, int i )
 {
-  tcpIpSocketClose( &(n->xmlrpc_client_proc.socket) );
+  tcpIpSocketClose( &(n->xmlrpc_client_proc[i].socket) );
   
-  xmlrpcProcessClear( &(n->xmlrpc_client_proc) );
-  xmlrpcProcessChangeState( &(n->xmlrpc_client_proc), XMLRPC_PROCESS_STATE_IDLE );  
+  xmlrpcProcessClear( &(n->xmlrpc_client_proc[i]) );
+  xmlrpcProcessChangeState( &(n->xmlrpc_client_proc[i]), XMLRPC_PROCESS_STATE_IDLE );
 
   if( n->n_pubs )
   {
@@ -87,34 +87,55 @@ static void handleTcprosServerError( CrosNode *n, int i )
 }
 
 
-static void doWithXmlrpcClientSocket( CrosNode *n)
+static void doWithXmlrpcClientSocket( CrosNode *n, int i)
 { 
   PRINT_VDEBUG ( "doWithXmlrpcClientSocket()\n" );
   
-  XmlrpcProcess *xmlrpc_client_proc = &(n->xmlrpc_client_proc);
+  XmlrpcProcess *xmlrpc_client_proc = &(n->xmlrpc_client_proc[i]);
+
   if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_WRITING )
   {
     PRINT_DEBUG ( "doWithXmlrpcClientSocket() : writing\n" );
     
-    if( !n->xmlrpc_client_proc.socket.connected )
+    if( !xmlrpc_client_proc->socket.connected )
     {
-      // TODO Not only rosore!
-      TcpIpSocketState con_state = tcpIpSocketConnect( &(n->xmlrpc_client_proc.socket), 
-                                                       n->roscore_host, n->roscore_port );
-      if( con_state == TCPIPSOCKET_IN_PROGRESS )
+
+      TcpIpSocketState conn_state;
+
+      if(i == 0) //connection with roscore node
+      {
+    	  conn_state = tcpIpSocketConnect( &(xmlrpc_client_proc->socket),
+                                       	   n->roscore_host, n->roscore_port );
+      }
+      else
+      {
+        int j;
+
+        for(j = 0; j < n->n_subs; j++)
+        {
+          if(i == n->subs[j].client_id)
+          {
+            conn_state = tcpIpSocketConnect( &(xmlrpc_client_proc->socket),
+                                             n->subs[j].topic_host, n->subs[j].topic_port );
+          }
+        }
+      }
+
+      if( conn_state == TCPIPSOCKET_IN_PROGRESS )
       {
         PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Wait: connection is established asynchronously\n" );
         // Wait: connection is established asynchronously
         return;
       }
-      else if( con_state == TCPIPSOCKET_FAILED )
+      else if( conn_state == TCPIPSOCKET_FAILED )
       {
         PRINT_DEBUG ( "doWithXmlrpcClientSocket() : error\n" );
-        handleXmlrpcClientError( n );
+        handleXmlrpcClientError( n, i);
         return;
       }
     }
-    cRosApiPrepareRequest( n );
+
+    cRosApiPrepareRequest( n, i );
     
     TcpIpSocketState sock_state =  tcpIpSocketWriteString( &(xmlrpc_client_proc->socket), 
                                                            &(xmlrpc_client_proc->message) );
@@ -132,7 +153,7 @@ static void doWithXmlrpcClientSocket( CrosNode *n)
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
-        handleXmlrpcClientError( n );
+        handleXmlrpcClientError( n, i );
         break;
     }
   }
@@ -167,7 +188,7 @@ static void doWithXmlrpcClientSocket( CrosNode *n)
         
       case TCPIPSOCKET_FAILED:
       default:
-        handleXmlrpcClientError( n );
+        handleXmlrpcClientError( n, i );
         break;
     }
     
@@ -176,12 +197,12 @@ static void doWithXmlrpcClientSocket( CrosNode *n)
       case XMLRPC_PARSER_DONE:
         PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
         
-        if( !cRosApiParseResponse( n ) )
-          handleXmlrpcClientError( n );
+        if( !cRosApiParseResponse( n, i ) )
+          handleXmlrpcClientError( n, i );
         else
         {
-          xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_IDLE );
-          tcpIpSocketClose( &(xmlrpc_client_proc->socket) );
+          xmlrpcProcessChangeState( &xmlrpc_client_proc[i], XMLRPC_PROCESS_STATE_IDLE );
+          tcpIpSocketClose( &(xmlrpc_client_proc[i].socket) );
         }
         break;
         
@@ -190,7 +211,7 @@ static void doWithXmlrpcClientSocket( CrosNode *n)
         
       case XMLRPC_PARSER_ERROR:
       default:
-        handleXmlrpcClientError( n );
+        handleXmlrpcClientError( n, i );
         break;
     }
   }
@@ -401,14 +422,16 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
   new_n->tcpros_port = 0;
   new_n->roscore_port = roscore_port;
 
-  xmlrpcProcessInit( &(new_n->xmlrpc_client_proc) );
   xmlrpcProcessInit( &(new_n->xmlrpc_listner_proc) );
   int i = 0;
-  for ( ; i < CN_MAX_XMLRPC_CONNECTIONS; i++)
+  for ( ; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++)
     xmlrpcProcessInit( &(new_n->xmlrpc_server_proc[i]) ); 
   
+  for ( i = 0 ; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
+	xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
+
   tcprosProcessInit( &(new_n->tcpros_listner_proc) );
-  for ( i = 0; i < CN_MAX_TCPROS_CONNECTIONS; i++)
+  for ( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++)
     tcprosProcessInit( &(new_n->tcpros_server_proc[i]) );
   
   for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS; i++)
@@ -426,9 +449,13 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS; i++)
   {
-	new_n->subs[i].topic_host = NULL;
+    new_n->subs[i].topic_host = NULL;
+    new_n->subs[i].topic_port = -1;
     new_n->subs[i].topic_name = NULL;
     new_n->subs[i].topic_type = NULL;
+    new_n->subs[i].callback = NULL;
+    new_n->subs[i].client_id = -1;
+    new_n->subs[i].tcp_port = -1;
   }
 
   new_n->n_subs = 0;
@@ -438,7 +465,11 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
 
   new_n->pid = (int)getpid();
   
-  openXmlrpcClientSocket( new_n );
+  for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
+  {
+	  openXmlrpcClientSocket( new_n, i );
+  }
+
   openXmlrpcListnerSocket( new_n );
   openTcprosListnerSocket( new_n );
   
@@ -451,15 +482,16 @@ void cRosNodeDestroy ( CrosNode *n )
 
   if ( n == NULL )
     return;
-  
-  xmlrpcProcessRelease( &(n->xmlrpc_client_proc) );
   xmlrpcProcessRelease( &(n->xmlrpc_listner_proc) );
   int i = 0;
-  for ( ; i < CN_MAX_XMLRPC_CONNECTIONS; i++)
+  for ( ; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++)
     xmlrpcProcessRelease( &(n->xmlrpc_server_proc[i]) ); 
 
+  for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
+	xmlrpcProcessRelease( &(n->xmlrpc_client_proc[i]) );
+
   tcprosProcessRelease( &(n->tcpros_listner_proc) );
-  for ( i = 0; i < CN_MAX_TCPROS_CONNECTIONS; i++)
+  for ( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++)
     tcprosProcessRelease( &(n->tcpros_server_proc[i]) ); 
     
   if ( n->name != NULL ) free ( n->name );
@@ -478,6 +510,7 @@ void cRosNodeDestroy ( CrosNode *n )
   {
     if ( n->subs[i].topic_name != NULL ) free ( n->subs[i].topic_name );
     if ( n->subs[i].topic_type != NULL ) free ( n->subs[i].topic_type );
+    if ( n->subs[i].topic_host != NULL ) free ( n->subs[i].topic_host );
   }
 }
 
@@ -560,6 +593,8 @@ int cRosNodeRegisterSubscriber(CrosNode *n,
 
 	  n->subs[n->n_subs].callback = subscriberDataCallback;
 
+	  n->subs[n->n_subs].client_id = 1 + n->n_subs;
+
 	  n->n_subs++;
 
 	  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SUBSCRIBER);
@@ -574,33 +609,45 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   
   int nfds = -1;
   fd_set r_fds, w_fds, err_fds;
+  int i = 0;
   
   FD_ZERO( &r_fds );
   FD_ZERO( &w_fds );
   FD_ZERO( &err_fds );
   
-  int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc.socket) );
   int xmlrpc_listner_fd = tcpIpSocketGetFD( &(n->xmlrpc_listner_proc.socket) );
   //int tcpros_client_fd = tcpIpSocketGetFD( &(n->tcpros_client_proc.socket) );
   int tcpros_listner_fd = tcpIpSocketGetFD( &(n->tcpros_listner_proc.socket) );
   
-  /* If active (not idle state), add to the select() the XMLRPC client */
-  if( n->xmlrpc_client_proc.state == XMLRPC_PROCESS_STATE_WRITING )
-  {    
-    FD_SET( xmlrpc_client_fd, &w_fds);
-    FD_SET( xmlrpc_client_fd, &err_fds);
-    if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
-  }
-  else if( n->xmlrpc_client_proc.state == XMLRPC_PROCESS_STATE_READING )
+  /* If active (not idle state), add to the select() the XMLRPC clients */
+  int next_xmlrpc_client_i = -1;
+  for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
-    FD_SET( xmlrpc_client_fd, &r_fds);
-    FD_SET( xmlrpc_client_fd, &err_fds);
-    if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
+    int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
+
+    if( next_xmlrpc_client_i < 0 &&
+        i != 0 && //the zero-index is reserved to the roscore communications
+        n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_IDLE )
+    {
+      next_xmlrpc_client_i = i;
+    }
+    else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
+	  {
+	    FD_SET( xmlrpc_client_fd, &w_fds);
+	    FD_SET( xmlrpc_client_fd, &err_fds);
+	    if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
+	  }
+	  else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_READING )
+	  {
+	    FD_SET( xmlrpc_client_fd, &r_fds);
+	    FD_SET( xmlrpc_client_fd, &err_fds);
+	    if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
+	  }
   }
 
   /* Add to the select() the active XMLRPC servers */
-  int i = 0, next_xmlrpc_server_i = -1;  
-  for( i; i < CN_MAX_XMLRPC_CONNECTIONS; i++ )
+  int next_xmlrpc_server_i = -1;
+  for( i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++ )
   {
     int server_fd = tcpIpSocketGetFD( &(n->xmlrpc_server_proc[i].socket) );
     
@@ -634,7 +681,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
 
   /* Add to the select() the active TCPROS servers */
   int next_tcpros_server_i = -1;  
-  for( i = 0; i < CN_MAX_TCPROS_CONNECTIONS; i++ )
+  for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
   {
     int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
     
@@ -673,15 +720,15 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   
   uint64_t timeout = UINT64_MAX, tmp_timeout, cur_time = cRosClockGetTimeMs();
   
-  if( n->xmlrpc_client_proc.wake_up_time_ms > cur_time )
-    tmp_timeout = n->xmlrpc_client_proc.wake_up_time_ms - cur_time;
+  if( n->xmlrpc_client_proc[0].wake_up_time_ms > cur_time )
+    tmp_timeout = n->xmlrpc_client_proc[0].wake_up_time_ms - cur_time;
   else
     tmp_timeout = 0;
   
   if( tmp_timeout < timeout )
     timeout = tmp_timeout;
 
-  for( i = 0; i < CN_MAX_TCPROS_CONNECTIONS; i++ )
+  for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
   {
     if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING)
     {
@@ -710,27 +757,27 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     
     uint64_t cur_time = cRosClockGetTimeMs();
     
-    if(n->xmlrpc_client_proc.state == XMLRPC_PROCESS_STATE_IDLE &&
-      n->xmlrpc_client_proc.wake_up_time_ms <= cur_time )
+    if(n->xmlrpc_client_proc[0].state == XMLRPC_PROCESS_STATE_IDLE &&
+      n->xmlrpc_client_proc[0].wake_up_time_ms <= cur_time )
     {
-      n->xmlrpc_client_proc.wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD;
+      n->xmlrpc_client_proc[0].wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD;
     
-      if( !n->xmlrpc_client_proc.socket.open )
-        openXmlrpcClientSocket( n );
+      if( !n->xmlrpc_client_proc[0].socket.open )
+        openXmlrpcClientSocket( n, 0 );
       
       /* Prepare to ping roscore ... */
       PRINT_DEBUG ( "cRosNodeDoEventsLoop() : Client start writing\n");
-      xmlrpcProcessChangeState( &(n->xmlrpc_client_proc), XMLRPC_PROCESS_STATE_WRITING );
+      xmlrpcProcessChangeState( &(n->xmlrpc_client_proc[0]), XMLRPC_PROCESS_STATE_WRITING );
     }
-    else if( n->xmlrpc_client_proc.state != XMLRPC_PROCESS_STATE_IDLE &&
-             cur_time - n->xmlrpc_client_proc.last_change_time > CN_IO_TIMEOUT )
+    else if( n->xmlrpc_client_proc[0].state != XMLRPC_PROCESS_STATE_IDLE &&
+             cur_time - n->xmlrpc_client_proc[0].last_change_time > CN_IO_TIMEOUT )
     {
       /* Timeout between I/O operations... close the socket and re-advertise */
       PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC client I/O timeout\n");
-      handleXmlrpcClientError( n );
+      handleXmlrpcClientError( n, 0 );
     }
     
-    for( i = 0; i < CN_MAX_TCPROS_CONNECTIONS; i++ )
+    for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
       if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
@@ -751,18 +798,25 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   }
   else
   {
+
     PRINT_DEBUG ( "cRosNodeDoEventsLoop() : select() unblocked\n" );
-    
-    if( FD_ISSET(xmlrpc_client_fd, &err_fds) )
+
+    for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++ )
     {
-      PRINT_ERROR ( "cRosNodeDoEventsLoop() : Client error\n" );
-      handleXmlrpcClientError( n );
-    }
-    /* Check what is the socket that unblocked the select, and start the requested operations */
-    else if( ( n->xmlrpc_client_proc.state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) || 
-        ( n->xmlrpc_client_proc.state == XMLRPC_PROCESS_STATE_READING && FD_ISSET(xmlrpc_client_fd, &r_fds) ) )
-    {
-      doWithXmlrpcClientSocket( n );
+      int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
+
+      if( FD_ISSET(xmlrpc_client_fd, &err_fds) )
+      {
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : Client error\n" );
+        handleXmlrpcClientError( n, 0 );
+      }
+
+      /* Check what is the socket unblocked by the select, and start the requested operations */
+      else if( ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
+          ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_READING && FD_ISSET(xmlrpc_client_fd, &r_fds) ) )
+      {
+        doWithXmlrpcClientSocket( n, i );
+      }
     }
     
     if ( next_xmlrpc_server_i >= 0 )
@@ -783,7 +837,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       }
     }
     
-    for( i = 0; i < CN_MAX_XMLRPC_CONNECTIONS; i++ )
+    for( i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->xmlrpc_server_proc[i].socket) );
       if( FD_ISSET(server_fd, &err_fds) )
@@ -822,7 +876,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       }
     }
     
-    for( i = 0; i < CN_MAX_TCPROS_CONNECTIONS; i++ )
+    for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
       if( FD_ISSET(server_fd, &err_fds) )
