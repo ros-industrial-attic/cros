@@ -268,7 +268,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
   }
 
   struct sockaddr_in new_adr;
-  socklen_t new_adr_len;
+  socklen_t new_adr_len = sizeof(struct sockaddr);
 
   int new_fd = accept ( s->fd, ( struct sockaddr * ) &new_adr, &new_adr_len );
 
@@ -282,7 +282,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     }
     else
     {
-      PRINT_ERROR ( "tcpIpSocketAccept() : accept() failed\n" );
+      PRINT_ERROR ( "tcpIpSocketAccept() : accept() failed, errno: %d\n", errno );
       return TCPIPSOCKET_FAILED;
     }
   }

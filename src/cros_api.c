@@ -164,7 +164,6 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
   {
     if( n->state & CN_STATE_ASK_FOR_CONNECTION)
     {
-      //TODO:
       //1)check if there are other xmlrpc processes waiting for connection response then skip
       //2)if none is waiting a response look for if there are subscribers without requestTopic call performed yet.
       //3)if yes, erase the state CN_STATE_ASK_FOR_CONNECTION
@@ -209,6 +208,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc[client_idx]);
   const char *method = dynStringGetData( &(client_proc->method) );
   int ret = 0;
+
   if(client_idx == 0) //xmlrpc client connected to roscore
   {
     if( client_proc->message_type != XMLRPC_MESSAGE_RESPONSE )
@@ -229,18 +229,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
     else if( client_proc->request_id == CROS_API_REGISTER_SUBSCRIBER )
     {
       PRINT_DEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
+      //xmlrpcParamVectorPrint( &(client_proc->params) );
 
       //Get the next subscriber without a topic host
       SubscriberNode* requesting_subscriber = NULL;
       int i ;
-      for(i = 0; i < n->n_subs; i++)
-      {
-        if(n->subs[i].topic_host == NULL)
-        {
-          requesting_subscriber = &(n->subs[i]);
-          break;
-        }
-      }
+      requesting_subscriber = &(n->subs[n->n_advertised_subs]);
 
       //Check if there is some publishers for the subscription
       XmlrpcParam *param = xmlrpcParamVectorAt(&(client_proc->params), 0);
@@ -263,15 +257,22 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           lookup_host(hostname, requesting_subscriber->topic_host);
           requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
         }
+      }
 
-        if( checkResponseValue( &(client_proc->params) ) )
+      if( checkResponseValue( &(client_proc->params) ) )
+      {
+        ret = 1;
+        if(++(n->n_advertised_subs) >= n->n_subs )
         {
-          ret = 1;
-          if(++(n->n_advertised_subs) >= n->n_subs )
+          n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_SUBSCRIBER);
+          n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
+          for(i = 0; i < n->n_subs; i++)
           {
-            n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_SUBSCRIBER);
-            n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
-            xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[1]),XMLRPC_PROCESS_STATE_WRITING);
+            //wake up all the xmlrpc clients able to do the requestTopic call
+            if(n->subs[i].topic_host != NULL && n->subs[i].topic_port != -1)
+            {
+              xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[n->subs[i].client_id]),XMLRPC_PROCESS_STATE_WRITING);
+            }
           }
         }
       }
@@ -297,19 +298,22 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   }
   else if( client_idx > 0 && client_proc->request_id == CROS_API_REQUEST_TOPIC )
   {
-    PRINT_INFO ( "cRosApiParseResponse() : requestTopic response \n" );
     //xmlrpcParamVectorPrint( &(client_proc->params) );
     XmlrpcParam* param_array = xmlrpcParamVectorAt(&(client_proc->params),0);
     XmlrpcParam* nested_array = xmlrpcParamArrayGetParamAt(param_array,2);
     XmlrpcParam* tcp_port = xmlrpcParamArrayGetParamAt(nested_array,2);
     int i;
+    int tcp_port_print = -1;
     for(i = 0; i < n->n_subs; i++)
     {
       if(n->subs[i].client_id == client_idx)
       {
         n->subs[i].tcp_port = tcp_port->data.as_int;
+        tcp_port_print = n->subs[i].tcp_port;
       }
     }
+    PRINT_INFO ( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
+    xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
   }
   else
   {
@@ -353,71 +357,92 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   }
   else if(strcmp(method, "publisherUpdate") == 0)
   {
-	PRINT_INFO("publisherUpdate()\n");
-	// TODO Store the subscribed node name
-	XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
+    PRINT_INFO("publisherUpdate()\n");
+    // TODO Store the subscribed node name
+    XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
 
-	xmlrpcParamVectorPrint( &(server_proc->params) );
+    //xmlrpcParamVectorPrint( &(server_proc->params) );
 
-	caller_id_param = xmlrpcParamVectorAt( &(server_proc->params), 0);
-	topic_param = xmlrpcParamVectorAt( &(server_proc->params), 1);
-	publishers_param = xmlrpcParamVectorAt( &(server_proc->params), 2);
+    caller_id_param = xmlrpcParamVectorAt( &(server_proc->params), 0);
+    topic_param = xmlrpcParamVectorAt( &(server_proc->params), 1);
+    publishers_param = xmlrpcParamVectorAt( &(server_proc->params), 2);
 
-	if( xmlrpcParamGetType( caller_id_param ) != XMLRPC_PARAM_STRING ||
-		xmlrpcParamGetType( topic_param ) != XMLRPC_PARAM_STRING ||
-		 xmlrpcParamGetType( publishers_param ) != XMLRPC_PARAM_ARRAY  )
-	{
-	  PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong publisherUpdate message \n" );
-	  xmlrpcProcessClear( server_proc );
-	  fillErrorParams ( &(server_proc->params), "" );
-	}
-	else
-	{
-	  int array_size = xmlrpcParamArrayGetSize( publishers_param );
-	  XmlrpcParam *uri, *proto_name;
-	  int i = 0, topic_found = 0, uri_found = 0;
-
-	  for( i = 0 ; i < n->n_subs; i++)
-	  {
-		if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
-		{
-		  topic_found = 1;
-		  break;
-		}
-	  }
-
-	  if(array_size > 0)
-	  {
-      uri = xmlrpcParamArrayGetParamAt ( publishers_param, 0 );
-      if(xmlrpcParamGetType(uri) == XMLRPC_PARAM_STRING)
-      {
-        uri_found = 1;
-      }
-	  }
-
-	  if( topic_found && uri_found )
-	  {
-
-		  xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
-		  xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
-		  xmlrpcParamVectorPushBackInt( &(server_proc->params), n->pid );
-
-		// WARNING DEBUG CODE
-		//xmlrpcParamVectorPrint( &(server_proc->params) );
-
-	  }
-	  else
-	  {
-      PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic or protocol for publisherUpdate() not supported\n" );
+    if( xmlrpcParamGetType( caller_id_param ) != XMLRPC_PARAM_STRING ||
+      xmlrpcParamGetType( topic_param ) != XMLRPC_PARAM_STRING ||
+       xmlrpcParamGetType( publishers_param ) != XMLRPC_PARAM_ARRAY  )
+    {
+      PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong publisherUpdate message \n" );
       xmlrpcProcessClear( server_proc );
       fillErrorParams ( &(server_proc->params), "" );
-	  }
+    }
+    else
+    {
+      int array_size = xmlrpcParamArrayGetSize( publishers_param );
+      XmlrpcParam *uri, *proto_name;
+      int i = 0, topic_found = 0, uri_found = 0;
+      SubscriberNode* requesting_subscriber = NULL;
 
-	}
+      for( i = 0 ; i < n->n_subs; i++)
+      {
+        if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
+        {
+          topic_found = 1;
+          requesting_subscriber = &(n->subs[i]);
+          break;
+        }
+      }
 
-	generateXmlrpcMessage( n->roscore_host, n->roscore_port, server_proc->message_type,
-	                    &(server_proc->method), &(server_proc->params), &(server_proc->message) );
+      if(array_size > 0)
+      {
+        uri = xmlrpcParamArrayGetParamAt ( publishers_param, 0 );
+        if(xmlrpcParamGetType(uri) == XMLRPC_PARAM_STRING)
+        {
+          uri_found = 1;
+        }
+      }
 
+      if( topic_found && uri_found )
+      {
+
+        xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
+        xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
+        xmlrpcParamVectorPushBackInt( &(server_proc->params), n->pid );
+        int available_pubs_n = xmlrpcParamArrayGetSize(publishers_param);
+
+        if(available_pubs_n > 0)
+        {
+          for(i = 0; i < available_pubs_n; i++)
+          {
+            XmlrpcParam* pub_host = xmlrpcParamArrayGetParamAt(publishers_param, i);
+            char* pub_host_string = xmlrpcParamGetString(pub_host);
+            //manage string for exploit informations
+            //removing the 'http://' and the last '/'
+            int dirty_string_len = strlen(pub_host_string);
+            char* clean_string = calloc(dirty_string_len-8,sizeof(char));
+            strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
+            char* hostname = strtok(clean_string,":");
+            requesting_subscriber->topic_host = calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+            lookup_host(hostname, requesting_subscriber->topic_host);
+            requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
+            xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_id]),XMLRPC_PROCESS_STATE_WRITING);
+            n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
+          }
+        }
+      // WARNING DEBUG CODE
+      //xmlrpcParamVectorPrint( &(server_proc->params) );
+
+      }
+      else
+      {
+        PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic or protocol for publisherUpdate() not supported\n" );
+        xmlrpcProcessClear( server_proc );
+        fillErrorParams ( &(server_proc->params), "" );
+      }
+
+    }
+
+    generateXmlrpcMessage( n->roscore_host, n->roscore_port, server_proc->message_type,
+                        &(server_proc->method), &(server_proc->params), &(server_proc->message) );
   }
   else if( strcmp( method, "requestTopic") == 0 )
   {
