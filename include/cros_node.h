@@ -12,16 +12,31 @@
 
 /*! Max num serving XMLRPC connections */
 #define CN_MAX_XMLRPC_SERVER_CONNECTIONS 3
+
 /*! Max num serving TCPROS connections */
 #define CN_MAX_TCPROS_SERVER_CONNECTIONS 4
+
 /*! Max num published topics */
 #define CN_MAX_PUBLISHED_TOPICS 5
+
 /*! Max num subscribed topics */
 #define CN_MAX_SUBSCRIBED_TOPICS 5
-/*! Max num XMLRPC connections against another subscribed nodes and roscore */
+
+/*!
+ * Max num XMLRPC connections against another subscribed nodes
+ *  (first connection index reserved to roscore)
+ * */
 #define CN_MAX_XMLRPC_CLIENT_CONNECTIONS 1 + CN_MAX_SUBSCRIBED_TOPICS
+
+/*!
+ * Max num TCPROS connections against another subscribed nodes
+ *  (first connection index reserved to roscore)
+ * */
+#define CN_MAX_TCPROS_CLIENT_CONNECTIONS 1 + CN_MAX_SUBSCRIBED_TOPICS
+
 /*! Node automatic XMLRPC ping cycle period (in msec) */
 #define CN_PING_LOOP_PERIOD 1000
+
 /*! Maximum I/O operations timeout (in msec) */
 #define CN_IO_TIMEOUT 2000
 
@@ -59,7 +74,8 @@ struct SubscriberNode
   char *topic_type;                             //! The subscribed topic data type (e.g., std_msgs/String, ...)
   char *topic_host;								              //! The hostname of the topic already contacted.
   int   topic_port;								              //! The host-port of the topic already contacted.
-  int   client_id;                              //! The xmlrpc client that manages the subscription
+  int   client_xmlrpc_id;                       //! The xmlrpc client that manages the subscription
+  int		client_tcpros_id;
   int   tcp_port;
 
   /*! The callback called to generate the (raw) packet data of type topic_type */
@@ -90,8 +106,9 @@ struct CrosNode
   XmlrpcProcess xmlrpc_server_proc[CN_MAX_XMLRPC_SERVER_CONNECTIONS]; 
 
   //! Manage connections for TCPROS calls from this node to others
-  XmlrpcProcess tcpros_client_proc[CN_MAX_XMLRPC_CLIENT_CONNECTIONS];
+  TcprosProcess tcpros_client_proc[CN_MAX_TCPROS_CLIENT_CONNECTIONS];
   TcprosProcess tcpros_listner_proc;   //! Accept new TCPROS connections from roscore or other nodes
+
   /*! Manage connections for TCPROS between this and other nodes  */
   TcprosProcess tcpros_server_proc[CN_MAX_TCPROS_SERVER_CONNECTIONS]; 
   

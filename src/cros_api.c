@@ -175,7 +175,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
       for(i = 0; i < n->n_subs; i++)
       {
         //this xmlrpc process is associated to a subscriber but the requestTopic call is not done yet.
-        if(n->subs[i].client_id == client_idx && n->subs[i].tcp_port == -1)
+        if(n->subs[i].client_xmlrpc_id == client_idx && n->subs[i].tcp_port == -1)
         {
           subscriber_node = &(n->subs[i]);
         }
@@ -271,7 +271,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
             //wake up all the xmlrpc clients able to do the requestTopic call
             if(n->subs[i].topic_host != NULL && n->subs[i].topic_port != -1)
             {
-              xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[n->subs[i].client_id]),XMLRPC_PROCESS_STATE_WRITING);
+              xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[n->subs[i].client_xmlrpc_id]),XMLRPC_PROCESS_STATE_WRITING);
             }
           }
         }
@@ -302,18 +302,26 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
     XmlrpcParam* param_array = xmlrpcParamVectorAt(&(client_proc->params),0);
     XmlrpcParam* nested_array = xmlrpcParamArrayGetParamAt(param_array,2);
     XmlrpcParam* tcp_port = xmlrpcParamArrayGetParamAt(nested_array,2);
+
+    SubscriberNode* sub = NULL;
+    TcprosProcess* tcpros_proc = NULL;
+
     int i;
     int tcp_port_print = -1;
     for(i = 0; i < n->n_subs; i++)
     {
-      if(n->subs[i].client_id == client_idx)
+      if(n->subs[i].client_xmlrpc_id == client_idx)
       {
+      	sub = &(n->subs[i]);
         n->subs[i].tcp_port = tcp_port->data.as_int;
         tcp_port_print = n->subs[i].tcp_port;
       }
     }
-    PRINT_INFO ( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
+    tcpros_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
+    PRINT_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
     xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
+    //set the process to open the socket with the desired host
+    tcprosProcessChangeState(tcpros_proc, TCPROS_PROCESS_STATE_WRITING);
   }
   else
   {
@@ -424,7 +432,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             requesting_subscriber->topic_host = calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
             lookup_host(hostname, requesting_subscriber->topic_host);
             requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
-            xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_id]),XMLRPC_PROCESS_STATE_WRITING);
+            xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]),XMLRPC_PROCESS_STATE_WRITING);
             n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
           }
         }
