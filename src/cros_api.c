@@ -202,6 +202,20 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
   }
 }
 
+
+/*
+ * XMLRPC Return values are lists in the format: [statusCode, statusMessage, value]
+ *
+ * statusCode (int): An integer indicating the completion condition of the method. Current values:
+ *      -1: ERROR: Error on the part of the caller, e.g. an invalid parameter. In general, this means that the master/slave did not attempt to execute the action.
+ *       0: FAILURE: Method failed to complete correctly. In general, this means that the master/slave attempted the action and failed, and there may have been side-effects as a result.
+ *       1: SUCCESS: Method completed successfully.
+ *       Individual methods may assign additional meaning/semantics to statusCode.
+ *
+ * statusMessage (str): a human-readable string describing the return status
+ *
+ * value (anytype): return value is further defined by individual API calls.
+ */
 int cRosApiParseResponse( CrosNode *n, int client_idx )
 {
   PRINT_VDEBUG ( "cRosApiParseResponse()\n" );
@@ -294,6 +308,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           n->n_advertised_pubs = 0;
         }
       }
+      xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
     }
   }
   else if( client_idx > 0 && client_proc->request_id == CROS_API_REQUEST_TOPIC )
@@ -308,6 +323,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
     int i;
     int tcp_port_print = -1;
+
     for(i = 0; i < n->n_subs; i++)
     {
       if(n->subs[i].client_xmlrpc_id == client_idx)
@@ -317,9 +333,18 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         tcp_port_print = n->subs[i].tcpros_port;
       }
     }
+
     tcpros_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
-    PRINT_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
+
+    //need to be checked because maybe the connection went down suddenly.
+    if(!tcpros_proc->socket.open)
+    {
+    	tcpIpSocketOpen(&(tcpros_proc->socket));
+    }
+
+    PRINT_INFO( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
     xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
+
     //set the process to open the socket with the desired host
     tcprosProcessChangeState(tcpros_proc, TCPROS_PROCESS_STATE_CONNECTING);
   }
@@ -369,7 +394,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     // TODO Store the subscribed node name
     XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
 
-    //xmlrpcParamVectorPrint( &(server_proc->params) );
+    xmlrpcParamVectorPrint( &(server_proc->params) );
 
     caller_id_param = xmlrpcParamVectorAt( &(server_proc->params), 0);
     topic_param = xmlrpcParamVectorAt( &(server_proc->params), 1);
@@ -419,30 +444,68 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
         if(available_pubs_n > 0)
         {
-          for(i = 0; i < available_pubs_n; i++)
-          {
-            XmlrpcParam* pub_host = xmlrpcParamArrayGetParamAt(publishers_param, i);
-            char* pub_host_string = xmlrpcParamGetString(pub_host);
-            //manage string for exploit informations
-            //removing the 'http://' and the last '/'
-            int dirty_string_len = strlen(pub_host_string);
-            char* clean_string = calloc(dirty_string_len-8,sizeof(char));
-            strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
-            char* hostname = strtok(clean_string,":");
-            requesting_subscriber->topic_host = calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
-            lookup_host(hostname, requesting_subscriber->topic_host);
-            requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
-            xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]),XMLRPC_PROCESS_STATE_WRITING);
-            n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
-          }
+
+        	//TODO: We just consider the first host. In the remote future we should consider the others as well
+          i = 0;
+					XmlrpcParam* pub_host = xmlrpcParamArrayGetParamAt(publishers_param, i);
+					char* pub_host_string = xmlrpcParamGetString(pub_host);
+					//manage string for exploit informations
+					//removing the 'http://' and the last '/'
+					int dirty_string_len = strlen(pub_host_string);
+					char* clean_string = calloc(dirty_string_len-8,sizeof(char));
+					strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
+					char* hostname = strtok(clean_string,":");
+					if(requesting_subscriber->topic_host == NULL)
+					{
+						requesting_subscriber->topic_host = calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+					}
+					lookup_host(hostname, requesting_subscriber->topic_host);
+					requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
+					xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]),XMLRPC_PROCESS_STATE_WRITING);
+					n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
         }
+
       // WARNING DEBUG CODE
       //xmlrpcParamVectorPrint( &(server_proc->params) );
 
       }
       else
       {
-        PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic or protocol for publisherUpdate() not supported\n" );
+        PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic not available or protocol for publisherUpdate() not supported\n" );
+
+        //Resetting the xmlrpc connection
+
+        XmlrpcProcess* sub_xmlrpc_proc = &(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]);
+        xmlrpcProcessRelease(sub_xmlrpc_proc);
+        xmlrpcProcessClear(sub_xmlrpc_proc);
+        xmlrpcProcessInit(sub_xmlrpc_proc);
+
+        //TODO: Evaluate if it's correct reopen the connection here
+        if( !tcpIpSocketOpen( &(sub_xmlrpc_proc->socket) ) ||
+            !tcpIpSocketSetReuse( &(sub_xmlrpc_proc->socket) ) ||
+            !tcpIpSocketSetNonBlocking( &(sub_xmlrpc_proc->socket) ) )
+        {
+          PRINT_ERROR("openXmlrpcClientSocket() at index %d failed", i);
+          exit( EXIT_FAILURE );
+        }
+
+        //Resetting tcpros infos
+
+        requesting_subscriber->tcpros_port = -1;
+
+     /*
+             TcprosProcess* sub_tcpros_proc = &(n->tcpros_client_proc[requesting_subscriber->client_tcpros_id]);
+             tcprosProcessRelease(sub_tcpros_proc);
+             tcprosProcessClear(sub_tcpros_proc);
+             tcprosProcessInit(sub_tcpros_proc);
+             if( !tcpIpSocketOpen( &(sub_tcpros_proc->socket) ) ||
+                 !tcpIpSocketSetReuse( &(sub_tcpros_proc->socket) ) ||
+                 !tcpIpSocketSetNonBlocking( &(sub_tcpros_proc->socket) ) )
+             {
+               PRINT_ERROR("openTcprosClientSocket() at index %d failed", i);
+               exit( EXIT_FAILURE );
+             }*/
+
         xmlrpcProcessClear( server_proc );
         fillErrorParams ( &(server_proc->params), "" );
       }
