@@ -84,7 +84,7 @@ static void handleXmlrpcClientError( CrosNode *n, int i )
 
 static void handleTcprosClientError( CrosNode *n, int i )
 {
-	//TODO: figure out which policy use if a tcp_connection goes down
+  //TODO: figure out which policy use if a tcp_connection goes down
   tcpIpSocketClose( &(n->tcpros_client_proc[i].socket) );
 
   tcprosProcessClear( &(n->tcpros_client_proc[i]) );
@@ -325,14 +325,14 @@ static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
   {
     if(n->subs[i].client_tcpros_id == client_idx)
     {
-    	sub = &(n->subs[i]);
+      sub = &(n->subs[i]);
       tcp_port_print = n->subs[i].tcp_port;
     }
   }
   tcpros_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
 
-	PRINT_INFO("Ready to start writing with TCPROS client @ %s:%d \n", sub->topic_host,tcp_port_print);
-	tcprosProcessChangeState(tcpros_proc,TCPROS_PROCESS_STATE_IDLE);
+  PRINT_INFO("Ready to start writing with TCPROS client @ %s:%d \n", sub->topic_host,tcp_port_print);
+  tcprosProcessChangeState(tcpros_proc,TCPROS_PROCESS_STATE_IDLE);
 }
 
 static void doWithTcprosServerSocket( CrosNode *n, int i )
@@ -471,7 +471,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
     xmlrpcProcessInit( &(new_n->xmlrpc_server_proc[i]) ); 
   
   for ( i = 0 ; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
-	xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
+  xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
 
   tcprosProcessInit( &(new_n->tcpros_listner_proc) );
 
@@ -512,12 +512,12 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
   
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
-	  openXmlrpcClientSocket( new_n, i );
+    openXmlrpcClientSocket( new_n, i );
   }
 
   for(i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++)
   {
-	  openTcprosClientSocket( new_n, i );
+    openTcprosClientSocket( new_n, i );
   }
 
   openXmlrpcListnerSocket( new_n );
@@ -618,47 +618,45 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   return 1;
 }
 
-int cRosNodeRegisterSubscriber(CrosNode *n,
-							   char *topic_name,
-                               char *topic_type,
+int cRosNodeRegisterSubscriber(CrosNode *n, char *topic_name, char *topic_type,
                                unsigned char *(*subscriberDataCallback)( size_t *num, size_t *size ) )
 {
-	  PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
-	  PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
+  PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
+  PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
 
-	  if ( n->n_subs >= CN_MAX_SUBSCRIBED_TOPICS )
-	  {
-	    PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't register a new subscriber: \
-	                 reached the maximum number of published topics\n");
-	    return 0;
-	  }
+  if ( n->n_subs >= CN_MAX_SUBSCRIBED_TOPICS )
+  {
+    PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't register a new subscriber: \
+                  reached the maximum number of published topics\n");
+    return 0;
+  }
 
-	  char *pub_topic_name = ( char * ) malloc ( ( strlen ( topic_name ) + 1 ) * sizeof ( char ) );
-	  char *pub_topic_type = ( char * ) malloc ( ( strlen ( topic_type ) + 1 ) * sizeof ( char ) );
+  char *pub_topic_name = ( char * ) malloc ( ( strlen ( topic_name ) + 1 ) * sizeof ( char ) );
+  char *pub_topic_type = ( char * ) malloc ( ( strlen ( topic_type ) + 1 ) * sizeof ( char ) );
 
-	  if ( pub_topic_name == NULL || pub_topic_type == NULL )
-	  {
-	    PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't allocate memory\n" );
-	    return 0;
-	  }
+  if ( pub_topic_name == NULL || pub_topic_type == NULL )
+  {
+    PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't allocate memory\n" );
+    return 0;
+  }
 
-	  strcpy ( pub_topic_name, topic_name );
-	  strcpy ( pub_topic_type, topic_type );
+  strcpy ( pub_topic_name, topic_name );
+  strcpy ( pub_topic_type, topic_type );
 
-	  n->subs[n->n_subs].topic_name = pub_topic_name;
-	  n->subs[n->n_subs].topic_type = pub_topic_type;
+  n->subs[n->n_subs].topic_name = pub_topic_name;
+  n->subs[n->n_subs].topic_type = pub_topic_type;
 
-	  n->subs[n->n_subs].callback = subscriberDataCallback;
+  n->subs[n->n_subs].callback = subscriberDataCallback;
 
-	  n->subs[n->n_subs].client_xmlrpc_id = 1 + n->n_subs;
-	  n->subs[n->n_subs].client_tcpros_id = 1 + n->n_subs;
+  n->subs[n->n_subs].client_xmlrpc_id = 1 + n->n_subs;
+  n->subs[n->n_subs].client_tcpros_id = 1 + n->n_subs;
 
-	  n->n_subs++;
+  n->n_subs++;
 
-	  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SUBSCRIBER);
-	  n->n_advertised_subs = 0;
+  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SUBSCRIBER);
+  n->n_advertised_subs = 0;
 
-	  return 1;
+  return 1;
 }
 
 void cRosNodeDoEventsLoop ( CrosNode *n )
@@ -695,17 +693,17 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       next_xmlrpc_client_i = i;
     }
     else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
-	  {
-	    FD_SET( xmlrpc_client_fd, &w_fds);
-	    FD_SET( xmlrpc_client_fd, &err_fds);
-	    if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
-	  }
-	  else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_READING )
-	  {
-	    FD_SET( xmlrpc_client_fd, &r_fds);
-	    FD_SET( xmlrpc_client_fd, &err_fds);
-	    if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
-	  }
+    {
+      FD_SET( xmlrpc_client_fd, &w_fds);
+      FD_SET( xmlrpc_client_fd, &err_fds);
+      if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
+    }
+    else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_READING )
+    {
+      FD_SET( xmlrpc_client_fd, &r_fds);
+      FD_SET( xmlrpc_client_fd, &err_fds);
+      if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
+    }
   }
 
   /* Add to the select() the active XMLRPC servers */
@@ -758,24 +756,24 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
         i != 0 && //the zero-index is reserved to the roscore communications
         n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_IDLE )
     {
-    	next_tcpros_client_i = i;
+      next_tcpros_client_i = i;
     }
     // The second condition line should be removed. As far as i know a tcpros client does
     // not need to write any kind of tcpros header.
     else if( n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING ||
-    					n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER)
-	  {
-	    FD_SET( tcpros_client_fd, &w_fds);
-	    FD_SET( tcpros_client_fd, &err_fds);
-	    if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
-	  }
-	  else if( n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING ||
-				n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER)
-	  {
-	    FD_SET( tcpros_client_fd, &r_fds);
-	    FD_SET( tcpros_client_fd, &err_fds);
-	    if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
-	  }
+            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER)
+    {
+      FD_SET( tcpros_client_fd, &w_fds);
+      FD_SET( tcpros_client_fd, &err_fds);
+      if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
+    }
+    else if( n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING ||
+            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER)
+    {
+      FD_SET( tcpros_client_fd, &r_fds);
+      FD_SET( tcpros_client_fd, &err_fds);
+      if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
+    }
   }
 
   /* Add to the select() the active TCPROS servers */
