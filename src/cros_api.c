@@ -175,7 +175,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
       for(i = 0; i < n->n_subs; i++)
       {
         //this xmlrpc process is associated to a subscriber but the requestTopic call is not done yet.
-        if(n->subs[i].client_xmlrpc_id == client_idx && n->subs[i].tcp_port == -1)
+        if(n->subs[i].client_xmlrpc_id == client_idx && n->subs[i].tcpros_port == -1)
         {
           subscriber_node = &(n->subs[i]);
         }
@@ -313,15 +313,15 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       if(n->subs[i].client_xmlrpc_id == client_idx)
       {
       	sub = &(n->subs[i]);
-        n->subs[i].tcp_port = tcp_port->data.as_int;
-        tcp_port_print = n->subs[i].tcp_port;
+        n->subs[i].tcpros_port = tcp_port->data.as_int;
+        tcp_port_print = n->subs[i].tcpros_port;
       }
     }
     tcpros_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
     PRINT_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
     xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
     //set the process to open the socket with the desired host
-    tcprosProcessChangeState(tcpros_proc, TCPROS_PROCESS_STATE_WRITING);
+    tcprosProcessChangeState(tcpros_proc, TCPROS_PROCESS_STATE_CONNECTING);
   }
   else
   {

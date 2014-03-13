@@ -14,6 +14,7 @@ void tcprosProcessInit( TcprosProcess *p )
   p->last_change_time = 0;
   p->wake_up_time_ms = 0;
   p->topic_idx = -1;
+  p->left_to_recv = 0;
 }
 
 void tcprosProcessRelease( TcprosProcess *p )
@@ -35,6 +36,7 @@ void tcprosProcessClear( TcprosProcess *p )
   dynStringClear( &(p->type) );
   dynStringClear( &(p->md5sum) );
   dynBufferClear( &(p->packet) );
+  p->left_to_recv = 0;
 }
 
 void tcprosProcessChangeState( TcprosProcess *p, TcprosProcessState state )

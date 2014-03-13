@@ -151,6 +151,19 @@ TcpIpSocketState tcpIpSocketWriteBuffer( TcpIpSocket *s, DynBuffer *d_buf );
 TcpIpSocketState tcpIpSocketWriteString( TcpIpSocket *s, DynString *d_str );
 
 /*! \brief Receive a binary message from a connected socket
+ *
+ *  \param s Pointer to a TcpIpSocket object
+ *  \param d_buf Pointer to the input dynamic string
+ *
+ *  \return Returns TCPIPSOCKET_DONE on success,
+ *          TCPIPSOCKET_IN_PROGRESS (only if the socket is non-blocking)
+ *          if the read operation would block,
+ *          TCPIPSOCKET_DISCONNECTED if the socket has been disconnectd,
+ *          or TCPIPSOCKET_FAILED on failure
+ */
+TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size_t length, size_t *reads);
+
+/*! \brief Receive a binary message from a connected socket
  * 
  *  \param s Pointer to a TcpIpSocket object
  *  \param d_buf Pointer to the input dynamic string

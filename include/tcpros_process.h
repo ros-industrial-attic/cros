@@ -12,10 +12,12 @@
 typedef enum
 {
   TCPROS_PROCESS_STATE_IDLE,
+  TCPROS_PROCESS_STATE_CONNECTING,
   TCPROS_PROCESS_STATE_READING_HEADER,
   TCPROS_PROCESS_STATE_WRITING_HEADER,
   TCPROS_PROCESS_STATE_WAIT_FOR_WRITING,
   TCPROS_PROCESS_STATE_START_WRITING,
+  TCPROS_PROCESS_STATE_READING_SIZE,
   TCPROS_PROCESS_STATE_READING,
   TCPROS_PROCESS_STATE_WRITING
 }TcprosProcessState;
@@ -42,6 +44,7 @@ struct TcprosProcess
   uint64_t last_change_time;            //! Last state change time (in ms)
   uint64_t wake_up_time_ms;             //! The time for the next automatic cycle (in msec, since the Epoch) 
   int topic_idx;                         //! Index used to associate the process to a publisher or a subscribed
+  size_t left_to_recv;                  //! Remaining to recevice
 };
 
 

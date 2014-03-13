@@ -41,11 +41,14 @@ enum
   TCPROS_DATA_FLAG = 0x400  
 };
 
-static const uint32_t TCPROS_SUBCRIPTION_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
+static const uint32_t TCPROS_SUBCRIPTION_HEADER_FLAGS = TCPROS_MESSAGE_DEFINITION_FLAG |
+                                                        TCPROS_CALLER_ID_FLAG |
                                                         TCPROS_TOPIC_FLAG |
-                                                        TCPROS_TYPE_FLAG |
-                                                        TCPROS_MD5SUM_FLAG;
-                                    
+                                                        TCPROS_MD5SUM_FLAG |
+                                                        TCPROS_TYPE_FLAG;
+
+// CHECK-ME: http://wiki.ros.org/ROS/TCPROS doesn't mention message_definition, caller_id
+// or the topic as compulsory
 static const uint32_t TCPROS_PUBLICATION_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
                                                         TCPROS_TOPIC_FLAG |
                                                         TCPROS_TYPE_FLAG |

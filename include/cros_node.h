@@ -65,21 +65,23 @@ struct PublisherNode
   int loop_period;                              //! Period (in msec) for publication cycle 
 };
 
+typedef void (*SubscriberCallback)(DynBuffer *buffer);
+
 /*! Structure that define a subscribed topic 
  * WARNING : not implemented!
  */
 struct SubscriberNode
 {
+  char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
   char *topic_name;                             //! The subscribed topic name
   char *topic_type;                             //! The subscribed topic data type (e.g., std_msgs/String, ...)
+  char *md5sum;                                 //! The md5sum of the message type
   char *topic_host;								              //! The hostname of the topic already contacted.
   int   topic_port;								              //! The host-port of the topic already contacted.
   int   client_xmlrpc_id;                       //! The xmlrpc client that manages the subscription
   int		client_tcpros_id;
-  int   tcp_port;
-
-  /*! The callback called to generate the (raw) packet data of type topic_type */
-  unsigned char *(*callback)( size_t *num, size_t *size ) ;
+  int   tcpros_port;
+  SubscriberCallback callback;
 };
 
 /*! \brief CrosNode object. Don't modify its internal members: use
@@ -163,10 +165,9 @@ int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topi
  *
  *  \param TODO review doxy documentation
  */
-int cRosNodeRegisterSubscriber(CrosNode *n,
-							   char *topic_name,
-                               char *topic_type,
-                               unsigned char *(*subscriberDataCallback)( size_t *num, size_t *size ) );
+int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
+                               char *topic_name, char *topic_type, char *md5sum,
+                               SubscriberCallback callback);
 
 /*! \brief Perform a loop of the cROS node main cycle 
  * 

@@ -389,50 +389,55 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
   return TCPIPSOCKET_DONE;
 }
 
-
 TcpIpSocketState tcpIpSocketReadBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
 {
-  PRINT_VDEBUG ( "tcpIpSocketReadBuffer()\n" );
+  size_t n_read;
+  return tcpIpSocketReadBufferEx(s, d_buf, TCPIP_SOCKET_READ_BUFFER_SIZE, &n_read);
+}
 
+TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size_t max_size, size_t *n_reads)
+{
+  PRINT_VDEBUG ( "tcpIpSocketReadBufferEx()\n" );
+
+  *n_reads = 0;
   if ( !s->connected )
   {
-    PRINT_ERROR ( "tcpIpSocketReadBuffer() : Socket not connected\n" );
+    PRINT_ERROR ( "tcpIpSocketReadBufferEx() : Socket not connected\n" );
     return TCPIPSOCKET_FAILED;
   }
 
-  unsigned char read_buf[TCPIP_SOCKET_READ_BUFFER_SIZE];
+  unsigned char read_buf[max_size];
 
   TcpIpSocketState state = TCPIPSOCKET_UNKNOWN;
-
-  int n_read = recv ( s->fd, read_buf, TCPIP_SOCKET_READ_BUFFER_SIZE, 0 );
-
-  if ( n_read == 0 )
+  int reads = recv ( s->fd, read_buf, max_size, 0);
+  if ( reads == 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBuffer() : socket disconnectd\n" );
+    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
-  else if ( n_read > 0 )
+  else if ( reads > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBuffer() : read %d bytes \n", n_read );
-    dynBufferPushBackBuf ( d_buf, read_buf, n_read );
+    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", *n_read );
+    dynBufferPushBackBuf ( d_buf, read_buf, reads );
     state = TCPIPSOCKET_DONE;
+    *n_reads = reads;
   }
   else if ( s->is_nonblocking && 
             ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBuffer() : read in progress\n" );
+    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
   else if ( errno == ENOTCONN || errno == ECONNRESET )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBuffer() : socket disconnectd\n" );
+    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
   else
   {
-    PRINT_ERROR ( "tcpIpSocketReadBuffer() : Read failed\n" );
+    PRINT_ERROR ( "tcpIpSocketReadBufferEx() : Read failed\n" );
     state = TCPIPSOCKET_FAILED;
   }
 

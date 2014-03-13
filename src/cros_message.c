@@ -75,9 +75,9 @@ static void printPacket( DynBuffer *pkt, int print_data )
   dynBufferSetPoseIndicator ( pkt, initial_pos_idx );         
 }
 
-static TcprosParserState readHeader( TcprosProcess *p, uint32_t *flags )
+static TcprosParserState readSubcriptioHeader( TcprosProcess *p, uint32_t *flags )
 {
-  PRINT_VDEBUG("readHeader()\n");
+  PRINT_VDEBUG("readSubcriptioHeader()\n");
   DynBuffer *packet = &(p->packet);
   uint32_t bytes_to_read = getLen( packet );
   uint32_t packet_len = dynBufferGetSize( packet );
@@ -87,13 +87,13 @@ static TcprosParserState readHeader( TcprosProcess *p, uint32_t *flags )
   
   *flags = 0x0;
 
-  PRINT_DEBUG("readHeader() : Header len=%d\n",bytes_to_read);  
+  PRINT_DEBUG("readSubcriptioHeader() : Header len=%d\n",bytes_to_read);
   
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( packet );
     
-    PRINT_DEBUG("readHeader() : Field len=%d\n",field_len);  
+    PRINT_DEBUG("readSubcriptioHeader() : Field len=%d\n",field_len);
     
     const char *field = (const char *)dynBufferGetCurrentData( packet );
     if( field_len )
@@ -147,7 +147,7 @@ static TcprosParserState readHeader( TcprosProcess *p, uint32_t *flags )
       else if ( field_len > (uint32_t)TCPROS_TCP_NODELAY_TAG.dim &&
           strncmp ( field, TCPROS_TCP_NODELAY_TAG.str, TCPROS_TCP_NODELAY_TAG.dim ) == 0 )
       {
-        PRINT_INFO("checkAndFillFields() WARNING : TCPROS_TCP_NODELAY_TAG not implemented\n");
+        PRINT_INFO("readSubcriptioHeader() WARNING : TCPROS_TCP_NODELAY_TAG not implemented\n");
         field += TCPROS_TCP_NODELAY_TAG.dim;
         p->tcp_nodelay = (*field == '1')?1:0;
         *flags |= TCPROS_TCP_NODELAY_FLAG;
@@ -156,7 +156,7 @@ static TcprosParserState readHeader( TcprosProcess *p, uint32_t *flags )
       else if ( field_len > (uint32_t)TCPROS_LATCHING_TAG.dim &&
           strncmp ( field, TCPROS_LATCHING_TAG.str, TCPROS_LATCHING_TAG.dim ) == 0 )
       {
-        PRINT_INFO("checkAndFillFields() WARNING : TCPROS_LATCHING_TAG not implemented\n");
+        PRINT_INFO("readSubcriptioHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
         field += TCPROS_LATCHING_TAG.dim;
         p->latching = (*field == '1')?1:0; 
         *flags |= TCPROS_LATCHING_FLAG;
@@ -165,13 +165,13 @@ static TcprosParserState readHeader( TcprosProcess *p, uint32_t *flags )
       else if ( field_len > (uint32_t)TCPROS_ERROR_TAG.dim &&
           strncmp ( field, TCPROS_ERROR_TAG.str, TCPROS_ERROR_TAG.dim ) == 0 )
       {
-        PRINT_INFO("checkAndFillFields() WARNING : TCPROS_ERROR_TAG not implemented\n");
+        PRINT_INFO("readSubcriptioHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
         *flags |= TCPROS_ERROR_FLAG;
         dynBufferMovePoseIndicator( packet, field_len );
       }
       else
       {
-        PRINT_ERROR("checkAndFillFields() : unknown field\n");
+        PRINT_ERROR("readSubcriptioHeader() : unknown field\n");
         *flags = 0x0;
         break;
       }
@@ -182,6 +182,106 @@ static TcprosParserState readHeader( TcprosProcess *p, uint32_t *flags )
   
   return TCPROS_PARSER_DONE;
   
+}
+
+static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flags )
+{
+  PRINT_VDEBUG("readPublicationHeader()\n");
+  DynBuffer *packet = &(p->packet);
+  uint32_t bytes_to_read = getLen( packet );
+  uint32_t packet_len = dynBufferGetSize( packet );
+
+  if( bytes_to_read > packet_len - sizeof( uint32_t ) )
+    return TCPROS_PARSER_HEADER_INCOMPLETE;
+
+  *flags = 0x0;
+
+  PRINT_DEBUG("readPublicationHeader() : Header len=%d\n",bytes_to_read);
+
+  while ( bytes_to_read > 0)
+  {
+    uint32_t field_len = getLen( packet );
+
+    PRINT_DEBUG("readPublicationHeader() : Field len=%d\n",field_len);
+
+    const char *field = (const char *)dynBufferGetCurrentData( packet );
+    if( field_len )
+    {
+      // http://wiki.ros.org/ROS/TCPROS doesn't mention it but it's sent anyway in ros groovy
+      if ( field_len > (uint32_t)TCPROS_MESSAGE_DEFINITION_TAG.dim &&
+          strncmp ( field, TCPROS_MESSAGE_DEFINITION_TAG.str, TCPROS_MESSAGE_DEFINITION_TAG.dim ) == 0 )
+      {
+        *flags |= TCPROS_MESSAGE_DEFINITION_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      } else if ( field_len > (uint32_t)TCPROS_CALLERID_TAG.dim &&
+          strncmp ( field, TCPROS_CALLERID_TAG.str, TCPROS_CALLERID_TAG.dim ) == 0 )
+      {
+        field += TCPROS_CALLERID_TAG.dim;
+
+        dynStringPushBackStrN( &(p->caller_id), field,
+                               field_len - TCPROS_CALLERID_TAG.dim );
+        *flags |= TCPROS_CALLER_ID_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_TYPE_TAG.dim &&
+          strncmp ( field, TCPROS_TYPE_TAG.str, TCPROS_TYPE_TAG.dim ) == 0 )
+      {
+        field += TCPROS_TYPE_TAG.dim;
+
+        dynStringPushBackStrN( &(p->type), field,
+                               field_len - TCPROS_TYPE_TAG.dim );
+        *flags |= TCPROS_TYPE_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_MD5SUM_TAG.dim &&
+          strncmp ( field, TCPROS_MD5SUM_TAG.str, TCPROS_MD5SUM_TAG.dim ) == 0 )
+      {
+        field += TCPROS_MD5SUM_TAG.dim;
+
+        dynStringPushBackStrN( &(p->md5sum), field,
+                               field_len - TCPROS_MD5SUM_TAG.dim );
+        *flags |= TCPROS_MD5SUM_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_LATCHING_TAG.dim &&
+          strncmp ( field, TCPROS_LATCHING_TAG.str, TCPROS_LATCHING_TAG.dim ) == 0 )
+      {
+        PRINT_INFO("readPublicationHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
+        field += TCPROS_LATCHING_TAG.dim;
+        p->latching = (*field == '1')?1:0;
+        *flags |= TCPROS_LATCHING_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_TOPIC_TAG.dim &&
+          strncmp ( field, TCPROS_TOPIC_TAG.str, TCPROS_TOPIC_TAG.dim ) == 0 )
+      {
+        // http://wiki.ros.org/ROS/TCPROS doesn't mention it but it's sent anyway in ros groovy
+        field += TCPROS_TOPIC_TAG.dim;
+
+        dynStringPushBackStrN( &(p->topic), field,
+                               field_len - TCPROS_TOPIC_TAG.dim );
+        *flags |= TCPROS_TOPIC_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_ERROR_TAG.dim &&
+          strncmp ( field, TCPROS_ERROR_TAG.str, TCPROS_ERROR_TAG.dim ) == 0 )
+      {
+        PRINT_INFO("readPublicationHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
+        *flags |= TCPROS_ERROR_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else
+      {
+        PRINT_ERROR("readPublicationHeader() : unknown field\n");
+        *flags = 0x0;
+        break;
+      }
+    }
+
+    bytes_to_read -= ( sizeof(uint32_t) + field_len );
+  }
+
+  return TCPROS_PARSER_DONE;
 }
 
 TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx )
@@ -196,7 +296,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
   dynBufferRewindPoseIndicator ( packet );
 
   uint32_t header_flags; 
-  TcprosParserState ret = readHeader( server_proc, &header_flags );
+  TcprosParserState ret = readSubcriptioHeader( server_proc, &header_flags );
   if( ret != TCPROS_PARSER_DONE )
     return ret;
   
@@ -235,6 +335,83 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
   return ret;
 }
 
+TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx )
+{
+  PRINT_VDEBUG("cRosMessageParsePublicationHeader()\n");
+
+  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
+  DynBuffer *packet = &(client_proc->packet);
+
+  /* Save position indicator: it will be restored */
+  int initial_pos_idx = dynBufferGetPoseIndicatorOffset ( packet );
+  dynBufferRewindPoseIndicator ( packet );
+
+  uint32_t header_flags;
+  TcprosParserState ret = readPublicationHeader( client_proc, &header_flags );
+  if( ret != TCPROS_PARSER_DONE )
+    return ret;
+
+  if( TCPROS_PUBLICATION_HEADER_FLAGS != ( header_flags&TCPROS_PUBLICATION_HEADER_FLAGS) )
+  {
+    PRINT_ERROR("cRosMessageParsePublicationHeader() : Missing fields\n");
+    ret = TCPROS_PARSER_ERROR;
+  }
+  else
+  {
+    int subscriber_found = 0;
+    int i = 0;
+    for( i = 0 ; i < n->n_subs; i++)
+    {
+      if( strcmp( n->subs[i].topic_name, dynStringGetData(&(client_proc->topic))) == 0 &&
+          strcmp( n->subs[i].md5sum, dynStringGetData(&(client_proc->md5sum))) == 0 )
+      {
+        subscriber_found = 1;
+        break;
+      }
+    }
+
+    if( ! subscriber_found )
+    {
+      PRINT_ERROR("cRosMessageParsePublicationHeader() : Wrong topic, type or md5sum\n");
+      ret = TCPROS_PARSER_ERROR;
+    }
+  }
+
+  /* Restore position indicator */
+  dynBufferSetPoseIndicator ( packet, initial_pos_idx );
+
+  return ret;
+}
+
+void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx )
+{
+  PRINT_VDEBUG("cRosMessagePrepareSubcriptionHeader()\n");
+
+  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
+  int sub_idx = client_proc->topic_idx;
+  DynBuffer *packet = &(client_proc->packet);
+  uint32_t header_len = 0, header_out_len = 0;
+  dynBufferPushBackUint32( packet, header_out_len );
+
+  header_len += pushBackField( packet, &TCPROS_MESSAGE_DEFINITION_TAG, n->subs[sub_idx].message_definition );
+  header_len += pushBackField( packet, &TCPROS_CALLERID_TAG, n->name );
+  header_len += pushBackField( packet, &TCPROS_TOPIC_TAG, n->subs[sub_idx].topic_name );
+  header_len += pushBackField( packet, &TCPROS_MD5SUM_TAG, n->subs[sub_idx].md5sum );
+  header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->subs[sub_idx].topic_type );
+
+  HOST_TO_ROS_UINT32( header_len, header_out_len );
+  uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
+  *header_len_p = header_out_len;
+}
+
+void cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
+{
+  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
+  DynBuffer *packet = &(client_proc->packet);
+  int sub_idx = client_proc->topic_idx;
+  n->subs[sub_idx].callback(packet);
+}
+
 void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
 {
   PRINT_VDEBUG("cRosMessagePreparePublicationHeader()\n");
@@ -244,7 +421,9 @@ void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
   DynBuffer *packet = &(server_proc->packet);
   uint32_t header_len = 0, header_out_len = 0; 
   dynBufferPushBackUint32( packet, header_out_len );
-  
+
+  // http://wiki.ros.org/ROS/TCPROS doesn't mention to send message_definition and topic_name
+  // but they are sent anyway in ros groovy
   header_len += pushBackField( packet, &TCPROS_MESSAGE_DEFINITION_TAG, n->pubs[pub_idx].message_definition );
   header_len += pushBackField( packet, &TCPROS_CALLERID_TAG, n->name );
   header_len += pushBackField( packet, &TCPROS_LATCHING_TAG, "1" );

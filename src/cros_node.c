@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/select.h>
 #include <signal.h>
+#include <assert.h>
 
 #include "cros_node.h"
 #include "cros_api.h"
@@ -29,7 +30,7 @@ static void openTcprosClientSocket( CrosNode *n, int i )
       !tcpIpSocketSetReuse( &(n->tcpros_client_proc[i].socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->tcpros_client_proc[i].socket) ) )
   {
-    PRINT_ERROR("openXmlrpcClientSocket() at index %d failed", i);
+    PRINT_ERROR("openTcprosClientSocket() at index %d failed", i);
     exit( EXIT_FAILURE );
   }
 }
@@ -105,7 +106,6 @@ static void handleTcprosServerError( CrosNode *n, int i )
   tcpIpSocketClose( &(n->tcpros_server_proc[i].socket) );
   n->tcpros_server_proc[i].topic_idx = -1;
 }
-
 
 static void doWithXmlrpcClientSocket( CrosNode *n, int i)
 { 
@@ -316,23 +316,177 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
 
 static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
 {
-  SubscriberNode* sub = NULL;
-  TcprosProcess* tcpros_proc = NULL;
+  PRINT_VDEBUG ( "doWithTcprosSubscriberNode()\n" );
 
-  int i;
-  int tcp_port_print = -1;
-  for(i = 0; i < n->n_subs; i++)
+  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
+
+  switch ( client_proc->state )
   {
-    if(n->subs[i].client_tcpros_id == client_idx)
+    case  TCPROS_PROCESS_STATE_CONNECTING:
     {
-      sub = &(n->subs[i]);
-      tcp_port_print = n->subs[i].tcp_port;
+      SubscriberNode *sub = &(n->subs[client_proc->topic_idx]);
+      tcprosProcessClear( client_proc );
+      TcpIpSocketState conn_state = tcpIpSocketConnect( &(client_proc->socket),
+                                           sub->topic_host, sub->tcpros_port );
+      switch (conn_state)
+      {
+        case TCPIPSOCKET_DONE:
+        {
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
+          break;
+        }
+        case TCPIPSOCKET_IN_PROGRESS:
+        {
+          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Wait: connection is established asynchronously\n" );
+          // Wait: connection is established asynchronously
+          break;
+        }
+        case TCPIPSOCKET_FAILED:
+        {
+          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : error\n" );
+          handleTcprosClientError( n, client_idx);
+          break;
+        }
+        default:
+        {
+          assert(0);
+          break;
+        }
+      }
+
+      break;
+    }
+    case TCPROS_PROCESS_STATE_WRITING_HEADER:
+    {
+      cRosMessagePrepareSubcriptionHeader( n, client_idx);
+
+      TcpIpSocketState sock_state =  tcpIpSocketWriteBuffer( &(client_proc->socket),
+                                                           &(client_proc->packet) );
+
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          tcprosProcessClear( client_proc );
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER );
+
+          break;
+
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+
+        case TCPIPSOCKET_DISCONNECTED:
+          tcprosProcessClear( client_proc );
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_IDLE );
+          tcpIpSocketClose( &(client_proc->socket) );
+          break;
+
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleTcprosClientError( n, client_idx );
+          break;
+      }
+      break;
+    }
+
+    case TCPROS_PROCESS_STATE_READING_HEADER:
+    {
+      TcpIpSocketState sock_state = tcpIpSocketReadBuffer( &(client_proc->socket),
+                                                          &(client_proc->packet) );
+      TcprosParserState parser_state = TCPROS_PARSER_ERROR;
+
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          parser_state = cRosMessageParsePublicationHeader( n, client_idx );
+          break;
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+        case TCPIPSOCKET_DISCONNECTED:
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleTcprosClientError( n, client_idx );
+          break;
+      }
+
+      switch ( parser_state )
+      {
+        case TCPROS_PARSER_DONE:
+          tcprosProcessClear( client_proc );
+          client_proc->left_to_recv = sizeof(uint32_t);
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_SIZE );
+          break;
+        case TCPROS_PARSER_HEADER_INCOMPLETE:
+          break;
+        case TCPROS_PARSER_ERROR:
+        default:
+          handleTcprosClientError( n, client_idx );
+          break;
+      }
+    }
+    case TCPROS_PROCESS_STATE_READING_SIZE:
+    {
+      size_t n_reads;
+      TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(client_proc->socket),
+                                                          &(client_proc->packet),
+                                                          client_proc->left_to_recv,
+                                                          &n_reads);
+
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          client_proc->left_to_recv -= n_reads;
+          if (client_proc->left_to_recv == 0)
+          {
+            const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
+            uint32_t msg_size = (uint32_t)*data;
+            tcprosProcessClear( client_proc );
+            client_proc->left_to_recv = msg_size;
+            tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING);
+            goto read_msg;
+          }
+          break;
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+        case TCPIPSOCKET_DISCONNECTED:
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleTcprosClientError( n, client_idx );
+          break;
+      }
+      break;
+    }
+    read_msg:
+    case TCPROS_PROCESS_STATE_READING:
+    {
+      size_t n_reads;
+      TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(client_proc->socket),
+                                                          &(client_proc->packet),
+                                                          client_proc->left_to_recv,
+                                                          &n_reads);
+
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          client_proc->left_to_recv -= n_reads;
+          if (client_proc->left_to_recv == 0)
+          {
+              cRosMessageParsePublicationPacket(n, client_idx);
+              tcprosProcessClear( client_proc );
+              client_proc->left_to_recv = sizeof(uint32_t);
+              tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_SIZE );
+          }
+          break;
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+        case TCPIPSOCKET_DISCONNECTED:
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleTcprosClientError( n, client_idx );
+          break;
+      }
+      break;
     }
   }
-  tcpros_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
-
-  PRINT_INFO("Ready to start writing with TCPROS client @ %s:%d \n", sub->topic_host,tcp_port_print);
-  tcprosProcessChangeState(tcpros_proc,TCPROS_PROCESS_STATE_IDLE);
 }
 
 static void doWithTcprosServerSocket( CrosNode *n, int i )
@@ -471,7 +625,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
     xmlrpcProcessInit( &(new_n->xmlrpc_server_proc[i]) ); 
   
   for ( i = 0 ; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
-  xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
+	xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
 
   tcprosProcessInit( &(new_n->tcpros_listner_proc) );
 
@@ -493,14 +647,16 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS; i++)
   {
+    new_n->subs[i].message_definition = NULL;
     new_n->subs[i].topic_host = NULL;
     new_n->subs[i].topic_port = -1;
     new_n->subs[i].topic_name = NULL;
     new_n->subs[i].topic_type = NULL;
+    new_n->subs[i].md5sum = NULL;
     new_n->subs[i].callback = NULL;
     new_n->subs[i].client_xmlrpc_id = -1;
     new_n->subs[i].client_tcpros_id = -1;
-    new_n->subs[i].tcp_port = -1;
+    new_n->subs[i].tcpros_port = -1;
   }
 
   new_n->n_subs = 0;
@@ -541,7 +697,7 @@ void cRosNodeDestroy ( CrosNode *n )
     xmlrpcProcessRelease( &(n->xmlrpc_server_proc[i]) ); 
 
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
-	xmlrpcProcessRelease( &(n->xmlrpc_client_proc[i]) );
+    xmlrpcProcessRelease( &(n->xmlrpc_client_proc[i]) );
 
   tcprosProcessRelease( &(n->tcpros_listner_proc) );
 
@@ -565,8 +721,10 @@ void cRosNodeDestroy ( CrosNode *n )
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS; i++)
   {
+    if ( n->subs[i].message_definition != NULL ) free ( n->subs[i].message_definition );
     if ( n->subs[i].topic_name != NULL ) free ( n->subs[i].topic_name );
     if ( n->subs[i].topic_type != NULL ) free ( n->subs[i].topic_type );
+    if ( n->subs[i].md5sum != NULL ) free ( n->subs[i].md5sum );
     if ( n->subs[i].topic_host != NULL ) free ( n->subs[i].topic_host );
   }
 }
@@ -618,8 +776,9 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   return 1;
 }
 
-int cRosNodeRegisterSubscriber(CrosNode *n, char *topic_name, char *topic_type,
-                               unsigned char *(*subscriberDataCallback)( size_t *num, size_t *size ) )
+int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
+                               char *topic_name, char *topic_type, char *md5sum,
+                               SubscriberCallback callback)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
   PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
@@ -631,8 +790,10 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *topic_name, char *topic_type,
     return 0;
   }
 
+  char *pub_message_definition = ( char * ) malloc ( ( strlen ( message_definition ) + 1 ) * sizeof ( char ) );
   char *pub_topic_name = ( char * ) malloc ( ( strlen ( topic_name ) + 1 ) * sizeof ( char ) );
   char *pub_topic_type = ( char * ) malloc ( ( strlen ( topic_type ) + 1 ) * sizeof ( char ) );
+  char *pub_md5sum = ( char * ) malloc ( ( strlen ( md5sum ) + 1 ) * sizeof ( char ) );
 
   if ( pub_topic_name == NULL || pub_topic_type == NULL )
   {
@@ -640,13 +801,17 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *topic_name, char *topic_type,
     return 0;
   }
 
+  strcpy ( pub_message_definition, message_definition );
   strcpy ( pub_topic_name, topic_name );
   strcpy ( pub_topic_type, topic_type );
+  strcpy ( pub_md5sum, md5sum );
 
+  n->subs[n->n_subs].message_definition = pub_message_definition;
   n->subs[n->n_subs].topic_name = pub_topic_name;
   n->subs[n->n_subs].topic_type = pub_topic_type;
+  n->subs[n->n_subs].md5sum = pub_md5sum;
 
-  n->subs[n->n_subs].callback = subscriberDataCallback;
+  n->subs[n->n_subs].callback = callback;
 
   n->subs[n->n_subs].client_xmlrpc_id = 1 + n->n_subs;
   n->subs[n->n_subs].client_tcpros_id = 1 + n->n_subs;
@@ -758,17 +923,15 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     {
       next_tcpros_client_i = i;
     }
-    // The second condition line should be removed. As far as i know a tcpros client does
-    // not need to write any kind of tcpros header.
-    else if( n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING ||
-            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER)
+    else if(n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER)
     {
       FD_SET( tcpros_client_fd, &w_fds);
       FD_SET( tcpros_client_fd, &err_fds);
       if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
     }
-    else if( n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING ||
-            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER)
+    else if(n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER ||
+            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_SIZE ||
+            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING)
     {
       FD_SET( tcpros_client_fd, &r_fds);
       FD_SET( tcpros_client_fd, &err_fds);
@@ -952,18 +1115,20 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
 
     for(i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++ )
     {
-      int tcpros_client_fd = tcpIpSocketGetFD( &(n->tcpros_client_proc[i].socket) );
+      TcprosProcess *client_proc = &(n->tcpros_client_proc[i]);
+      int tcpros_client_fd = tcpIpSocketGetFD( &(client_proc->socket) );
 
-      if( FD_ISSET(tcpros_client_fd, &err_fds) )
+      if( client_proc->state != TCPROS_PROCESS_STATE_IDLE && FD_ISSET(tcpros_client_fd, &err_fds) )
       {
         PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC Client error\n" );
         handleTcprosClientError( n, i );
       }
 
-      /* Check what is the socket unblocked by the select, and start the requested operations */
-      else if( ( n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING && FD_ISSET(tcpros_client_fd, &w_fds) ) ||
-          ( n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
-          ( n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER && FD_ISSET(tcpros_client_fd, &r_fds) ) )
+      if( client_proc->state == TCPROS_PROCESS_STATE_CONNECTING ||
+          ( client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER && FD_ISSET(tcpros_client_fd, &w_fds) ) ||
+          ( client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
+          ( client_proc->state == TCPROS_PROCESS_STATE_READING && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
+          ( client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER && FD_ISSET(tcpros_client_fd, &r_fds) ) )
       {
         doWithTcprosClientSocket( n, i );
       }
