@@ -4,7 +4,6 @@ cmake_minimum_required (VERSION 2.6)
 
 cmake_policy(SET CMP0015 NEW)	
 
-set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_C_FLAGS_DEBUG "-g")
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O1")
 
@@ -17,8 +16,8 @@ add_library(cros STATIC ${CROSLIB_SRCS} )
 add_executable( test_node test_node.c )
 target_link_libraries( test_node cros )
 
-set_target_properties(cros PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
-set_target_properties(test_node PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+set_target_properties(cros PROPERTIES ARCHIVE_OUTPUT_DIRECTORY lib)
+set_target_properties(test_node PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 
 find_package(Doxygen)
 if (NOT DOXYGEN_FOUND)
