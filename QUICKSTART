@@ -1,0 +1,14 @@
+# Fai partire un nodo ROS master
+$ roscore
+
+# Enumera i topic attivi
+$ rostopic list
+
+# Enumera i publisher e subscriber sul topic /test
+$ rostopic info /test
+
+# Registra un publisher sul topic /test che pubblica string "Hello world" con frequenza 1
+$ rostopic pub /test std_msgs/String "Hello world" -r1
+
+# Registra un subscriber echo sul topic /est
+$ rostopic echo /test
