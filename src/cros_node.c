@@ -367,7 +367,8 @@ static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
       {
         case TCPIPSOCKET_DONE:
           tcprosProcessClear( client_proc );
-          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER );
+          client_proc->left_to_recv = sizeof(uint32_t);
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER_SIZE );
 
           break;
 
@@ -387,17 +388,59 @@ static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
       }
       break;
     }
+    case TCPROS_PROCESS_STATE_READING_HEADER_SIZE:
+    {
+      size_t n_reads;
+      TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(client_proc->socket),
+                                                          &(client_proc->packet),
+                                                          client_proc->left_to_recv,
+                                                          &n_reads);
 
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          client_proc->left_to_recv -= n_reads;
+          if (client_proc->left_to_recv == 0)
+          {
+            const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
+            uint32_t header_size = (uint32_t)*data;
+            tcprosProcessClear( client_proc );
+            client_proc->left_to_recv = header_size;
+            tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER);
+            goto read_header;
+          }
+          break;
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+        case TCPIPSOCKET_DISCONNECTED:
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleTcprosClientError( n, client_idx );
+          break;
+      }
+
+      break;
+    }
+    read_header:
     case TCPROS_PROCESS_STATE_READING_HEADER:
     {
-      TcpIpSocketState sock_state = tcpIpSocketReadBuffer( &(client_proc->socket),
-                                                          &(client_proc->packet) );
+      size_t n_reads;
+      TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(client_proc->socket),
+                                                          &(client_proc->packet),
+                                                          client_proc->left_to_recv,
+                                                          &n_reads);
       TcprosParserState parser_state = TCPROS_PARSER_ERROR;
 
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          parser_state = cRosMessageParsePublicationHeader( n, client_idx );
+          client_proc->left_to_recv -= n_reads;
+          if (client_proc->left_to_recv == 0)
+          {
+            parser_state = cRosMessageParsePublicationHeader( n, client_idx );
+            break;
+          }
+          parser_state = TCPROS_PARSER_HEADER_INCOMPLETE;
           break;
         case TCPIPSOCKET_IN_PROGRESS:
           break;
@@ -933,7 +976,8 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       FD_SET( tcpros_client_fd, &err_fds);
       if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
     }
-    else if(n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER ||
+    else if(n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
+            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER ||
             n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_SIZE ||
             n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING)
     {
@@ -1132,6 +1176,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
           ( client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER && FD_ISSET(tcpros_client_fd, &w_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
+          ( client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER && FD_ISSET(tcpros_client_fd, &r_fds) ) )
       {
         doWithTcprosClientSocket( n, i );
