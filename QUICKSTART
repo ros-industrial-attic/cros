@@ -12,3 +12,9 @@ $ rostopic pub /test std_msgs/String "Hello world" -r1
 
 # Registra un subscriber echo sul topic /est
 $ rostopic echo /test
+
+# Lancia un nodo registrato con catkin
+$ rosrun <pacchetto> <nomenodo>
+
+# Esempio lancio nodo registrato con catking
+$ rosrun robox gripperstatus_talker
