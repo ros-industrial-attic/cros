@@ -16,5 +16,5 @@ $ rostopic echo /test
 # Lancia un nodo registrato con catkin
 $ rosrun <pacchetto> <nomenodo>
 
-# Esempio lancio nodo registrato con catking
+# Esempio lancio nodo registrato con catkin
 $ rosrun robox gripperstatus_talker
