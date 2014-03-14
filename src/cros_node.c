@@ -806,15 +806,19 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
   strcpy ( pub_topic_type, topic_type );
   strcpy ( pub_md5sum, md5sum );
 
-  n->subs[n->n_subs].message_definition = pub_message_definition;
-  n->subs[n->n_subs].topic_name = pub_topic_name;
-  n->subs[n->n_subs].topic_type = pub_topic_type;
-  n->subs[n->n_subs].md5sum = pub_md5sum;
+  SubscriberNode *sub = &n->subs[n->n_subs];
+  sub->message_definition = pub_message_definition;
+  sub->topic_name = pub_topic_name;
+  sub->topic_type = pub_topic_type;
+  sub->md5sum = pub_md5sum;
 
-  n->subs[n->n_subs].callback = callback;
+  sub->callback = callback;
 
-  n->subs[n->n_subs].client_xmlrpc_id = 1 + n->n_subs;
-  n->subs[n->n_subs].client_tcpros_id = 1 + n->n_subs;
+  sub->client_xmlrpc_id = 1 + n->n_subs;
+  sub->client_tcpros_id = 1 + n->n_subs;
+
+  TcprosProcess *client_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
+  client_proc->topic_idx = n->n_subs;
 
   n->n_subs++;
 
