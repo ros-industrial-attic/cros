@@ -362,7 +362,7 @@ TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx
     int i = 0;
     for( i = 0 ; i < n->n_subs; i++)
     {
-      if( strcmp( n->subs[i].topic_name, dynStringGetData(&(client_proc->topic))) == 0 &&
+      if( strcmp( n->subs[i].topic_type, dynStringGetData(&(client_proc->type))) == 0 &&
           strcmp( n->subs[i].md5sum, dynStringGetData(&(client_proc->md5sum))) == 0 )
       {
         subscriber_found = 1;
