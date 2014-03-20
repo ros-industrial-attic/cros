@@ -424,7 +424,7 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   }
   else if ( reads > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", *n_read );
+    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", reads );
     dynBufferPushBackBuf ( d_buf, read_buf, reads );
     state = TCPIPSOCKET_DONE;
     *n_reads = reads;
