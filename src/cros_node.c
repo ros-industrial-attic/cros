@@ -528,6 +528,12 @@ static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
       }
       break;
     }
+    default:
+    {
+      // Invalid flow
+      assert(0);
+    }
+
   }
 }
 
