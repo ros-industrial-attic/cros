@@ -35,7 +35,8 @@ struct TcprosProcess
   TcprosProcessState state;             //! The state
   TcpIpSocket socket;                   //! The socket used for the TCPROS communication
   DynString topic;                      //! The name of the topic
-  DynString type;                       //! The message type
+  DynString service;                    //! The name of the service
+  DynString type;                       //! The message/service type
   DynString md5sum;                     //! The md5sum of the message type
   DynString caller_id;                  //! The name of subscriber
   unsigned char latching;               //! If 1, the publisher is sending latched messages
@@ -44,7 +45,9 @@ struct TcprosProcess
   DynBuffer packet;                     //! The incoming/outoming TCPROS packet
   uint64_t last_change_time;            //! Last state change time (in ms)
   uint64_t wake_up_time_ms;             //! The time for the next automatic cycle (in msec, since the Epoch) 
-  int topic_idx;                         //! Index used to associate the process to a publisher or a subscribed
+  int topic_idx;                        //! Index used to associate the process to a publisher or a subscribed
+  int service_idx;                      //! Index used to associate the process to a service provider or
+  																			//! a service client
   size_t left_to_recv;                  //! Remaining to recevice
 };
 

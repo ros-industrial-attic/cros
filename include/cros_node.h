@@ -98,7 +98,6 @@ struct ServiceProviderNode
 {
   char *service_name;
   char *service_type;
-  char *message_definition;                     //! Full text of service definition (output of gendeps --cat)
   char *md5sum;
   ServiceProviderCallback callback;
 };

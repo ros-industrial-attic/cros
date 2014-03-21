@@ -75,7 +75,7 @@ static void printPacket( DynBuffer *pkt, int print_data )
   dynBufferSetPoseIndicator ( pkt, initial_pos_idx );         
 }
 
-static TcprosParserState readSubcriptioHeader( TcprosProcess *p, uint32_t *flags )
+static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flags )
 {
   PRINT_VDEBUG("readSubcriptioHeader()\n");
   DynBuffer *packet = &(p->packet);
@@ -280,6 +280,113 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
   return TCPROS_PARSER_DONE;
 }
 
+static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flags )
+{
+  PRINT_VDEBUG("readServiceCallHeader()\n");
+  DynBuffer *packet = &(p->packet);
+  uint32_t bytes_to_read = getLen( packet );
+  uint32_t packet_len = dynBufferGetSize( packet );
+
+  if( bytes_to_read > packet_len - sizeof( uint32_t ) )
+    return TCPROS_PARSER_HEADER_INCOMPLETE;
+
+  *flags = 0x0;
+
+  PRINT_DEBUG("readServiceCallHeader() : Header len=%d\n",bytes_to_read);
+
+  while ( bytes_to_read > 0)
+  {
+    uint32_t field_len = getLen( packet );
+
+    PRINT_DEBUG("readServiceCallHeader() : Field len=%d\n",field_len);
+
+    const char *field = (const char *)dynBufferGetCurrentData( packet );
+    if( field_len )
+    {
+      if ( field_len > (uint32_t)TCPROS_CALLERID_TAG.dim &&
+          strncmp ( field, TCPROS_CALLERID_TAG.str, TCPROS_CALLERID_TAG.dim ) == 0 )
+      {
+        field += TCPROS_CALLERID_TAG.dim;
+
+        dynStringPushBackStrN( &(p->caller_id), field,
+                               field_len - TCPROS_CALLERID_TAG.dim );
+        *flags |= TCPROS_CALLER_ID_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_TOPIC_TAG.dim &&
+          strncmp ( field, TCPROS_TOPIC_TAG.str, TCPROS_TOPIC_TAG.dim ) == 0 )
+      {
+        field += TCPROS_TOPIC_TAG.dim;
+
+        dynStringPushBackStrN( &(p->topic), field,
+                               field_len - TCPROS_TOPIC_TAG.dim );
+        *flags |= TCPROS_TOPIC_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_TYPE_TAG.dim &&
+          strncmp ( field, TCPROS_TYPE_TAG.str, TCPROS_TYPE_TAG.dim ) == 0 )
+      {
+        field += TCPROS_TYPE_TAG.dim;
+
+        dynStringPushBackStrN( &(p->type), field,
+                               field_len - TCPROS_TYPE_TAG.dim );
+        *flags |= TCPROS_TYPE_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_MD5SUM_TAG.dim &&
+          strncmp ( field, TCPROS_MD5SUM_TAG.str, TCPROS_MD5SUM_TAG.dim ) == 0 )
+      {
+        field += TCPROS_MD5SUM_TAG.dim;
+
+        dynStringPushBackStrN( &(p->md5sum), field,
+                               field_len - TCPROS_MD5SUM_TAG.dim );
+        *flags |= TCPROS_MD5SUM_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_MESSAGE_DEFINITION_TAG.dim &&
+          strncmp ( field, TCPROS_MESSAGE_DEFINITION_TAG.str, TCPROS_MESSAGE_DEFINITION_TAG.dim ) == 0 )
+      {
+        *flags |= TCPROS_MESSAGE_DEFINITION_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_TCP_NODELAY_TAG.dim &&
+          strncmp ( field, TCPROS_TCP_NODELAY_TAG.str, TCPROS_TCP_NODELAY_TAG.dim ) == 0 )
+      {
+        PRINT_INFO("readServiceCallHeader() WARNING : TCPROS_TCP_NODELAY_TAG not implemented\n");
+        field += TCPROS_TCP_NODELAY_TAG.dim;
+        p->tcp_nodelay = (*field == '1')?1:0;
+        *flags |= TCPROS_TCP_NODELAY_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_LATCHING_TAG.dim &&
+          strncmp ( field, TCPROS_LATCHING_TAG.str, TCPROS_LATCHING_TAG.dim ) == 0 )
+      {
+        PRINT_INFO("readServiceCallHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
+        field += TCPROS_LATCHING_TAG.dim;
+        p->latching = (*field == '1')?1:0;
+        *flags |= TCPROS_LATCHING_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else if ( field_len > (uint32_t)TCPROS_ERROR_TAG.dim &&
+          strncmp ( field, TCPROS_ERROR_TAG.str, TCPROS_ERROR_TAG.dim ) == 0 )
+      {
+        PRINT_INFO("readServiceCallHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
+        *flags |= TCPROS_ERROR_FLAG;
+        dynBufferMovePoseIndicator( packet, field_len );
+      }
+      else
+      {
+        PRINT_ERROR("readServiceCallHeader() : unknown field\n");
+        *flags = 0x0;
+        break;
+      }
+    }
+    bytes_to_read -= ( sizeof(uint32_t) + field_len );
+  }
+
+  return TCPROS_PARSER_DONE;
+}
+
 TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx )
 {
   PRINT_VDEBUG("cRosMessageParseSubcriptionHeader()\n");
@@ -292,7 +399,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
   dynBufferRewindPoseIndicator ( packet );
 
   uint32_t header_flags; 
-  TcprosParserState ret = readSubcriptioHeader( server_proc, &header_flags );
+  TcprosParserState ret = readSubcriptionHeader( server_proc, &header_flags );
   if( ret != TCPROS_PARSER_DONE )
     return ret;
   
@@ -303,7 +410,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
   }
   else
   {
-    int publisher_found = 0;
+    int topic_found = 0;
     int i = 0;
     for( i = 0 ; i < n->n_pubs; i++)
     {
@@ -311,15 +418,15 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
           strcmp( n->pubs[i].topic_type, dynStringGetData(&(server_proc->type))) == 0 &&
           strcmp( n->pubs[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0 )
       {
-        publisher_found = 1;
+      	topic_found = 1;
         server_proc->topic_idx = i;
         break;
       }
     }
     
-    if( ! publisher_found )
+    if( ! topic_found )
     {
-      PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Wrong topic, type or md5sum\n");
+      PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Wrong service, type or md5sum\n");
       server_proc->topic_idx = -1;
       ret = TCPROS_PARSER_ERROR;
     }
@@ -369,6 +476,57 @@ TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx
     if( ! subscriber_found )
     {
       PRINT_ERROR("cRosMessageParsePublicationHeader() : Wrong topic, type or md5sum\n");
+      ret = TCPROS_PARSER_ERROR;
+    }
+  }
+
+  /* Restore position indicator */
+  dynBufferSetPoseIndicator ( packet, initial_pos_idx );
+
+  return ret;
+}
+
+TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_idx)
+{
+  PRINT_VDEBUG("cRosMessageParseServiceCallerHeader()\n");
+
+  TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
+  DynBuffer *packet = &(server_proc->packet);
+
+  /* Save position indicator: it will be restored */
+  int initial_pos_idx = dynBufferGetPoseIndicatorOffset ( packet );
+  dynBufferRewindPoseIndicator ( packet );
+
+  uint32_t header_flags;
+  TcprosParserState ret = readServiceCallHeader( server_proc, &header_flags );
+  if( ret != TCPROS_PARSER_DONE )
+    return ret;
+
+  if( TCPROS_SUBCRIPTION_HEADER_FLAGS != ( header_flags&TCPROS_SUBCRIPTION_HEADER_FLAGS) )
+  {
+    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Missing fields\n");
+    ret = TCPROS_PARSER_ERROR;
+  }
+  else
+  {
+    int service_found = 0;
+    int i = 0;
+    for( i = 0 ; i < n->n_pubs; i++)
+    {
+      if( strcmp( n->services[i].service_name, dynStringGetData(&(server_proc->service))) == 0 &&
+          strcmp( n->services[i].service_type, dynStringGetData(&(server_proc->type))) == 0 &&
+          strcmp( n->services[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0 )
+      {
+      	service_found = 1;
+        server_proc->service_idx = i;
+        break;
+      }
+    }
+
+    if( ! service_found )
+    {
+      PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Wrong service, type or md5sum\n");
+      server_proc->service_idx = -1;
       ret = TCPROS_PARSER_ERROR;
     }
   }
@@ -451,11 +609,6 @@ void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
 }
 
 void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
-{
-
-}
-
-void cRosMessageParseServiceCallerHeader( CrosNode *n, int server_idx)
 {
 
 }

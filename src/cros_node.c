@@ -629,7 +629,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
   PRINT_VDEBUG ( "doWithRpcrosServerSocket()\n" );
 
   //WARNING: following line is just stub code !!
-  TcprosProcess *server_proc = &(n->tcpros_server_proc[i]);
+  TcprosProcess *server_proc = &(n->rpcros_server_proc[i]);
 
   if( server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER)
   {
@@ -642,7 +642,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
-        parser_state = cRosMessageParseSubcriptionHeader( n, i );
+        parser_state = cRosMessageParseServiceCallerHeader( n, i);
         break;
 
       case TCPIPSOCKET_IN_PROGRESS:
@@ -972,7 +972,7 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
   n->n_services++;
 
   n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SERVICE);
-  n->n_advertised_pubs = 0;
+  n->n_advertised_services = 0;
 
   return 1;
 }
