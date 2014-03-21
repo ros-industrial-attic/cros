@@ -124,7 +124,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
       xmlrpcParamVectorPushBackString( &(client_proc->params), node_uri );
 
       client_proc->request_id = CROS_API_REGISTER_PUBLISHER;
-      generateXmlrpcMessage( n->roscore_host, n->roscore_port, client_proc->message_type,
+      generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
                           &(client_proc->method), &(client_proc->params), &(client_proc->message) );
 
     }
@@ -142,7 +142,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
 
     client_proc->request_id = CROS_API_REGISTER_SUBSCRIBER;
 
-    generateXmlrpcMessage( n->roscore_host, n->roscore_port, client_proc->message_type,
+    generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
                         &(client_proc->method), &(client_proc->params), &(client_proc->message) );
     }
     else
@@ -156,7 +156,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
 
       client_proc->request_id = CROS_API_GET_PID;
 
-      generateXmlrpcMessage( n->roscore_host, n->roscore_port, client_proc->message_type,
+      generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
                           &(client_proc->method), &(client_proc->params), &(client_proc->message) );
     }
   }
@@ -195,7 +195,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
 
         client_proc->request_id = CROS_API_REQUEST_TOPIC;
 
-        generateXmlrpcMessage(subscriber_node->topic_host, subscriber_node->topic_port, client_proc->message_type,
+        generateXmlrpcMessage(n->host, subscriber_node->topic_port, client_proc->message_type,
                               &(client_proc->method), &(client_proc->params), &(client_proc->message) );
       }
     }
@@ -492,19 +492,6 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         //Resetting tcpros infos
 
         requesting_subscriber->tcpros_port = -1;
-
-     /*
-             TcprosProcess* sub_tcpros_proc = &(n->tcpros_client_proc[requesting_subscriber->client_tcpros_id]);
-             tcprosProcessRelease(sub_tcpros_proc);
-             tcprosProcessClear(sub_tcpros_proc);
-             tcprosProcessInit(sub_tcpros_proc);
-             if( !tcpIpSocketOpen( &(sub_tcpros_proc->socket) ) ||
-                 !tcpIpSocketSetReuse( &(sub_tcpros_proc->socket) ) ||
-                 !tcpIpSocketSetNonBlocking( &(sub_tcpros_proc->socket) ) )
-             {
-               PRINT_ERROR("openTcprosClientSocket() at index %d failed", i);
-               exit( EXIT_FAILURE );
-             }*/
 
         xmlrpcProcessClear( server_proc );
         fillErrorParams ( &(server_proc->params), "" );
