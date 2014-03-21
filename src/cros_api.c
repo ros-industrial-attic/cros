@@ -49,9 +49,11 @@ lookup_host (const char *host, char *ip)
         case AF_INET:
           ptr = &((struct sockaddr_in *) res->ai_addr)->sin_addr;
           break;
+#ifdef AF_INET6
         case AF_INET6:
           ptr = &((struct sockaddr_in6 *) res->ai_addr)->sin6_addr;
           break;
+#endif
         }
       inet_ntop (res->ai_family, ptr, addrstr, 100);
       printf ("IPv%d address: %s (%s)\n", res->ai_family == PF_INET6 ? 6 : 4,
