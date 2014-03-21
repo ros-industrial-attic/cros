@@ -119,7 +119,7 @@ static void doWithXmlrpcClientSocket( CrosNode *n, int i)
     if( !xmlrpc_client_proc->socket.connected )
     {
 
-      TcpIpSocketState conn_state;
+      TcpIpSocketState conn_state = TCPIPSOCKET_FAILED;
 
       if(i == 0) //connection with roscore node
       {
