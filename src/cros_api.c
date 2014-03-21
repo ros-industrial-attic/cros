@@ -515,8 +515,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   }
   else if( strcmp( method, "requestTopic") == 0 )
   {
-    
-    // TODO Store the subscribed node name
+
     XmlrpcParam *node_param, *topic_param, *protocols_param;
     
     //xmlrpcParamVectorPrint( &(server_proc->params) );
