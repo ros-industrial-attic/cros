@@ -264,10 +264,10 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           //manage string for exploit informations
           //removing the 'http://' and the last '/'
           int dirty_string_len = strlen(pub_host_string);
-          char* clean_string = calloc(dirty_string_len-8,sizeof(char));
+          char* clean_string = (char *)calloc(dirty_string_len-8,sizeof(char));
           strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
           char* hostname = strtok(clean_string,":");
-          requesting_subscriber->topic_host = calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+          requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
           lookup_host(hostname, requesting_subscriber->topic_host);
           requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
         }
@@ -452,12 +452,12 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 					//manage string for exploit informations
 					//removing the 'http://' and the last '/'
 					int dirty_string_len = strlen(pub_host_string);
-					char* clean_string = calloc(dirty_string_len-8,sizeof(char));
+					char* clean_string = (char *)calloc(dirty_string_len-8,sizeof(char));
 					strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
 					char* hostname = strtok(clean_string,":");
 					if(requesting_subscriber->topic_host == NULL)
 					{
-						requesting_subscriber->topic_host = calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+						requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
 					}
 					lookup_host(hostname, requesting_subscriber->topic_host);
 					requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
