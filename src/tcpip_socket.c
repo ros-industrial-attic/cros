@@ -5,6 +5,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include "tcpip_socket.h"
 #include "cros_defs.h"
@@ -406,7 +407,12 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
     return TCPIPSOCKET_FAILED;
   }
 
-  unsigned char read_buf[max_size];
+  unsigned char *read_buf = (unsigned char *)malloc(max_size);
+  if (!read_buf)
+  {
+    PRINT_ERROR("Out of memory while reading from socket");
+    exit(1);
+  }
 
   TcpIpSocketState state = TCPIPSOCKET_UNKNOWN;
   int reads = recv ( s->fd, read_buf, max_size, 0);
@@ -418,7 +424,7 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   }
   else if ( reads > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", *n_read );
+    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", reads );
     dynBufferPushBackBuf ( d_buf, read_buf, reads );
     state = TCPIPSOCKET_DONE;
     *n_reads = reads;
@@ -440,6 +446,8 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
     PRINT_ERROR ( "tcpIpSocketReadBufferEx() : Read failed\n" );
     state = TCPIPSOCKET_FAILED;
   }
+
+  free(read_buf);
 
   return state;
 }

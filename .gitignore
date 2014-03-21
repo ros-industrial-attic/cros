@@ -7,5 +7,6 @@ lib/
 .cproject
 .project
 cros.kdev4
+.kdev4/
 Debug/
 Release/

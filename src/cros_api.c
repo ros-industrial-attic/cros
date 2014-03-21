@@ -25,7 +25,7 @@ lookup_host (const char *host, char *ip)
   struct addrinfo hints, *res;
   int errcode;
   char addrstr[100];
-  void *ptr;
+  void *ptr = NULL;
 
   memset (&hints, 0, sizeof (hints));
   hints.ai_family = PF_UNSPEC;
@@ -49,12 +49,22 @@ lookup_host (const char *host, char *ip)
         case AF_INET:
           ptr = &((struct sockaddr_in *) res->ai_addr)->sin_addr;
           break;
+#ifdef AF_INET6
         case AF_INET6:
           ptr = &((struct sockaddr_in6 *) res->ai_addr)->sin6_addr;
           break;
+#endif
+        default:
+          break;
         }
+      if (ptr == NULL)
+      {
+        PRINT_ERROR ("getaddrinfo unsupported ai_family");
+        return -1;
+      }
+
       inet_ntop (res->ai_family, ptr, addrstr, 100);
-      printf ("IPv%d address: %s (%s)\n", res->ai_family == PF_INET6 ? 6 : 4,
+      PRINT_VDEBUG ("IPv%d address: %s (%s)\n", res->ai_family == PF_INET6 ? 6 : 4,
               addrstr, res->ai_canonname);
       res = res->ai_next;
       strcpy(ip, (char*)&addrstr);
@@ -264,12 +274,13 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           //manage string for exploit informations
           //removing the 'http://' and the last '/'
           int dirty_string_len = strlen(pub_host_string);
-          char* clean_string = calloc(dirty_string_len-8,sizeof(char));
+          char* clean_string = (char *)calloc(dirty_string_len-8,sizeof(char));
           strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
-          char* hostname = strtok(clean_string,":");
-          requesting_subscriber->topic_host = calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+          char * progress = NULL;
+          char* hostname = strtok_r(clean_string,":",&progress);
+          requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
           lookup_host(hostname, requesting_subscriber->topic_host);
-          requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
+          requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
         }
       }
 
@@ -452,12 +463,12 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 					//manage string for exploit informations
 					//removing the 'http://' and the last '/'
 					int dirty_string_len = strlen(pub_host_string);
-					char* clean_string = calloc(dirty_string_len-8,sizeof(char));
+					char* clean_string = (char *)calloc(dirty_string_len-8,sizeof(char));
 					strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
 					char* hostname = strtok(clean_string,":");
 					if(requesting_subscriber->topic_host == NULL)
 					{
-						requesting_subscriber->topic_host = calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+						requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
 					}
 					lookup_host(hostname, requesting_subscriber->topic_host);
 					requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
