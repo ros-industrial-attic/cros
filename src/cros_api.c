@@ -14,6 +14,7 @@ enum
   CROS_API_GET_PID,
   CROS_API_REGISTER_PUBLISHER,
   CROS_API_REGISTER_SUBSCRIBER,
+  CROS_API_REGISTER_SERVICE,
   CROS_API_REQUEST_TOPIC,
 };
 
@@ -155,6 +156,24 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
     generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
                         &(client_proc->method), &(client_proc->params), &(client_proc->message) );
     }
+    else if( n->state & CN_STATE_ADVERTISE_SERVICE && n->n_services )
+    {
+      PRINT_INFO("cRosApiPrepareRequest() : registerService\n");
+      dynStringPushBackStr( &(client_proc->method), "registerService" );
+
+      xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
+      xmlrpcParamVectorPushBackString( &(client_proc->params), n->services[n->n_advertised_services].service_name );
+      char uri[256];
+      sprintf( uri, "rosrpc://%s:%d/", n->host, n->rpcros_port);
+      xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
+      sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+      xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
+
+      client_proc->request_id = CROS_API_REGISTER_SERVICE;
+
+      generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
+                          &(client_proc->method), &(client_proc->params), &(client_proc->message) );
+    }
     else
     {
       PRINT_INFO("cRosApiPrepareRequest() : ping roscore\n");
@@ -248,6 +267,17 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         ret = 1;
         if(++(n->n_advertised_pubs) >= n->n_pubs )
           n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_PUBLISHER);
+      }
+    }
+    else if( client_proc->request_id == CROS_API_REGISTER_SERVICE )
+    {
+      PRINT_DEBUG ( "cRosApiParseResponse() : registerService response \n" );
+
+      if( checkResponseValue( &(client_proc->params) ) )
+      {
+        ret = 1;
+        if(++(n->n_advertised_services) >= n->n_services )
+          n->state = (CrosNodeState)(n->state & ~CN_STATE_ADVERTISE_SERVICE);
       }
     }
     else if( client_proc->request_id == CROS_API_REGISTER_SUBSCRIBER )

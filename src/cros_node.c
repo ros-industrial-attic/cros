@@ -52,6 +52,23 @@ static void openXmlrpcListnerSocket( CrosNode *n )
   }
 }
 
+static void openRpcrosListnerSocket( CrosNode *n )
+{
+  if( !tcpIpSocketOpen( &(n->rpcros_listner_proc.socket) ) ||
+      !tcpIpSocketSetReuse( &(n->rpcros_listner_proc.socket) ) ||
+      !tcpIpSocketSetNonBlocking( &(n->rpcros_listner_proc.socket) ) ||
+      !tcpIpSocketBindListen( &(n->rpcros_listner_proc.socket), n->host, 0, CN_MAX_RPCROS_SERVER_CONNECTIONS ) )
+  {
+    PRINT_ERROR("openRpcrosListnerSocket() failed");
+    exit( EXIT_FAILURE );
+  }
+  else
+  {
+    n->rpcros_port = tcpIpSocketGetPort( &(n->rpcros_listner_proc.socket) );
+    PRINT_DEBUG ( "openRpcrosListnerSocket() : Accepting rcpros connections at port %d\n", n->rpcros_port );
+  }
+}
+
 static void openTcprosListnerSocket( CrosNode *n )
 {
   if( !tcpIpSocketOpen( &(n->tcpros_listner_proc.socket) ) ||
@@ -770,7 +787,10 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
 
   for ( i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++)
     tcprosProcessInit( &(new_n->tcpros_client_proc[i]) );
-  
+
+  for ( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++)
+    tcprosProcessInit( &(new_n->rpcros_server_proc[i]) );
+
   for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS; i++)
   {
     new_n->pubs[i].message_definition = NULL;
@@ -828,7 +848,8 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
 
   openXmlrpcListnerSocket( new_n );
   openTcprosListnerSocket( new_n );
-  
+  openRpcrosListnerSocket( new_n );
+
   return new_n;
 }
 
@@ -856,7 +877,10 @@ void cRosNodeDestroy ( CrosNode *n )
 
   for ( i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++)
     tcprosProcessRelease( &(n->tcpros_server_proc[i]) ); 
-    
+
+  for ( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++)
+    tcprosProcessRelease( &(n->rpcros_server_proc[i]) );
+
   if ( n->name != NULL ) free ( n->name );
   if ( n->host != NULL ) free ( n->host );
   if ( n->roscore_host != NULL ) free ( n->roscore_host );

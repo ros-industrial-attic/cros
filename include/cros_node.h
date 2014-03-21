@@ -52,12 +52,12 @@ typedef struct ServiceProviderNode ServiceProviderNode;
 
 typedef enum
 {
-  CN_STATE_NONE = 0X0,
-  CN_STATE_PING_ROSCORE = 0x1,
-  CN_STATE_ADVERTISE_PUBLISHER = 0X2,
-  CN_STATE_ADVERTISE_SUBSCRIBER = 0X4,
-  CN_STATE_ASK_FOR_CONNECTION = 0X8,
-  CN_STATE_ADVERTISE_SERVICE = 0X16
+  CN_STATE_NONE = 0,
+  CN_STATE_PING_ROSCORE = 1,
+  CN_STATE_ADVERTISE_PUBLISHER = 2,
+  CN_STATE_ADVERTISE_SUBSCRIBER = 4,
+  CN_STATE_ADVERTISE_SERVICE = 8,
+  CN_STATE_ASK_FOR_CONNECTION = 16
 }CrosNodeState;
 
 
@@ -112,7 +112,8 @@ struct CrosNode
   char *name;                   //! The node name: it is the absolute name, i.e. it should includes the namespace
   char *host;                   //! The node host (ipv4, e.g. 192.168.0.2)
   unsigned short xmlrpc_port;          //! The node port for the XMLRPC protocol
-  unsigned short tcpros_port;          //! The node port for the XMLRPC protocol
+  unsigned short tcpros_port;          //! The node port for the TCPROS protocol
+  unsigned short rpcros_port;          //! The node port for the RPCROS protocol
   
   int pid;                      //! Process ID
   
@@ -147,7 +148,7 @@ struct CrosNode
   int n_subs;                   //! Number of node's subscribed topics
   int n_advertised_subs;        //! Number of topic subscriptions yet advertised
   int n_services;               //! Number of registered services
-  int n_advertised_services;    //! Number of services yet to register
+  int n_advertised_services;    //! Number of services already advertised
 };
 
 
