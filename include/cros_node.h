@@ -11,10 +11,13 @@
  */
 
 /*! Max num serving XMLRPC connections */
-#define CN_MAX_XMLRPC_SERVER_CONNECTIONS 3
+#define CN_MAX_XMLRPC_SERVER_CONNECTIONS 5
 
 /*! Max num serving TCPROS connections */
-#define CN_MAX_TCPROS_SERVER_CONNECTIONS 4
+#define CN_MAX_TCPROS_SERVER_CONNECTIONS 5
+
+/*! Max num serving RPCROS connections */
+#define CN_MAX_RPCROS_SERVER_CONNECTIONS 5
 
 /*! Max num published topics */
 #define CN_MAX_PUBLISHED_TOPICS 5
@@ -95,6 +98,7 @@ struct ServiceProviderNode
 {
   char *service_name;
   char *service_type;
+  char *message_definition;                     //! Full text of service definition (output of gendeps --cat)
   char *md5sum;
   ServiceProviderCallback callback;
 };
@@ -127,7 +131,13 @@ struct CrosNode
   TcprosProcess tcpros_listner_proc;   //! Accept new TCPROS connections from roscore or other nodes
 
   /*! Manage connections for TCPROS between this and other nodes  */
-  TcprosProcess tcpros_server_proc[CN_MAX_TCPROS_SERVER_CONNECTIONS]; 
+  TcprosProcess tcpros_server_proc[CN_MAX_TCPROS_SERVER_CONNECTIONS];
+
+  //! Manage connections for RPCROS calls from this node to others
+  TcprosProcess rpcros_listner_proc;   //! Accept new TCPROS connections from roscore or other nodes
+
+  /*! Manage connections for RPCROS between this and other nodes  */
+  TcprosProcess rpcros_server_proc[CN_MAX_RPCROS_SERVER_CONNECTIONS];
   
   PublisherNode pubs[CN_MAX_PUBLISHED_TOPICS];            //! All the published topic, defined by PublisherNode structures
   SubscriberNode subs[CN_MAX_SUBSCRIBED_TOPICS];          //! All the subscribed topic, defined by PublisherNode structures

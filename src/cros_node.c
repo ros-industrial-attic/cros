@@ -536,6 +536,7 @@ static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
 
   }
 }
+
 static void doWithTcprosServerSocket( CrosNode *n, int i )
 {
   PRINT_VDEBUG ( "doWithTcprosServerSocket()\n" );
@@ -1042,6 +1043,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   
   int xmlrpc_listner_fd = tcpIpSocketGetFD( &(n->xmlrpc_listner_proc.socket) );
   int tcpros_listner_fd = tcpIpSocketGetFD( &(n->tcpros_listner_proc.socket) );
+  int rpcros_listner_fd = tcpIpSocketGetFD( &(n->rpcros_listner_proc.socket) );
   
   /*
    *
@@ -1187,7 +1189,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     }
   }
   
-  /* If one TCPROS server is active at least, add to the select() the listner socket */
+  /* If one TCPROS server is available at least, add to the select() the listner socket */
   if( next_tcpros_server_i >= 0)
   {
     FD_SET( tcpros_listner_fd, &r_fds);
@@ -1217,6 +1219,53 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       if( tmp_timeout < timeout )
         timeout = tmp_timeout;
     }
+  }
+
+  /*
+   *
+   * RPCROS PROCESSES SELECT() MANAGEMENT
+   *
+   */
+
+  /* Add to the select() the active RPCROS servers */
+
+  int next_rpcros_server_i = -1;
+
+  for( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++ )
+  {
+    int server_fd = tcpIpSocketGetFD( &(n->rpcros_server_proc[i].socket) );
+
+    if( next_rpcros_server_i < 0 &&
+        n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_IDLE )
+    {
+    	next_rpcros_server_i = i;
+    }
+    else if( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER )
+    {
+      FD_SET( server_fd, &r_fds);
+      FD_SET( server_fd, &err_fds);
+      if( server_fd > nfds ) nfds = server_fd;
+    }
+    else if( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_START_WRITING ||
+             n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING )
+    {
+      FD_SET( server_fd, &w_fds);
+      FD_SET( server_fd, &err_fds);
+      if( server_fd > nfds ) nfds = server_fd;
+    }
+    else if( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING )
+    {
+      FD_SET( server_fd, &err_fds);
+      if( server_fd > nfds ) nfds = server_fd;
+    }
+  }
+
+  /* If one RPCROS server is available at least, add to the select() the listner socket */
+  if( next_rpcros_server_i >= 0)
+  {
+    FD_SET( rpcros_listner_fd, &r_fds);
+    FD_SET( rpcros_listner_fd, &err_fds);
+    if( rpcros_listner_fd > nfds ) nfds = rpcros_listner_fd;
   }
   
   struct timeval tv = cRosClockGetTimeVal( timeout );
@@ -1391,6 +1440,44 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
         doWithTcprosServerSocket( n, i );    
       }
     }
+
+    if ( next_rpcros_server_i >= 0 )
+    {
+      if( FD_ISSET( rpcros_listner_fd, &err_fds) )
+      {
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS listner error\n" );
+      }
+      else if( next_tcpros_server_i >= 0 && FD_ISSET( rpcros_listner_fd, &r_fds) )
+      {
+        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
+        if( tcpIpSocketAccept( &(n->rpcros_listner_proc.socket),
+            &(n->rpcros_server_proc[next_rpcros_server_i].socket) ) == TCPIPSOCKET_DONE &&
+            tcpIpSocketSetReuse( &(n->rpcros_server_proc[next_rpcros_server_i].socket) ) &&
+            tcpIpSocketSetNonBlocking( &(n->rpcros_server_proc[next_rpcros_server_i].socket ) ) &&
+            tcpIpSocketSetKeepAlive( &(n->rpcros_server_proc[next_rpcros_server_i].socket ), 60, 10, 9 ) )
+        {
+          tcprosProcessChangeState( &(n->rpcros_server_proc[next_rpcros_server_i]), TCPROS_PROCESS_STATE_READING_HEADER );
+        }
+      }
+    }
+
+    for( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++ )
+    {
+      int server_fd = tcpIpSocketGetFD( &(n->rpcros_server_proc[i].socket) );
+      if( FD_ISSET(server_fd, &err_fds) )
+      {
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS server error\n" );
+        tcpIpSocketClose( &(n->rpcros_server_proc[i].socket) );
+        tcprosProcessChangeState( &(n->rpcros_server_proc[next_rpcros_server_i]), TCPROS_PROCESS_STATE_IDLE );
+      }
+      else if( ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER && FD_ISSET(server_fd, &r_fds) ) ||
+        ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_START_WRITING && FD_ISSET(server_fd, &w_fds) ) ||
+        ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING && FD_ISSET(server_fd, &w_fds) ) )
+      {
+        doWithRpcrosServerSocket( n, i );
+      }
+    }
+
   }
 }
 
