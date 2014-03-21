@@ -22,6 +22,9 @@
 /*! Max num subscribed topics */
 #define CN_MAX_SUBSCRIBED_TOPICS 5
 
+/*! Max num subscribed topics */
+#define CN_MAX_SERVICE_PROVIDERS 5
+
 /*!
  * Max num XMLRPC connections against another subscribed nodes
  *  (first connection index reserved to roscore)
@@ -42,6 +45,7 @@
 
 typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
+typedef struct ServiceProviderNode ServiceProviderNode;
 
 typedef enum
 {
@@ -49,7 +53,8 @@ typedef enum
   CN_STATE_PING_ROSCORE = 0x1,
   CN_STATE_ADVERTISE_PUBLISHER = 0X2,
   CN_STATE_ADVERTISE_SUBSCRIBER = 0X4,
-  CN_STATE_ASK_FOR_CONNECTION = 0X8
+  CN_STATE_ASK_FOR_CONNECTION = 0X8,
+  CN_STATE_ADVERTISE_SERVICE = 0X16
 }CrosNodeState;
 
 
@@ -84,6 +89,16 @@ struct SubscriberNode
   SubscriberCallback callback;
 };
 
+typedef unsigned char *(*ServiceProviderCallback)(DynBuffer *buffer, size_t *num, size_t *size ) ;
+
+struct ServiceProviderNode
+{
+  char *service_name;
+  char *service_type;
+  char *md5sum;
+  ServiceProviderCallback callback;
+};
+
 /*! \brief CrosNode object. Don't modify its internal members: use
  *         the related functions instead */
 typedef struct CrosNode CrosNode;
@@ -116,11 +131,14 @@ struct CrosNode
   
   PublisherNode pubs[CN_MAX_PUBLISHED_TOPICS];            //! All the published topic, defined by PublisherNode structures
   SubscriberNode subs[CN_MAX_SUBSCRIBED_TOPICS];          //! All the subscribed topic, defined by PublisherNode structures
+  ServiceProviderNode services[CN_MAX_SERVICE_PROVIDERS]; //! All the services to register
   
   int n_pubs;                   //! Number of node's published topics
   int n_advertised_pubs;        //! Number of published topics yet advertised
   int n_subs;                   //! Number of node's subscribed topics
   int n_advertised_subs;        //! Number of topic subscriptions yet advertised
+  int n_services;               //! Number of registered services
+  int n_advertised_services;    //! Number of services yet to register
 };
 
 
@@ -168,6 +186,14 @@ int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topi
 int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
                                char *topic_name, char *topic_type, char *md5sum,
                                SubscriberCallback callback);
+
+/*! \brief Register the service provider in roscore
+ *
+ *  \param TODO review doxy documentation
+ */
+int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
+                               char *service_type, char *md5sum,
+                                ServiceProviderCallback callback );
 
 /*! \brief Perform a loop of the cROS node main cycle 
  * 
