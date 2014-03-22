@@ -10,14 +10,6 @@
  *  @{
  */
 
-/*! Max num serving XMLRPC connections */
-#define CN_MAX_XMLRPC_SERVER_CONNECTIONS 5
-
-/*! Max num serving TCPROS connections */
-#define CN_MAX_TCPROS_SERVER_CONNECTIONS 5
-
-/*! Max num serving RPCROS connections */
-#define CN_MAX_RPCROS_SERVER_CONNECTIONS 7
 
 /*! Max num published topics */
 #define CN_MAX_PUBLISHED_TOPICS 5
@@ -25,8 +17,17 @@
 /*! Max num subscribed topics */
 #define CN_MAX_SUBSCRIBED_TOPICS 5
 
-/*! Max num subscribed topics */
-#define CN_MAX_SERVICE_PROVIDERS 5
+/*! Max num service providers */
+#define CN_MAX_SERVICE_PROVIDERS 7
+
+/*! Max num serving XMLRPC connections */
+#define CN_MAX_XMLRPC_SERVER_CONNECTIONS 5
+
+/*! Max num serving TCPROS connections */
+#define CN_MAX_TCPROS_SERVER_CONNECTIONS 5
+
+/*! Max num serving RPCROS connections */
+#define CN_MAX_RPCROS_SERVER_CONNECTIONS CN_MAX_SERVICE_PROVIDERS
 
 /*!
  * Max num XMLRPC connections against another subscribed nodes

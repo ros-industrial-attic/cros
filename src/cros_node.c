@@ -880,6 +880,9 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
     new_n->subs[i].tcpros_port = -1;
   }
 
+  new_n->n_subs = 0;
+  new_n->n_advertised_subs = 0;
+
   for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS; i++)
   {
     new_n->services[i].service_name = NULL;
@@ -890,9 +893,6 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
 
   new_n->n_services = 0;
   new_n->n_advertised_services = 0;
-
-  new_n->n_subs = 0;
-  new_n->n_advertised_subs = 0;
     
   new_n->state = CN_STATE_NONE;
 
