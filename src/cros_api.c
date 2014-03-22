@@ -495,13 +495,14 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 					int dirty_string_len = strlen(pub_host_string);
 					char* clean_string = (char *)calloc(dirty_string_len-8,sizeof(char));
 					strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
-					char* hostname = strtok(clean_string,":");
+          char * progress = NULL;
+          char* hostname = strtok_r(clean_string,":",&progress);
 					if(requesting_subscriber->topic_host == NULL)
 					{
 						requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
 					}
 					lookup_host(hostname, requesting_subscriber->topic_host);
-					requesting_subscriber->topic_port = atoi(strtok(NULL,":"));
+					requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
 					xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]),XMLRPC_PROCESS_STATE_WRITING);
 					n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
         }

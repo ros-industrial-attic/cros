@@ -790,8 +790,8 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
   }
 }
 
-CrosNode *cRosNodeCreate ( char* node_name, char *node_host, 
-                                 char *roscore_host, unsigned short roscore_port )
+CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
+                           unsigned short roscore_port, uint64_t const *select_timeout_ms )
 {
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
 
@@ -896,6 +896,10 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
     
   new_n->state = CN_STATE_NONE;
 
+  if (select_timeout_ms == NULL)
+    new_n->select_timeout = UINT64_MAX;
+  else
+    new_n->select_timeout = *select_timeout_ms;
   new_n->pid = (int)getpid();
   
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
@@ -1282,9 +1286,10 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     FD_SET( tcpros_listner_fd, &err_fds);
     if( tcpros_listner_fd > nfds ) nfds = tcpros_listner_fd;
   }
-  
-  uint64_t timeout = UINT64_MAX, tmp_timeout, cur_time = cRosClockGetTimeMs();
-  
+
+  uint64_t timeout = n->select_timeout;
+  uint64_t tmp_timeout, cur_time = cRosClockGetTimeMs();
+
   if( n->xmlrpc_client_proc[0].wake_up_time_ms > cur_time )
     tmp_timeout = n->xmlrpc_client_proc[0].wake_up_time_ms - cur_time;
   else
@@ -1354,7 +1359,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     FD_SET( rpcros_listner_fd, &err_fds);
     if( rpcros_listner_fd > nfds ) nfds = rpcros_listner_fd;
   }
-  
+
+#ifdef DEBUG
+  assert(timeout <= n->select_timeout);
+#endif
+
   struct timeval tv = cRosClockGetTimeVal( timeout );
 
   int n_set = select(nfds + 1, &r_fds, &w_fds, &err_fds, &tv);
