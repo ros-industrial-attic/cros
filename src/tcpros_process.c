@@ -33,9 +33,14 @@ void tcprosProcessClear( TcprosProcess *p )
 {
   dynStringClear( &(p->topic) );
   dynStringClear( &(p->caller_id) );
+  dynStringClear( &(p->service) );
   dynStringClear( &(p->type) );
   dynStringClear( &(p->md5sum) );
   dynBufferClear( &(p->packet) );
+  p->latching = p->tcp_nodelay = p->persistent = 0;
+  p->last_change_time = 0;
+  p->wake_up_time_ms = 0;
+  p->topic_idx = -1;
   p->left_to_recv = 0;
 }
 

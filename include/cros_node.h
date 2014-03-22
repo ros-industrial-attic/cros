@@ -17,7 +17,7 @@
 #define CN_MAX_TCPROS_SERVER_CONNECTIONS 5
 
 /*! Max num serving RPCROS connections */
-#define CN_MAX_RPCROS_SERVER_CONNECTIONS 5
+#define CN_MAX_RPCROS_SERVER_CONNECTIONS 7
 
 /*! Max num published topics */
 #define CN_MAX_PUBLISHED_TOPICS 5

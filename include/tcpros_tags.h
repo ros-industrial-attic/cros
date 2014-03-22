@@ -20,10 +20,11 @@ static TcprosTagStrDim TCPROS_TOPIC_TAG = { "topic=", 6 };
 static TcprosTagStrDim TCPROS_TYPE_TAG = { "type=", 5 };
 static TcprosTagStrDim TCPROS_MD5SUM_TAG = { "md5sum=", 7 };
 static TcprosTagStrDim TCPROS_MESSAGE_DEFINITION_TAG = { "message_definition=", 19 };
-static TcprosTagStrDim TCPROS_SERVICE_TAG = { "service=", 8 }; // WARNING Not implemented
+static TcprosTagStrDim TCPROS_SERVICE_TAG = { "service=", 8 };
 static TcprosTagStrDim TCPROS_TCP_NODELAY_TAG = { "tcp_nodelay=", 12 };
 static TcprosTagStrDim TCPROS_LATCHING_TAG = { "latching=", 9 }; // WARNING Not implemented
 static TcprosTagStrDim TCPROS_PERSISTENT_TAG = { "persistent=", 11 }; // WARNING Not implemented
+static TcprosTagStrDim TCPROS_PROBE_TAG = { "probe=", 6 }; // WARNING Not implemented
 static TcprosTagStrDim TCPROS_ERROR_TAG = { "error=", 6 };
 
 enum
@@ -38,7 +39,8 @@ enum
   TCPROS_LATCHING_FLAG = 0x80,
   TCPROS_PERSISTENT_FLAG = 0x100,
   TCPROS_ERROR_FLAG = 0x200,
-  TCPROS_DATA_FLAG = 0x400  
+  TCPROS_DATA_FLAG = 0x400,
+  TCPROS_PROBE_FLAG = 0x800
 };
 
 static const uint32_t TCPROS_SUBCRIPTION_HEADER_FLAGS = TCPROS_MESSAGE_DEFINITION_FLAG |
@@ -58,6 +60,11 @@ static const uint32_t TCPROS_PUBLICATION_PACKET_FLAGS = TCPROS_CALLER_ID_FLAG |
                                                         TCPROS_MD5SUM_FLAG |
                                                         TCPROS_MESSAGE_DEFINITION_FLAG | 
                                                         TCPROS_DATA_FLAG;
+
+static const uint32_t TCPROS_SERVICECALL_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
+                                                        TCPROS_SERVICE_FLAG |
+                                                      //  TCPROS_TYPE_FLAG |
+                                                        TCPROS_MD5SUM_FLAG ;
                                                         
 /*! @}*/
 
