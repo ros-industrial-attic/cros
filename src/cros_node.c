@@ -575,6 +575,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
         break;
         
       case TCPIPSOCKET_IN_PROGRESS:
+      	parser_state = TCPROS_PARSER_HEADER_INCOMPLETE;
         break;
         
       case TCPIPSOCKET_DISCONNECTED:
