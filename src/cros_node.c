@@ -710,6 +710,17 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host,
     new_n->subs[i].tcpros_port = -1;
   }
 
+  for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS; i++)
+  {
+    new_n->services[i].service_name = NULL;
+    new_n->services[i].service_type = NULL;
+    new_n->services[i].md5sum = NULL;
+    new_n->services[i].callback = NULL;
+  }
+
+  new_n->n_services = 0;
+  new_n->n_advertised_services = 0;
+
   new_n->n_subs = 0;
   new_n->n_advertised_subs = 0;
     
@@ -778,6 +789,13 @@ void cRosNodeDestroy ( CrosNode *n )
     if ( n->subs[i].md5sum != NULL ) free ( n->subs[i].md5sum );
     if ( n->subs[i].topic_host != NULL ) free ( n->subs[i].topic_host );
   }
+
+  for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS; i++)
+  {
+    if ( n->services[i].service_name != NULL ) free ( n->services[i].service_name );
+    if ( n->services[i].service_type != NULL ) free ( n->services[i].service_type );
+    if ( n->services[i].md5sum != NULL ) free ( n->services[i].md5sum );
+  }
 }
 
 int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition, 
@@ -824,6 +842,50 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
   n->n_advertised_pubs = 0;
   
+  return 1;
+}
+
+int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
+                               char *service_type, char *md5sum,
+                                ServiceProviderCallback callback )
+{
+  PRINT_VDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
+  PRINT_INFO ( "Registering service %s type %s \n", service_name, service_type );
+
+  if ( n->n_pubs >= CN_MAX_SERVICE_PROVIDERS )
+  {
+    PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't register a new service provider: \
+                 reached the maximum number of services\n");
+    return 0;
+  }
+
+  char *srv_service_name = ( char * ) malloc ( ( strlen ( service_name ) + 1 ) * sizeof ( char ) );
+  char *srv_service_type = ( char * ) malloc ( ( strlen ( service_type ) + 1 ) * sizeof ( char ) );
+  char *srv_md5sum = ( char * ) malloc ( ( strlen ( md5sum ) + 1 ) * sizeof ( char ) );
+
+  if ( srv_service_name == NULL || srv_service_type == NULL ||
+       srv_md5sum == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterServiceProvider() : Can't allocate memory\n" );
+    return 0;
+  }
+
+  strcpy ( srv_service_name, service_name );
+  strcpy ( srv_service_type, service_type );
+  strcpy ( srv_md5sum, md5sum );
+
+  ServiceProviderNode *node = &(n->services[n->n_services]);
+
+  node->service_name = srv_service_name;
+  node->service_type = srv_service_type;
+  node->md5sum = srv_md5sum;
+  node->callback = callback;
+
+  n->n_services++;
+
+  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SERVICE);
+  n->n_advertised_pubs = 0;
+
   return 1;
 }
 
