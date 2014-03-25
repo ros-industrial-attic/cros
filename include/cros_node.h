@@ -115,9 +115,10 @@ struct CrosNode
   unsigned short xmlrpc_port;          //! The node port for the XMLRPC protocol
   unsigned short tcpros_port;          //! The node port for the TCPROS protocol
   unsigned short rpcros_port;          //! The node port for the RPCROS protocol
-  
+
+  uint64_t select_timeout;      //! Select max timeout (in ms)
   int pid;                      //! Process ID
-  
+
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
   unsigned short roscore_port;  //! The roscore port
 
@@ -160,11 +161,12 @@ struct CrosNode
  *  \param node_host The node host (ipv4, e.g. 192.168.0.2)
  *  \param roscore_host The roscore host (ipv4, e.g. 192.168.0.1)
  *  \param roscore_port The roscore port
+ *  \param select_timeout_ms Max timeout for the select() in ms. NULL defaults to UINT64_MAX
  * 
  *  \return A pointer to the new CrosNode on success, NULL on failure
  */
-CrosNode *cRosNodeCreate( char* node_name, char *node_host,
-                       char *roscore_host, unsigned short roscore_port );
+CrosNode *cRosNodeCreate( char* node_name, char *node_host, char *roscore_host,
+                          unsigned short roscore_port, uint64_t const *select_timeout_ms );
 
 /*! \brief Release all the internal allocated memory for a CrosNode object previously crated with
  *         cRosNodeCreate()
