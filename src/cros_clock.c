@@ -1,5 +1,6 @@
 #include "cros_defs.h"
 #include "cros_clock.h"
+#include "limits.h"
 
 uint64_t cRosClockGetTimeMs()
 {
@@ -13,7 +14,15 @@ struct timeval cRosClockGetTimeVal( uint64_t msec )
 {
   PRINT_VDEBUG ( "cRosClockGetTimeVal()\n" );
   struct timeval tv;
-  tv.tv_sec = (int)(msec / 1000);
-  tv.tv_usec = (int)(1000 * (msec % 1000));
-  return tv;
+  if (msec > ( LONG_MAX * 1000ULL ))
+  {
+    // Given timespan would overflow timeval
+    tv.tv_sec = LONG_MAX;
+    tv.tv_usec = 999999L;
+  }
+  else
+  {
+    tv.tv_sec = (long)(msec / 1000);
+    tv.tv_usec = (long)(msec - tv.tv_sec * 1000ULL ) * 1000;
+  }
 }
