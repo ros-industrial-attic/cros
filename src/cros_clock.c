@@ -25,4 +25,6 @@ struct timeval cRosClockGetTimeVal( uint64_t msec )
     tv.tv_sec = (long)(msec / 1000);
     tv.tv_usec = (long)(msec - tv.tv_sec * 1000ULL ) * 1000;
   }
+
+  return tv;
 }
