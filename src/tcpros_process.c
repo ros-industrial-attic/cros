@@ -29,18 +29,25 @@ void tcprosProcessRelease( TcprosProcess *p )
   dynBufferRelease( &(p->packet) );
 }
 
-void tcprosProcessClear( TcprosProcess *p )
+void tcprosProcessClear( TcprosProcess *p , int fullreset)
 {
-  dynStringClear( &(p->topic) );
-  dynStringClear( &(p->caller_id) );
-  dynStringClear( &(p->service) );
-  dynStringClear( &(p->type) );
-  dynStringClear( &(p->md5sum) );
   dynBufferClear( &(p->packet) );
-  p->latching = p->tcp_nodelay = p->persistent = 0;
-  p->last_change_time = 0;
-  p->wake_up_time_ms = 0;
   p->left_to_recv = 0;
+
+  if (fullreset)
+  {
+    dynStringClear( &(p->topic) );
+    dynStringClear( &(p->caller_id) );
+    dynStringClear( &(p->service) );
+    dynStringClear( &(p->type) );
+    dynStringClear( &(p->md5sum) );
+    p->latching = 0;
+    p->tcp_nodelay = 0;
+    p->persistent = 0;
+    p->last_change_time = 0;
+    p->wake_up_time_ms = 0;
+    p->topic_idx = -1;
+  }
 }
 
 void tcprosProcessChangeState( TcprosProcess *p, TcprosProcessState state )

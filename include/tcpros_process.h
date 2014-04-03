@@ -68,8 +68,9 @@ void tcprosProcessRelease( TcprosProcess *p );
 /*! \brief Clear internal data of an TcprosProcess object (the internal memory IS NOT released)
  * 
  *  \param s Pointer to TcprosProcess object
+ *  \param fullreset true to do ferform a full reset, false to just allow a new packet to be read
  */
-void tcprosProcessClear( TcprosProcess *p );
+void tcprosProcessClear( TcprosProcess *p , int fullreset );
 
 /*! \brief Change the internal state of an TcprosProcess object, and update its timer
  * 
