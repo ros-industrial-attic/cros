@@ -638,7 +638,7 @@ void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx)
   dynBufferClear(packet);
 
   //OK field (byte size)
-  char ok = 1;
+  unsigned char ok = 1;
   dynBufferPushBackBuf( packet, &ok, 1 );
 
   //Size data field
