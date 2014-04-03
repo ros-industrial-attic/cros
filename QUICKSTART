@@ -18,3 +18,9 @@ $ rosrun <pacchetto> <nomenodo>
 
 # Esempio lancio nodo registrato con catkin
 $ rosrun robox gripperstatus_talker
+
+# Richiede servizio
+$ rosservice call <nome_servizio> <argomenti>
+
+# Esempio richiesta servizio add_two_ints
+$ rosservice call /add_two_ints 1 2
