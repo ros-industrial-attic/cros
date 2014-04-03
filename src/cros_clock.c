@@ -1,6 +1,6 @@
 #include "cros_defs.h"
 #include "cros_clock.h"
-#include "limits.h"
+#include <limits.h>
 
 uint64_t cRosClockGetTimeMs()
 {
