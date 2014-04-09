@@ -979,7 +979,7 @@ void cRosNodeDestroy ( CrosNode *n )
 
 int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition, 
                                 char *topic_name, char *topic_type, char *md5sum, int loop_period,
-                                unsigned char *(*publisherDataCallback)( size_t *num, size_t *size ) )
+                                PublisherCallback callback )
 {
   PRINT_VDEBUG ( "cRosNodeRegisterPublisher()\n" );
   PRINT_INFO ( "Publishing topic %s type %s \n", topic_name, topic_type );
@@ -1014,7 +1014,7 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   n->pubs[n->n_pubs].md5sum = pub_md5sum;
   
   n->pubs[n->n_pubs].loop_period = loop_period;
-  n->pubs[n->n_pubs].callback = publisherDataCallback;
+  n->pubs[n->n_pubs].callback = callback;
 
   n->n_pubs++;
   

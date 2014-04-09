@@ -14,9 +14,9 @@
 typedef struct DynBuffer DynBuffer;
 struct DynBuffer
 {
-  int size;                    //! Current buffer size
+  size_t size;                    //! Current buffer size
   int pos_offset;              //! Current position indicator
-  int max;                     //! Max buffer size
+  size_t max;                     //! Max buffer size
   unsigned char *data;         //! buffer data
 };
 
@@ -40,15 +40,25 @@ void dynBufferRelease( DynBuffer *d_buf );
  * 
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackBuf( DynBuffer *d_buf, const unsigned char *new_buf, int n );
+int dynBufferPushBackBuf( DynBuffer *d_buf, const unsigned char *new_buf, size_t n );
 
-/*! \brief Append a 32 bit unsigned integer (in binary format) 
+/*! \brief Append a 8 bit unsigned integer
  *         to the end of the dynamic buffer pointed by d_buf
  *         WARNING:  The byte order depends on the endianess of your platform
  * 
  *  \param d_buf Pointer to a DynBuffer object
  *  \param val The value to be appended
  * 
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackUint8( DynBuffer *d_buf, uint8_t val );
+
+/*! \brief Append a 32 bit unsigned integer (in binary format) 
+ *         to the end of the dynamic buffer pointed by d_buf
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
  *  \return The new dynamic bufer size, or -1 on failure
  */
 int dynBufferPushBackUint32( DynBuffer *d_buf, uint32_t val );
@@ -75,7 +85,7 @@ void dynBufferClear( DynBuffer *d_buf );
  * 
  *  \return The current dynamic buffer size
  */
-int dynBufferGetSize( DynBuffer *d_buf );
+size_t dynBufferGetSize( DynBuffer *d_buf );
 
 /*! \brief Get a const pointer to the internal buffer data
  * 

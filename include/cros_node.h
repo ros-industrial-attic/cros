@@ -62,6 +62,8 @@ typedef enum
 }CrosNodeState;
 
 
+typedef void (*PublisherCallback)(DynBuffer *buffer);
+
 /*! Structure that define a published topic */
 struct PublisherNode
 {
@@ -70,7 +72,7 @@ struct PublisherNode
   char *md5sum;                                 //! The md5sum of the message type
   char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
   /*! The callback called to generate the (raw) packet data of type topic_type */
-  unsigned char *(*callback)( size_t *num, size_t *size ) ;  
+  PublisherCallback callback;
   int loop_period;                              //! Period (in msec) for publication cycle 
 };
 
@@ -190,7 +192,7 @@ void cRosNodeDestroy( CrosNode *n );
  */
 int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topic_name, 
                                char *topic_type, char *md5sum, int loop_period, 
-                               unsigned char *(*publisherDataCallback)( size_t *num, size_t *size ) );
+                               PublisherCallback callback );
 
 /*! \brief Register the node in roscore as topic subscriber.
  *
