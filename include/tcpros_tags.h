@@ -43,14 +43,16 @@ enum
   TCPROS_PROBE_FLAG = 0x800
 };
 
-static const uint32_t TCPROS_SUBCRIPTION_HEADER_FLAGS = TCPROS_MESSAGE_DEFINITION_FLAG |
+// http://wiki.ros.org/ROS/TCPROS mentions message_definition as compulsory but
+// it's not sent by roscpp subscribers
+static const uint32_t TCPROS_SUBCRIPTION_HEADER_FLAGS = // TCPROS_MESSAGE_DEFINITION_FLAG |
                                                         TCPROS_CALLER_ID_FLAG |
                                                         TCPROS_TOPIC_FLAG |
                                                         TCPROS_MD5SUM_FLAG |
                                                         TCPROS_TYPE_FLAG;
 
 // http://wiki.ros.org/ROS/TCPROS doesn't mention message_definition, caller_id
-// or the topic as compulsory
+// or the topic as compulsory but they are sent by roscpp publishers
 static const uint32_t TCPROS_PUBLICATION_HEADER_FLAGS = TCPROS_TYPE_FLAG |
                                                         TCPROS_MD5SUM_FLAG;
                                     
