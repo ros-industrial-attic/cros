@@ -80,7 +80,7 @@ static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flag
   PRINT_VDEBUG("readSubcriptioHeader()\n");
   DynBuffer *packet = &(p->packet);
   uint32_t bytes_to_read = getLen( packet );
-  uint32_t packet_len = dynBufferGetSize( packet );
+  size_t packet_len = dynBufferGetSize( packet );
   
   if( bytes_to_read > packet_len - sizeof( uint32_t ) )
     return TCPROS_PARSER_HEADER_INCOMPLETE;
@@ -188,7 +188,7 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
 {
   PRINT_VDEBUG("readPublicationHeader()\n");
   DynBuffer *packet = &(p->packet);
-  uint32_t bytes_to_read = dynBufferGetSize( packet );
+  size_t bytes_to_read = dynBufferGetSize( packet );
 
   *flags = 0x0;
 
@@ -285,7 +285,7 @@ static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flag
   PRINT_VDEBUG("readServiceCallHeader()\n");
   DynBuffer *packet = &(p->packet);
   uint32_t bytes_to_read = getLen( packet );
-  uint32_t packet_len = dynBufferGetSize( packet );
+  size_t packet_len = dynBufferGetSize( packet );
 
   if( bytes_to_read > packet_len - sizeof( uint32_t ) )
     return TCPROS_PARSER_HEADER_INCOMPLETE;

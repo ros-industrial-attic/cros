@@ -73,6 +73,34 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
   return d_buf->size;
 }
 
+int dynBufferPushBackInt8( DynBuffer *d_buf, int8_t val )
+{
+  PRINT_VDEBUG ( "dynBufferPushBack()\n" );
+
+  return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( int8_t ) );
+}
+
+int dynBufferPushBackInt16( DynBuffer *d_buf, int16_t val )
+{
+  PRINT_VDEBUG ( "dynBufferPushBack()\n" );
+
+  return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( int16_t ) );
+}
+
+int dynBufferPushBackInt32 ( DynBuffer *d_buf, int32_t val )
+{
+  PRINT_VDEBUG ( "dynBufferPushBack()\n" );
+
+  return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( int32_t ) );
+}
+
+int dynBufferPushBackInt64( DynBuffer *d_buf, int64_t val )
+{
+  PRINT_VDEBUG ( "dynBufferPushBack()\n" );
+
+  return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( int64_t ) );
+}
+
 int dynBufferPushBackUint8( DynBuffer *d_buf, uint8_t val )
 {
   PRINT_VDEBUG ( "dynBufferPushBack()\n" );
@@ -80,11 +108,32 @@ int dynBufferPushBackUint8( DynBuffer *d_buf, uint8_t val )
   return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( uint8_t ) );
 }
 
+int dynBufferPushBackUint16( DynBuffer *d_buf, uint16_t val )
+{
+  PRINT_VDEBUG ( "dynBufferPushBack()\n" );
+
+  return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( uint16_t ) );
+}
+
 int dynBufferPushBackUint32 ( DynBuffer *d_buf, uint32_t val )
 {
   PRINT_VDEBUG ( "dynBufferPushBack()\n" );
 
   return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( uint32_t ) );
+}
+
+int dynBufferPushBackUint64( DynBuffer *d_buf, uint64_t val )
+{
+  PRINT_VDEBUG ( "dynBufferPushBack()\n" );
+
+  return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( uint64_t ) );
+}
+
+int dynBufferPushBackSingle ( DynBuffer *d_buf, float val )
+{
+  PRINT_VDEBUG ( "dynBufferPushBack()\n" );
+
+  return dynBufferPushBackBuf ( d_buf, ( unsigned char * ) ( &val ), sizeof ( float ) );
 }
 
 int dynBufferPushBackDouble ( DynBuffer *d_buf, double val )
