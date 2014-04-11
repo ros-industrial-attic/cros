@@ -14,9 +14,9 @@
 typedef struct DynBuffer DynBuffer;
 struct DynBuffer
 {
-  int size;                    //! Current buffer size
+  size_t size;                    //! Current buffer size
   int pos_offset;              //! Current position indicator
-  int max;                     //! Max buffer size
+  size_t max;                     //! Max buffer size
   unsigned char *data;         //! buffer data
 };
 
@@ -40,25 +40,110 @@ void dynBufferRelease( DynBuffer *d_buf );
  * 
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackBuf( DynBuffer *d_buf, const unsigned char *new_buf, int n );
+int dynBufferPushBackBuf( DynBuffer *d_buf, const unsigned char *new_buf, size_t n );
 
-/*! \brief Append a 32 bit unsigned integer (in binary format) 
+/*! \brief Append a 8 bit signed integer
  *         to the end of the dynamic buffer pointed by d_buf
- *         WARNING:  The byte order depends on the endianess of your platform
  * 
  *  \param d_buf Pointer to a DynBuffer object
  *  \param val The value to be appended
  * 
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackUint32( DynBuffer *d_buf, uint32_t val );
+int dynBufferPushBackInt8( DynBuffer *d_buf, int8_t val );
 
-/*! \brief Append a double floating point value (in binary format) 
+/*! \brief Append a 16 bit signed integer (in binary format)
  *         to the end of the dynamic buffer pointed by d_buf
- * 
+ *         WARNING:  The byte order depends on the endianess of your platform
+ *
  *  \param d_buf Pointer to a DynBuffer object
  *  \param val The value to be appended
- * 
+ *
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackInt16( DynBuffer *d_buf, int16_t val );
+
+/*! \brief Append a 32 bit signed integer (in binary format)
+ *         to the end of the dynamic buffer pointed by d_buf
+ *         WARNING:  The byte order depends on the endianess of your platform
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackInt32( DynBuffer *d_buf, int32_t val );
+
+/*! \brief Append a 64 bit signed integer (in binary format)
+ *         to the end of the dynamic buffer pointed by d_buf
+ *         WARNING:  The byte order depends on the endianess of your platform
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackInt64( DynBuffer *d_buf, int64_t val );
+
+/*! \brief Append a 8 bit signed integer
+ *         to the end of the dynamic buffer pointed by d_buf
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackUint8( DynBuffer *d_buf, uint8_t val );
+
+/*! \brief Append a 16 bit unsigned integer (in binary format)
+ *         to the end of the dynamic buffer pointed by d_buf
+ *         WARNING:  The byte order depends on the endianess of your platform
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackUint16( DynBuffer *d_buf, uint16_t val );
+
+/*! \brief Append a 32 bit unsigned integer (in binary format)
+ *         to the end of the dynamic buffer pointed by d_buf
+ *         WARNING:  The byte order depends on the endianess of your platform
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackUint32( DynBuffer *d_buf, uint32_t val );
+
+/*! \brief Append a 64 bit unsigned integer (in binary format)
+ *         to the end of the dynamic buffer pointed by d_buf
+ *         WARNING:  The byte order depends on the endianess of your platform
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackUint64( DynBuffer *d_buf, uint64_t val );
+
+/*! \brief Append a single precision floating point value (in binary format)
+ *         to the end of the dynamic buffer pointed by d_buf
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
+ *  \return The new dynamic bufer size, or -1 on failure
+ */
+int dynBufferPushBackSingle( DynBuffer *d_buf, float val );
+
+/*! \brief Append a double precision floating point value (in binary format)
+ *         to the end of the dynamic buffer pointed by d_buf
+ *
+ *  \param d_buf Pointer to a DynBuffer object
+ *  \param val The value to be appended
+ *
  *  \return The new dynamic bufer size, or -1 on failure
  */
 int dynBufferPushBackDouble( DynBuffer *d_buf, double val );
@@ -75,7 +160,7 @@ void dynBufferClear( DynBuffer *d_buf );
  * 
  *  \return The current dynamic buffer size
  */
-int dynBufferGetSize( DynBuffer *d_buf );
+size_t dynBufferGetSize( DynBuffer *d_buf );
 
 /*! \brief Get a const pointer to the internal buffer data
  * 

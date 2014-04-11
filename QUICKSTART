@@ -24,3 +24,6 @@ $ rosservice call <nome_servizio> <argomenti>
 
 # Esempio richiesta servizio add_two_ints
 $ rosservice call /add_two_ints 1 2
+
+# Esempio publisher con definizione campi interni
+$ rostopic pub /test cros_testbed/Test "{header: { frame_id: /base_link}}"

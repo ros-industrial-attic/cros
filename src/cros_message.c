@@ -80,7 +80,7 @@ static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flag
   PRINT_VDEBUG("readSubcriptioHeader()\n");
   DynBuffer *packet = &(p->packet);
   uint32_t bytes_to_read = getLen( packet );
-  uint32_t packet_len = dynBufferGetSize( packet );
+  size_t packet_len = dynBufferGetSize( packet );
   
   if( bytes_to_read > packet_len - sizeof( uint32_t ) )
     return TCPROS_PARSER_HEADER_INCOMPLETE;
@@ -188,7 +188,7 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
 {
   PRINT_VDEBUG("readPublicationHeader()\n");
   DynBuffer *packet = &(p->packet);
-  uint32_t bytes_to_read = dynBufferGetSize( packet );
+  size_t bytes_to_read = dynBufferGetSize( packet );
 
   *flags = 0x0;
 
@@ -285,7 +285,7 @@ static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flag
   PRINT_VDEBUG("readServiceCallHeader()\n");
   DynBuffer *packet = &(p->packet);
   uint32_t bytes_to_read = getLen( packet );
-  uint32_t packet_len = dynBufferGetSize( packet );
+  size_t packet_len = dynBufferGetSize( packet );
 
   if( bytes_to_read > packet_len - sizeof( uint32_t ) )
     return TCPROS_PARSER_HEADER_INCOMPLETE;
@@ -591,15 +591,10 @@ void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
   TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
   int pub_idx = server_proc->topic_idx;
   DynBuffer *packet = &(server_proc->packet);
-  size_t data_num, data_size; 
-  unsigned char *data = n->pubs[pub_idx].callback( &data_num, &data_size );
-  // TODO Generalize here
-  dynBufferPushBackUint32( packet, data_num*data_size + sizeof( uint32_t ) );
-  dynBufferPushBackUint32( packet, data_num );
-  dynBufferPushBackBuf( packet, data, data_num*data_size );
-  
-  // DEBUG CODE
-  //printPacket( packet, 1 );
+  dynBufferPushBackUint32( packet, 0 ); // Placehoder for packet size
+  n->pubs[pub_idx].callback( packet );
+  uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
+  memcpy(packet->data, &size, sizeof(uint32_t));
 }
 
 void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
