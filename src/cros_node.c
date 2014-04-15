@@ -1060,13 +1060,13 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
     return 0;
   }
 
-  strcpy ( srv_service_name, service_name );
-  strcpy ( srv_service_type, service_type );
-  strcat ( srv_servicerequest_type, service_type );
-  strcat ( srv_servicerequest_type, "Request" );
-  strcat ( srv_serviceresponse_type, service_type );
-  strcat ( srv_serviceresponse_type, "Response" );
-  strcpy ( srv_md5sum, md5sum );
+  strncpy ( srv_service_name, service_name, strlen ( service_name ) + 1 );
+  strncpy ( srv_service_type, service_type, strlen ( service_type ) + 1 );
+  strncpy ( srv_servicerequest_type, service_type, strlen ( service_type ) + 1 );
+  strncat ( srv_servicerequest_type, "Request", strlen("Request") + 1 );
+  strncpy ( srv_serviceresponse_type, service_type, strlen ( service_type ) + 1 );
+  strncat ( srv_serviceresponse_type, "Response", strlen("Response") +1 );
+  strncpy ( srv_md5sum, md5sum, strlen(md5sum) + 1 );
 
   ServiceProviderNode *node = &(n->services[n->n_services]);
 
