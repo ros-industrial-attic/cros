@@ -98,6 +98,12 @@ static void handleXmlrpcClientError( CrosNode *n, int i )
     n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
     n->n_advertised_pubs = 0;
   }
+
+  if( n->n_services )
+  {
+    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SERVICE);
+    n->n_advertised_services = 0;
+  }
 }
 
 static void handleTcprosClientError( CrosNode *n, int i )
@@ -974,6 +980,8 @@ void cRosNodeDestroy ( CrosNode *n )
   {
     if ( n->services[i].service_name != NULL ) free ( n->services[i].service_name );
     if ( n->services[i].service_type != NULL ) free ( n->services[i].service_type );
+    if ( n->services[i].servicerequest_type != NULL ) free ( n->services[i].service_type );
+    if ( n->services[i].serviceresponse_type != NULL ) free ( n->services[i].service_type );
     if ( n->services[i].md5sum != NULL ) free ( n->services[i].md5sum );
   }
 }
@@ -1027,7 +1035,7 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
 
 int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
                                char *service_type, char *md5sum,
-                                ServiceProviderCallback callback )
+                                ServiceProviderCallback callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
   PRINT_INFO ( "Registering service %s type %s \n", service_name, service_type );
@@ -1041,6 +1049,8 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
 
   char *srv_service_name = ( char * ) malloc ( ( strlen ( service_name ) + 1 ) * sizeof ( char ) );
   char *srv_service_type = ( char * ) malloc ( ( strlen ( service_type ) + 1 ) * sizeof ( char ) );
+  char *srv_servicerequest_type = ( char * ) malloc ( ( strlen ( service_type ) + strlen("Request") + 1 ) * sizeof ( char ) );
+  char *srv_serviceresponse_type = ( char * ) malloc ( ( strlen ( service_type ) + strlen("Response") + 1 ) * sizeof ( char ) );
   char *srv_md5sum = ( char * ) malloc ( ( strlen ( md5sum ) + 1 ) * sizeof ( char ) );
 
   if ( srv_service_name == NULL || srv_service_type == NULL ||
@@ -1052,14 +1062,21 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
 
   strcpy ( srv_service_name, service_name );
   strcpy ( srv_service_type, service_type );
+  strcat ( srv_servicerequest_type, service_type );
+  strcat ( srv_servicerequest_type, "Request" );
+  strcat ( srv_serviceresponse_type, service_type );
+  strcat ( srv_serviceresponse_type, "Response" );
   strcpy ( srv_md5sum, md5sum );
 
   ServiceProviderNode *node = &(n->services[n->n_services]);
 
   node->service_name = srv_service_name;
   node->service_type = srv_service_type;
+  node->servicerequest_type = srv_servicerequest_type;
+  node->serviceresponse_type = srv_serviceresponse_type;
   node->md5sum = srv_md5sum;
   node->callback = callback;
+  node->context = data_context;
 
   n->n_services++;
 

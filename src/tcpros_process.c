@@ -44,6 +44,7 @@ void tcprosProcessClear( TcprosProcess *p , int fullreset)
     p->latching = 0;
     p->tcp_nodelay = 0;
     p->persistent = 0;
+    p->probe = 0;
     p->last_change_time = 0;
     p->wake_up_time_ms = 0;
     p->topic_idx = -1;

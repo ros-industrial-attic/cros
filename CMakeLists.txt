@@ -17,8 +17,12 @@ add_library(cros STATIC ${CROSLIB_SRCS} )
 add_executable( test_node test_node.c )
 target_link_libraries( test_node cros )
 
+add_executable( greek_node greek_node.c )
+target_link_libraries( greek_node cros )
+
 set_target_properties(cros PROPERTIES ARCHIVE_OUTPUT_DIRECTORY lib)
 set_target_properties(test_node PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
+set_target_properties(greek_node PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 
 find_package(Doxygen)
 if (NOT DOXYGEN_FOUND)

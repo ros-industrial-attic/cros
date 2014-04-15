@@ -356,8 +356,9 @@ static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flag
       else if ( field_len > (uint32_t)TCPROS_PROBE_TAG.dim &&
           strncmp ( field, TCPROS_PROBE_TAG.str, TCPROS_PROBE_TAG.dim ) == 0 )
       {
-        PRINT_INFO("readServiceCallHeader() WARNING : TCPROS_PROBE_TAG not implemented\n");
+        //PRINT_INFO("readServiceCallHeader() WARNING : TCPROS_PROBE_TAG implemented only\n");
         field += TCPROS_PROBE_TAG.dim;
+        p->probe = (*field == '1')?1:0;
         *flags |= TCPROS_PROBE_FLAG;
         dynBufferMovePoseIndicator( packet, field_len );
       }
@@ -496,33 +497,47 @@ TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_i
   if( ret != TCPROS_PARSER_DONE )
     return ret;
 
-  if( TCPROS_SERVICECALL_HEADER_FLAGS != ( header_flags & TCPROS_SERVICECALL_HEADER_FLAGS) )
+  int service_found = 0;
+
+  if( header_flags == ( header_flags & TCPROS_SERVICECALL_HEADER_FLAGS) )
   {
-    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Missing fields\n");
-    ret = TCPROS_PARSER_ERROR;
-  }
-  else
-  {
-    int service_found = 0;
     int i = 0;
     for( i = 0 ; i < n->n_services; i++)
     {
       if( strcmp( n->services[i].service_name, dynStringGetData(&(server_proc->service))) == 0 &&
-          //strcmp( n->services[i].service_type, dynStringGetData(&(server_proc->type))) == 0 &&
-          strcmp( n->services[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0 )
+          strcmp( n->services[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0
+      		)
       {
       	service_found = 1;
         server_proc->service_idx = i;
         break;
       }
     }
-
-    if( ! service_found )
+  }
+  else if( header_flags == ( header_flags & TCPROS_SERVICEPROBE_HEADER_FLAGS) )
+	{
+    int i = 0;
+    for( i = 0 ; i < n->n_services; i++)
     {
-      PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Wrong service, type or md5sum\n");
-      server_proc->service_idx = -1;
-      ret = TCPROS_PARSER_ERROR;
+      if( strcmp( n->services[i].service_name, dynStringGetData(&(server_proc->service))) == 0)
+      {
+      	service_found = 1;
+        server_proc->service_idx = i;
+        break;
+      }
     }
+	}
+  else
+	{
+		PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Missing fields\n");
+		ret = TCPROS_PARSER_ERROR;
+	}
+
+  if( ! service_found )
+  {
+    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Wrong service, type or md5sum\n");
+    server_proc->service_idx = -1;
+    ret = TCPROS_PARSER_ERROR;
   }
 
   /* Restore position indicator */
@@ -611,8 +626,13 @@ void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
   // but they are sent anyway in ros groovy
   header_len += pushBackField( packet, &TCPROS_CALLERID_TAG, n->name );
   header_len += pushBackField( packet, &TCPROS_MD5SUM_TAG, n->services[srv_idx].md5sum );
-  /*header_len += pushBackField( packet, &TCPROS_SERVICE_TAG, n->services[srv_idx].service_name );
-  header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->services[srv_idx].service_type );*/
+
+  if(server_proc->probe)
+  {
+		header_len += pushBackField( packet, &TCPROS_SERVICE_REQUESTTYPE_TAG, n->services[srv_idx].servicerequest_type );
+		header_len += pushBackField( packet, &TCPROS_SERVICE_RESPONSETYPE_TAG, n->services[srv_idx].serviceresponse_type );
+		header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->services[srv_idx].service_type );
+  }
 
   HOST_TO_ROS_UINT32( header_len, header_out_len );
   uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
@@ -622,12 +642,14 @@ void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
 void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx)
 {
   PRINT_VDEBUG("cRosMessageParseServiceArgumentsPacket()\n");
-  //cRosMessagePreparePublicationHeader( n, server_idx );
   TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
-  int srv_idx = server_proc->service_idx;
   DynBuffer *packet = &(server_proc->packet);
-  size_t data_num, data_size;
-  unsigned char *data = n->services[srv_idx].callback(packet, &data_num, &data_size);
+  int srv_idx = server_proc->service_idx;
+  void* service_context = n->services[srv_idx].context;
+  DynBuffer service_response;
+  dynBufferInit(&service_response);
+
+  CallbackResponse callback_response = n->services[srv_idx].callback(packet, &service_response, service_context);
 
   //clear packet buffer
   dynBufferClear(packet);
@@ -637,8 +659,10 @@ void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx)
   dynBufferPushBackBuf( packet, &ok, 1 );
 
   //Size data field
-  dynBufferPushBackUint32( packet, data_num*data_size);
+  dynBufferPushBackUint32( packet, service_response.size);
 
   //Response data
-  dynBufferPushBackBuf( packet, data, data_num*data_size );
+  dynBufferPushBackBuf( packet, service_response.data, service_response.size);
+
+  dynBufferRelease(&service_response);
 }

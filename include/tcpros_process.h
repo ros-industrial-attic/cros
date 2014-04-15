@@ -49,6 +49,7 @@ struct TcprosProcess
   int service_idx;                      //! Index used to associate the process to a service provider or
   																			//! a service client
   size_t left_to_recv;                  //! Remaining to recevice
+  int probe;														//! The current session is a probing one.
 };
 
 

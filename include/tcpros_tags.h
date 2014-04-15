@@ -21,10 +21,12 @@ static TcprosTagStrDim TCPROS_TYPE_TAG = { "type=", 5 };
 static TcprosTagStrDim TCPROS_MD5SUM_TAG = { "md5sum=", 7 };
 static TcprosTagStrDim TCPROS_MESSAGE_DEFINITION_TAG = { "message_definition=", 19 };
 static TcprosTagStrDim TCPROS_SERVICE_TAG = { "service=", 8 };
+static TcprosTagStrDim TCPROS_SERVICE_REQUESTTYPE_TAG = { "request_type=", 13 };
+static TcprosTagStrDim TCPROS_SERVICE_RESPONSETYPE_TAG = { "response_type=", 14 };
 static TcprosTagStrDim TCPROS_TCP_NODELAY_TAG = { "tcp_nodelay=", 12 };
 static TcprosTagStrDim TCPROS_LATCHING_TAG = { "latching=", 9 }; // WARNING Not implemented
 static TcprosTagStrDim TCPROS_PERSISTENT_TAG = { "persistent=", 11 }; // WARNING Not implemented
-static TcprosTagStrDim TCPROS_PROBE_TAG = { "probe=", 6 }; // WARNING Not implemented
+static TcprosTagStrDim TCPROS_PROBE_TAG = { "probe=", 6 };
 static TcprosTagStrDim TCPROS_ERROR_TAG = { "error=", 6 };
 
 enum
@@ -65,7 +67,12 @@ static const uint32_t TCPROS_PUBLICATION_PACKET_FLAGS = TCPROS_CALLER_ID_FLAG |
 
 static const uint32_t TCPROS_SERVICECALL_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
                                                         TCPROS_SERVICE_FLAG |
-                                                      //  TCPROS_TYPE_FLAG |
+                                                        TCPROS_MD5SUM_FLAG |
+                                                        TCPROS_PERSISTENT_FLAG;
+
+static const uint32_t TCPROS_SERVICEPROBE_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
+                                                        TCPROS_SERVICE_FLAG |
+                                                        TCPROS_PROBE_FLAG  |
                                                         TCPROS_MD5SUM_FLAG ;
                                                         
 /*! @}*/

@@ -51,6 +51,8 @@ typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
 
+typedef uint8_t CallbackResponse;
+
 typedef enum
 {
   CN_STATE_NONE = 0,
@@ -62,7 +64,7 @@ typedef enum
 }CrosNodeState;
 
 
-typedef void (*PublisherCallback)(DynBuffer *buffer);
+typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer);
 
 /*! Structure that define a published topic */
 struct PublisherNode
@@ -76,7 +78,7 @@ struct PublisherNode
   int loop_period;                              //! Period (in msec) for publication cycle 
 };
 
-typedef void (*SubscriberCallback)(DynBuffer *buffer);
+typedef CallbackResponse (*SubscriberCallback)(DynBuffer *buffer);
 
 /*! Structure that define a subscribed topic 
  * WARNING : not implemented!
@@ -95,13 +97,16 @@ struct SubscriberNode
   SubscriberCallback callback;
 };
 
-typedef unsigned char *(*ServiceProviderCallback)(DynBuffer *buffer, size_t *num, size_t *size ) ;
+typedef CallbackResponse (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
 
 struct ServiceProviderNode
 {
   char *service_name;
   char *service_type;
+  char *servicerequest_type;
+  char *serviceresponse_type;
   char *md5sum;
+  void *context;
   ServiceProviderCallback callback;
 };
 
@@ -208,7 +213,7 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
  */
 int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
                                char *service_type, char *md5sum,
-                                ServiceProviderCallback callback );
+                                ServiceProviderCallback callback, void *data_context);
 
 /*! \brief Perform a loop of the cROS node main cycle 
  * 
