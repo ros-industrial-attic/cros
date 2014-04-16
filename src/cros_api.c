@@ -621,6 +621,16 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     generateXmlrpcMessage( n->roscore_host, n->roscore_port, server_proc->message_type, 
                     &(server_proc->method), &(server_proc->params), &(server_proc->message) );
   }
+  else if( strcmp( method, "getSubscriptions") == 0 )
+  {
+  	int i;
+
+  	for(i = 0; i < n->n_subs; i++)
+  	{
+
+  	}
+
+  }
   else
   {
     PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Unknown method \n Message : \n %s",
