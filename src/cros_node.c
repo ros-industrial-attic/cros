@@ -879,6 +879,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
     new_n->pubs[i].topic_type = NULL;
     new_n->pubs[i].md5sum = NULL;
     new_n->pubs[i].callback = NULL;
+    new_n->pubs[i].context = NULL;
     new_n->pubs[i].loop_period = 1000;
   }
   
@@ -894,6 +895,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
     new_n->subs[i].topic_type = NULL;
     new_n->subs[i].md5sum = NULL;
     new_n->subs[i].callback = NULL;
+    new_n->subs[i].context = NULL;
     new_n->subs[i].client_xmlrpc_id = -1;
     new_n->subs[i].client_tcpros_id = -1;
     new_n->subs[i].tcpros_port = -1;
@@ -908,6 +910,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
     new_n->services[i].service_type = NULL;
     new_n->services[i].md5sum = NULL;
     new_n->services[i].callback = NULL;
+    new_n->services[i].context = NULL;
   }
 
   new_n->n_services = 0;
