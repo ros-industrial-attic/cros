@@ -176,7 +176,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
     }
     else
     {
-      PRINT_INFO("cRosApiPrepareRequest() : ping roscore\n");
+      PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
 
       // Default behavior: ping roscore (actually, ping a node of roscore, i.e. default /rosout )
 
@@ -623,13 +623,43 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   }
   else if( strcmp( method, "getSubscriptions") == 0 )
   {
-  	int i;
+  	int i = 0;
+
+    xmlrpcProcessClear( server_proc );
+
+    xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
+    xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
+		XmlrpcParam* param_array = xmlrpcParamArrayPushBackArray(&(server_proc->params));
 
   	for(i = 0; i < n->n_subs; i++)
   	{
-
+  		XmlrpcParam* sub_array = xmlrpcParamArrayPushBackArray(param_array);
+  		xmlrpcParamArrayPushBackString(sub_array, n->subs[i].topic_name);
+  		xmlrpcParamArrayPushBackString(sub_array, n->subs[i].topic_type);
   	}
 
+    generateXmlrpcMessage( n->host, n->xmlrpc_port, server_proc->message_type,
+                    &(server_proc->method), &(server_proc->params), &(server_proc->message) );
+  }
+  else if( strcmp( method, "getPublications") == 0 )
+  {
+  	int i = 0;
+
+    xmlrpcProcessClear( server_proc );
+
+    xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
+    xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
+		XmlrpcParam* param_array = xmlrpcParamArrayPushBackArray(&(server_proc->params));
+
+  	for(i = 0; i < n->n_pubs; i++)
+  	{
+  		XmlrpcParam* sub_array = xmlrpcParamArrayPushBackArray(param_array);
+  		xmlrpcParamArrayPushBackString(sub_array, n->pubs[i].topic_name);
+  		xmlrpcParamArrayPushBackString(sub_array, n->pubs[i].topic_type);
+  	}
+
+    generateXmlrpcMessage( n->host, n->xmlrpc_port, server_proc->message_type,
+                    &(server_proc->method), &(server_proc->params), &(server_proc->message) );
   }
   else
   {

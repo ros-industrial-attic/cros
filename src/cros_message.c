@@ -572,7 +572,8 @@ void cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
   TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
   DynBuffer *packet = &(client_proc->packet);
   int sub_idx = client_proc->topic_idx;
-  n->subs[sub_idx].callback(packet);
+  void* data_context = n->subs[sub_idx].context;
+  n->subs[sub_idx].callback(packet,data_context);
 }
 
 void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
@@ -607,7 +608,10 @@ void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
   int pub_idx = server_proc->topic_idx;
   DynBuffer *packet = &(server_proc->packet);
   dynBufferPushBackUint32( packet, 0 ); // Placehoder for packet size
-  n->pubs[pub_idx].callback( packet );
+
+  void* data_context = n->subs[pub_idx].context;
+  n->pubs[pub_idx].callback( packet, data_context);
+
   uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
   memcpy(packet->data, &size, sizeof(uint32_t));
 }

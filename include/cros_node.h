@@ -64,7 +64,7 @@ typedef enum
 }CrosNodeState;
 
 
-typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer);
+typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
 
 /*! Structure that define a published topic */
 struct PublisherNode
@@ -73,12 +73,14 @@ struct PublisherNode
   char *topic_type;                             //! The published topic data type (e.g., std_msgs/String, ...)
   char *md5sum;                                 //! The md5sum of the message type
   char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
+
+  void *context;
   /*! The callback called to generate the (raw) packet data of type topic_type */
   PublisherCallback callback;
   int loop_period;                              //! Period (in msec) for publication cycle 
 };
 
-typedef CallbackResponse (*SubscriberCallback)(DynBuffer *buffer);
+typedef CallbackResponse (*SubscriberCallback)(DynBuffer *buffer,  void* context);
 
 /*! Structure that define a subscribed topic 
  * WARNING : not implemented!
@@ -94,6 +96,7 @@ struct SubscriberNode
   int   client_xmlrpc_id;                       //! The xmlrpc client that manages the subscription
   int		client_tcpros_id;
   int   tcpros_port;
+  void *context;
   SubscriberCallback callback;
 };
 
@@ -197,7 +200,7 @@ void cRosNodeDestroy( CrosNode *n );
  */
 int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topic_name, 
                                char *topic_type, char *md5sum, int loop_period, 
-                               PublisherCallback callback );
+                               PublisherCallback callback, void *data_context);
 
 /*! \brief Register the node in roscore as topic subscriber.
  *
@@ -205,7 +208,7 @@ int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topi
  */
 int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
                                char *topic_name, char *topic_type, char *md5sum,
-                               SubscriberCallback callback);
+                               SubscriberCallback callback, void *data_context);
 
 /*! \brief Register the service provider in roscore
  *

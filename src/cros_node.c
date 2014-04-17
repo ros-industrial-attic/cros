@@ -988,7 +988,7 @@ void cRosNodeDestroy ( CrosNode *n )
 
 int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition, 
                                 char *topic_name, char *topic_type, char *md5sum, int loop_period,
-                                PublisherCallback callback )
+                                PublisherCallback callback, void *data_context )
 {
   PRINT_VDEBUG ( "cRosNodeRegisterPublisher()\n" );
   PRINT_INFO ( "Publishing topic %s type %s \n", topic_name, topic_type );
@@ -1088,7 +1088,7 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
 
 int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
                                char *topic_name, char *topic_type, char *md5sum,
-                               SubscriberCallback callback)
+                               SubscriberCallback callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
   PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
