@@ -609,7 +609,7 @@ void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
   DynBuffer *packet = &(server_proc->packet);
   dynBufferPushBackUint32( packet, 0 ); // Placehoder for packet size
 
-  void* data_context = n->subs[pub_idx].context;
+  void* data_context = n->pubs[pub_idx].context;
   n->pubs[pub_idx].callback( packet, data_context);
 
   uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);

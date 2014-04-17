@@ -99,6 +99,12 @@ static void handleXmlrpcClientError( CrosNode *n, int i )
     n->n_advertised_pubs = 0;
   }
 
+  if( n->n_subs )
+  {
+    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SUBSCRIBER);
+    n->n_advertised_subs = 0;
+  }
+
   if( n->n_services )
   {
     n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SERVICE);
@@ -841,6 +847,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
   new_n->xmlrpc_port = 0;
   new_n->tcpros_port = 0;
   new_n->roscore_port = roscore_port;
+  new_n->roscore_pid = -1;
 
   xmlrpcProcessInit( &(new_n->xmlrpc_listner_proc) );
 
@@ -850,7 +857,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
     xmlrpcProcessInit( &(new_n->xmlrpc_server_proc[i]) ); 
   
   for ( i = 0 ; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
-	xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
+  	xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
 
   tcprosProcessInit( &(new_n->tcpros_listner_proc) );
 
@@ -859,6 +866,8 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
 
   for ( i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++)
     tcprosProcessInit( &(new_n->tcpros_client_proc[i]) );
+
+  tcprosProcessInit( &(new_n->rpcros_listner_proc) );
 
   for ( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++)
     tcprosProcessInit( &(new_n->rpcros_server_proc[i]) );
@@ -1026,6 +1035,7 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   
   n->pubs[n->n_pubs].loop_period = loop_period;
   n->pubs[n->n_pubs].callback = callback;
+  n->pubs[n->n_pubs].context = data_context;
 
   n->n_pubs++;
   
@@ -1125,6 +1135,7 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
   sub->md5sum = pub_md5sum;
 
   sub->callback = callback;
+  sub->context = data_context;
 
   sub->client_xmlrpc_id = 1 + n->n_subs;
   sub->client_tcpros_id = 1 + n->n_subs;

@@ -115,6 +115,27 @@ static void fillErrorParams ( XmlrpcParamVector *params, char *err_msg )
   xmlrpcParamVectorPushBackInt( params, 0 );  
 }
 
+static void restartAdversing (CrosNode* n)
+{
+  if( n->n_pubs )
+  {
+    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
+    n->n_advertised_pubs = 0;
+  }
+
+  if( n->n_subs )
+  {
+    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SUBSCRIBER);
+    n->n_advertised_subs = 0;
+  }
+
+  if( n->n_services )
+  {
+    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SERVICE);
+    n->n_advertised_services = 0;
+  }
+}
+
 void cRosApiPrepareRequest( CrosNode *n, int client_idx )
 {
   PRINT_VDEBUG ( "cRosApiPrepareRequest()\n" );
@@ -145,7 +166,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
     }
     else if( n->state & CN_STATE_ADVERTISE_SUBSCRIBER && n->n_subs )
     {
-    PRINT_INFO("cRosApiPrepareRequest() : registerSubscriber\n");
+    PRINT_DEBUG("cRosApiPrepareRequest() : registerSubscriber\n");
     dynStringPushBackStr( &(client_proc->method), "registerSubscriber" );
 
     xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
@@ -411,14 +432,22 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       if( checkResponseValue( &(client_proc->params) ) )
       {
         ret = 1;
+        XmlrpcParam* roscore_pid_param =
+        		xmlrpcParamArrayGetParamAt(xmlrpcParamVectorAt(&(client_proc->params),0),2);
+
+        if(n->roscore_pid == -1)
+        {
+        	n->roscore_pid = roscore_pid_param->data.as_int;
+        }
+        else if (n->roscore_pid != roscore_pid_param->data.as_int)
+        {
+        	n->roscore_pid = roscore_pid_param->data.as_int;
+          restartAdversing(n);
+        }
       }
       else
       {
-        if( n->n_pubs )
-        {
-          n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
-          n->n_advertised_pubs = 0;
-        }
+        restartAdversing(n);
       }
       xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
     }
