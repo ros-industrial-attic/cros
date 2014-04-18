@@ -629,7 +629,8 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
     xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
     xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
-		XmlrpcParam* param_array = xmlrpcParamArrayPushBackArray(&(server_proc->params));
+    xmlrpcParamVectorPushBackArray(&(server_proc->params));
+    XmlrpcParam* param_array = xmlrpcParamVectorAt(&(server_proc->params), 2);
 
   	for(i = 0; i < n->n_subs; i++)
   	{
@@ -649,7 +650,8 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
     xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
     xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
-		XmlrpcParam* param_array = xmlrpcParamArrayPushBackArray(&(server_proc->params));
+    xmlrpcParamVectorPushBackArray(&(server_proc->params));
+    XmlrpcParam* param_array = xmlrpcParamVectorAt(&(server_proc->params), 2);
 
   	for(i = 0; i < n->n_pubs; i++)
   	{
