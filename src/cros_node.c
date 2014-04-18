@@ -721,8 +721,16 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
     {
       case TCPIPSOCKET_DONE:
         PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
-        tcprosProcessClear( server_proc, 1 );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING );
+        if(server_proc->probe)
+        {
+					tcprosProcessClear( server_proc, 1 );
+					tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
+        }
+        else
+        {
+					tcprosProcessClear( server_proc, 0 );
+          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING );
+        }
         break;
 
       case TCPIPSOCKET_IN_PROGRESS:

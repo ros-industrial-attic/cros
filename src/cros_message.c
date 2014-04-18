@@ -631,12 +631,12 @@ void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
   header_len += pushBackField( packet, &TCPROS_CALLERID_TAG, n->name );
   header_len += pushBackField( packet, &TCPROS_MD5SUM_TAG, n->services[srv_idx].md5sum );
 
-  if(server_proc->probe)
-  {
+  //if(server_proc->probe)
+  //{
 		header_len += pushBackField( packet, &TCPROS_SERVICE_REQUESTTYPE_TAG, n->services[srv_idx].servicerequest_type );
 		header_len += pushBackField( packet, &TCPROS_SERVICE_RESPONSETYPE_TAG, n->services[srv_idx].serviceresponse_type );
 		header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->services[srv_idx].service_type );
-  }
+  //}
 
   HOST_TO_ROS_UINT32( header_len, header_out_len );
   uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
