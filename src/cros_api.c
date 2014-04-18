@@ -396,7 +396,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           //manage string for exploit informations
           //removing the 'http://' and the last '/'
           int dirty_string_len = strlen(pub_host_string);
-          char* clean_string = (char *)calloc(dirty_string_len-8,sizeof(char));
+          char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
           strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
           char * progress = NULL;
           char* hostname = strtok_r(clean_string,":",&progress);
@@ -529,10 +529,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       	sub = &(n->subs[i]);
         n->subs[i].tcpros_port = tcp_port->data.as_int;
         tcp_port_print = n->subs[i].tcpros_port;
+        break;
       }
     }
 
     tcpros_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
+    tcpros_proc->topic_idx = i;
 
     //need to be checked because maybe the connection went down suddenly.
     if(!tcpros_proc->socket.open)
@@ -638,6 +640,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
         xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
         xmlrpcParamVectorPushBackInt( &(server_proc->params), n->pid );
+        publishers_param = xmlrpcParamVectorAt( &(server_proc->params), 2);
         int available_pubs_n = xmlrpcParamArrayGetSize(publishers_param);
 
         if(available_pubs_n > 0)
@@ -650,7 +653,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 					//manage string for exploit informations
 					//removing the 'http://' and the last '/'
 					int dirty_string_len = strlen(pub_host_string);
-					char* clean_string = (char *)calloc(dirty_string_len-8,sizeof(char));
+					char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
 					strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
           char * progress = NULL;
           char* hostname = strtok_r(clean_string,":",&progress);
@@ -675,8 +678,8 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         //Resetting the xmlrpc connection
 
         XmlrpcProcess* sub_xmlrpc_proc = &(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]);
-        xmlrpcProcessRelease(sub_xmlrpc_proc);
         xmlrpcProcessClear(sub_xmlrpc_proc);
+        xmlrpcProcessRelease(sub_xmlrpc_proc);
         xmlrpcProcessInit(sub_xmlrpc_proc);
 
         //TODO: Evaluate if it's correct reopen the connection here
