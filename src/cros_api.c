@@ -12,10 +12,14 @@
 enum
 {
   CROS_API_GET_PID,
+  CROS_API_GET_PUBLISHED_TOPICS,
   CROS_API_REGISTER_PUBLISHER,
   CROS_API_REGISTER_SUBSCRIBER,
   CROS_API_REGISTER_SERVICE,
   CROS_API_REQUEST_TOPIC,
+  CROS_API_UNREGISTER_PUBLISHER,
+  CROS_API_UNREGISTER_SUBSCRIBER,
+  CROS_API_UNREGISTER_SERVICE,
 };
 
 static const char *CROS_API_TCPROS_STRING = "TCPROS";
@@ -173,6 +177,73 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
 
       generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
                           &(client_proc->method), &(client_proc->params), &(client_proc->message) );
+    }
+    else if( n->state & CN_STATE_ROSCORE_REQ)
+    {
+      switch(client_proc->request_id)
+      {
+        case CROS_API_UNREGISTER_SERVICE:
+        {
+          PRINT_INFO("cRosApiPrepareRequest() : unregisterService\n");
+          dynStringPushBackStr( &(client_proc->method), "unregisterService" );
+
+          DynString service_name; /* here will be filled the service name to be unsubscribed */
+          xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
+          xmlrpcParamVectorPushBackString( &(client_proc->params), service_name.data );
+          char uri[256];
+          sprintf( uri, "rosrpc://%s:%d/", n->host, n->rpcros_port);
+          xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
+
+          generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
+                              &(client_proc->method), &(client_proc->params), &(client_proc->message) );
+          break;
+        }
+        case CROS_API_UNREGISTER_SUBSCRIBER:
+        {
+          PRINT_INFO("cRosApiPrepareRequest() : unregisterSubscriber\n");
+          dynStringPushBackStr( &(client_proc->method), "unregisterSubscriber" );
+
+          DynString sub_name; /* here will be filled the subscriber name to be unsubscribed */
+          xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
+          xmlrpcParamVectorPushBackString( &(client_proc->params), sub_name.data );
+          char uri[256];
+          sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+          xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
+
+          generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
+                              &(client_proc->method), &(client_proc->params), &(client_proc->message) );
+          break;
+        }
+        case CROS_API_UNREGISTER_PUBLISHER:
+        {
+          PRINT_INFO("cRosApiPrepareRequest() : unregisterPublisher\n");
+          dynStringPushBackStr( &(client_proc->method), "unregisterPublisher" );
+
+          DynString pub_name; /* here will be filled the publisher name to be unsubscribed */
+          xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
+          xmlrpcParamVectorPushBackString( &(client_proc->params), pub_name.data );
+          char uri[256];
+          sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+          xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
+
+          generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
+                              &(client_proc->method), &(client_proc->params), &(client_proc->message) );
+          break;
+        }
+        case CROS_API_GET_PUBLISHED_TOPICS:
+        {
+          PRINT_INFO("cRosApiPrepareRequest() : getPublishedTopics\n");
+          dynStringPushBackStr( &(client_proc->method), "getPublishedTopics" );
+
+          DynString subgraph; /* here will be filled with a string topic names filter */
+          xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
+          xmlrpcParamVectorPushBackString( &(client_proc->params), subgraph.data );
+
+          generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
+                              &(client_proc->method), &(client_proc->params), &(client_proc->message) );
+          break;
+        }
+      }
     }
     else
     {
@@ -349,6 +420,63 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           n->n_advertised_pubs = 0;
         }
       }
+      xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
+    }
+    else if( client_proc->request_id == CROS_API_UNREGISTER_SERVICE )
+    {
+      PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+      //xmlrpcParamVectorPrint( &(client_proc->params) );
+
+      if( checkResponseValue( &(client_proc->params) ) )
+      {
+        ret = 1;
+        XmlrpcParam* status_msg = xmlrpcParamVectorAt( &(client_proc->params), 1);
+        XmlrpcParam* unreg_num = xmlrpcParamVectorAt( &(client_proc->params), 2);
+      }
+
+      n->state = (CrosNodeState)(n->state & ~CN_STATE_ROSCORE_REQ);
+      xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
+    }
+    else if( client_proc->request_id == CROS_API_UNREGISTER_PUBLISHER )
+    {
+      PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+      //xmlrpcParamVectorPrint( &(client_proc->params) );
+
+      if( checkResponseValue( &(client_proc->params) ) )
+      {
+        ret = 1;
+        XmlrpcParam* status_msg = xmlrpcParamVectorAt( &(client_proc->params), 1);
+        XmlrpcParam* unreg_num = xmlrpcParamVectorAt( &(client_proc->params), 2);
+      }
+      n->state = (CrosNodeState)(n->state & ~CN_STATE_ROSCORE_REQ);
+      xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
+    }
+    else if( client_proc->request_id == CROS_API_UNREGISTER_SUBSCRIBER )
+    {
+      PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+      //xmlrpcParamVectorPrint( &(client_proc->params) );
+
+      if( checkResponseValue( &(client_proc->params) ) )
+      {
+        ret = 1;
+        XmlrpcParam* status_msg = xmlrpcParamVectorAt( &(client_proc->params), 1);
+        XmlrpcParam* unreg_num = xmlrpcParamVectorAt( &(client_proc->params), 2);
+      }
+      n->state = (CrosNodeState)(n->state & ~CN_STATE_ROSCORE_REQ);
+      xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
+    }
+    else if( client_proc->request_id == CROS_API_GET_PUBLISHED_TOPICS )
+    {
+      PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+      //xmlrpcParamVectorPrint( &(client_proc->params) );
+
+      if( checkResponseValue( &(client_proc->params) ) )
+      {
+        ret = 1;
+        XmlrpcParam* status_msg = xmlrpcParamVectorAt( &(client_proc->params), 1);
+        XmlrpcParam* topic_arr = xmlrpcParamVectorAt( &(client_proc->params), 2); //[[topic_name, topic_type]*]
+      }
+      n->state = (CrosNodeState)(n->state & ~CN_STATE_ROSCORE_REQ);
       xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
     }
   }

@@ -60,7 +60,8 @@ typedef enum
   CN_STATE_ADVERTISE_PUBLISHER = 2,
   CN_STATE_ADVERTISE_SUBSCRIBER = 4,
   CN_STATE_ADVERTISE_SERVICE = 8,
-  CN_STATE_ASK_FOR_CONNECTION = 16
+  CN_STATE_ASK_FOR_CONNECTION = 16,
+  CN_STATE_ROSCORE_REQ = 32,
 }CrosNodeState;
 
 
@@ -128,6 +129,7 @@ struct CrosNode
 
   uint64_t select_timeout;      //! Select max timeout (in ms)
   int pid;                      //! Process ID
+  int roscore_pid;              //! Roscore PID
 
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
   unsigned short roscore_port;  //! The roscore port
