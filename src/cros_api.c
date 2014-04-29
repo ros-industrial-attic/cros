@@ -638,6 +638,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         xmlrpcParamVectorPushBackInt( &(server_proc->params), 1 );
         xmlrpcParamVectorPushBackString( &(server_proc->params), "" );
         xmlrpcParamVectorPushBackInt( &(server_proc->params), n->pid );
+        publishers_param = xmlrpcParamVectorAt( &(server_proc->params), 2);
         int available_pubs_n = xmlrpcParamArrayGetSize(publishers_param);
 
         if(available_pubs_n > 0)
