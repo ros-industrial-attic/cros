@@ -7,6 +7,7 @@ void tcprosProcessInit( TcprosProcess *p )
   tcpIpSocketInit( &(p->socket) );
   dynStringInit( &(p->topic) );
   dynStringInit( &(p->caller_id) );
+  dynStringInit( &(p->service) );
   dynStringInit( &(p->type) );
   dynStringInit( &(p->md5sum) );
   dynBufferInit( &(p->packet) );
