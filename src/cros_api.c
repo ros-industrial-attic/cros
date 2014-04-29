@@ -529,10 +529,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       	sub = &(n->subs[i]);
         n->subs[i].tcpros_port = tcp_port->data.as_int;
         tcp_port_print = n->subs[i].tcpros_port;
+        break;
       }
     }
 
     tcpros_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
+    tcpros_proc->topic_idx = i;
 
     //need to be checked because maybe the connection went down suddenly.
     if(!tcpros_proc->socket.open)
