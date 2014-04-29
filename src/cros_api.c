@@ -676,8 +676,8 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         //Resetting the xmlrpc connection
 
         XmlrpcProcess* sub_xmlrpc_proc = &(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]);
-        xmlrpcProcessRelease(sub_xmlrpc_proc);
         xmlrpcProcessClear(sub_xmlrpc_proc);
+        xmlrpcProcessRelease(sub_xmlrpc_proc);
         xmlrpcProcessInit(sub_xmlrpc_proc);
 
         //TODO: Evaluate if it's correct reopen the connection here
