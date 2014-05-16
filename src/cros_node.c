@@ -135,6 +135,13 @@ static void handleTcprosServerError( CrosNode *n, int i )
   n->tcpros_server_proc[i].topic_idx = -1;
 }
 
+static void handleRpcrosServerError( CrosNode *n, int i )
+{
+  tcprosProcessClear( &(n->rpcros_server_proc[i]), 1 );
+  tcprosProcessChangeState( &(n->rpcros_server_proc[i]), TCPROS_PROCESS_STATE_IDLE );
+  tcpIpSocketClose( &(n->rpcros_server_proc[i].socket) );
+}
+
 static void doWithXmlrpcClientSocket( CrosNode *n, int i)
 { 
   PRINT_VDEBUG ( "doWithXmlrpcClientSocket()\n" );
@@ -684,7 +691,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
-        handleTcprosServerError( n, i );
+        handleRpcrosServerError( n, i );
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
         break;
     }
@@ -702,7 +709,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
 
       case TCPROS_PARSER_ERROR:
       default:
-        handleTcprosServerError( n, i );
+        handleRpcrosServerError( n, i );
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
         break;
     }
