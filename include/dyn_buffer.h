@@ -15,7 +15,7 @@ typedef struct DynBuffer DynBuffer;
 struct DynBuffer
 {
   size_t size;                    //! Current buffer size
-  int pos_offset;              //! Current position indicator
+  size_t pos_offset;              //! Current position indicator
   size_t max;                     //! Max buffer size
   unsigned char *data;         //! buffer data
 };
@@ -184,7 +184,7 @@ void dynBufferMovePoseIndicator( DynBuffer *d_buf, int offset );
  *  \param d_str Pointer to a DynBuffer object 
  *  \param pos The new the position indicator (in bytes)
  */
-void dynBufferSetPoseIndicator( DynBuffer *d_buf, int pos );
+void dynBufferSetPoseIndicator( DynBuffer *d_buf, size_t pos );
 
 /*! \brief Reset the position indicator
  *         The position indicator may be exploited to mark alreadey "used" bytes

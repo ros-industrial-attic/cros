@@ -172,23 +172,23 @@ void dynBufferMovePoseIndicator ( DynBuffer *d_buf, int offset )
 {
   PRINT_VDEBUG ( "dynBufferMovePoseIndicator()\n" );
 
-  d_buf->pos_offset += offset;
-
-  if ( d_buf->pos_offset < 0 )
-    d_buf->pos_offset = 0;
-  if ( d_buf->pos_offset > d_buf->size )
+  size_t curr = d_buf->pos_offset;
+  if (offset > 0 && curr >= (d_buf->size - offset))
     d_buf->pos_offset = d_buf->size;
+  else if ( offset < 0 && -offset >= curr)
+    d_buf->pos_offset = 0;
+  else
+    d_buf->pos_offset += (size_t)offset;
 }
 
-void dynBufferSetPoseIndicator( DynBuffer *d_buf, int pos )
+void dynBufferSetPoseIndicator( DynBuffer *d_buf, size_t pos )
 {
   PRINT_VDEBUG ( "dynBufferSetPoseIndicator()\n" );
 
-  d_buf->pos_offset = pos;
-  if ( d_buf->pos_offset < 0 )
-    d_buf->pos_offset = 0;
-  if ( d_buf->pos_offset > d_buf->size )
-    d_buf->pos_offset = d_buf->size;  
+  if ( pos > d_buf->size )
+    d_buf->pos_offset = d_buf->size;
+  else
+    d_buf->pos_offset = pos;
 }
 
 void dynBufferRewindPoseIndicator ( DynBuffer *d_buf )
