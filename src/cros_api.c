@@ -156,7 +156,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
       xmlrpcParamVectorPushBackString( &(client_proc->params), n->pubs[n->n_advertised_pubs].topic_name );
       xmlrpcParamVectorPushBackString( &(client_proc->params), n->pubs[n->n_advertised_pubs].topic_type );
       char node_uri[256];
-      sprintf( node_uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+      snprintf( node_uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
       xmlrpcParamVectorPushBackString( &(client_proc->params), node_uri );
 
       client_proc->request_id = CROS_API_REGISTER_PUBLISHER;
@@ -173,7 +173,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
     xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[n->n_advertised_subs].topic_name );
     xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[n->n_advertised_subs].topic_type );
     char node_uri[256];
-    sprintf( node_uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+    snprintf( node_uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
     xmlrpcParamVectorPushBackString( &(client_proc->params), node_uri );
 
     client_proc->request_id = CROS_API_REGISTER_SUBSCRIBER;
@@ -189,9 +189,9 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
       xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
       xmlrpcParamVectorPushBackString( &(client_proc->params), n->services[n->n_advertised_services].service_name );
       char uri[256];
-      sprintf( uri, "rosrpc://%s:%d/", n->host, n->rpcros_port);
+      snprintf( uri, 256, "rosrpc://%s:%d/", n->host, n->rpcros_port);
       xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
-      sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+      snprintf( uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
       xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
 
       client_proc->request_id = CROS_API_REGISTER_SERVICE;
@@ -212,7 +212,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
           xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
           xmlrpcParamVectorPushBackString( &(client_proc->params), service_name.data );
           char uri[256];
-          sprintf( uri, "rosrpc://%s:%d/", n->host, n->rpcros_port);
+          snprintf( uri, 256, "rosrpc://%s:%d/", n->host, n->rpcros_port);
           xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
 
           generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
@@ -228,7 +228,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
           xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
           xmlrpcParamVectorPushBackString( &(client_proc->params), sub_name.data );
           char uri[256];
-          sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+          snprintf( uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
           xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
 
           generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
@@ -244,7 +244,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
           xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
           xmlrpcParamVectorPushBackString( &(client_proc->params), pub_name.data );
           char uri[256];
-          sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+          snprintf( uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
           xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
 
           generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
