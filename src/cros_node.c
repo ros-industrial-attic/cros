@@ -919,6 +919,8 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
     new_n->services[i].md5sum = NULL;
     new_n->services[i].callback = NULL;
     new_n->services[i].context = NULL;
+    new_n->services[i].servicerequest_type = NULL;
+    new_n->services[i].serviceresponse_type = NULL;
   }
 
   new_n->n_services = 0;
