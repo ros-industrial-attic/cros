@@ -408,7 +408,11 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
             if (requesting_subscriber->topic_host == NULL)
               exit(1);
           }
-          lookup_host(hostname, requesting_subscriber->topic_host);
+
+          int rc = lookup_host(hostname, requesting_subscriber->topic_host);
+          if (rc)
+            return 0;
+
           requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
         }
       }
@@ -566,7 +570,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   return ret;
 }
 
-void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
+int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
   PRINT_DEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
   
@@ -579,7 +583,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     xmlrpcProcessClear( server_proc );
     server_proc->message_type = XMLRPC_MESSAGE_RESPONSE;
     fillErrorParams ( &(server_proc->params), "" );
-    return;
+    return 0;
   }
 
   server_proc->message_type = XMLRPC_MESSAGE_RESPONSE;
@@ -672,7 +676,13 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             if (requesting_subscriber->topic_host == NULL)
               exit(1);
 					}
-					lookup_host(hostname, requesting_subscriber->topic_host);
+          int rc = lookup_host(hostname, requesting_subscriber->topic_host);
+          if (rc)
+          {
+            PRINT_ERROR ( "lookup_host() : Unable to resolve hostname \n" );
+            return 1;
+          }
+
 					requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
 					xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]),XMLRPC_PROCESS_STATE_WRITING);
 					n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
@@ -844,5 +854,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     xmlrpcProcessClear( server_proc );
     server_proc->message_type = XMLRPC_MESSAGE_RESPONSE;
     fillErrorParams ( &(server_proc->params), "" );
-  }        
+  }
+
+  return 0;
 }

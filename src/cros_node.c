@@ -308,7 +308,12 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
       case XMLRPC_PARSER_DONE:
         
         PRINT_DEBUG ( "doWithXmlrpcServerSocket() : Done read() and parse() with no error\n" );
-        cRosApiParseRequestPrepareResponse( n, i );
+        int rc = cRosApiParseRequestPrepareResponse( n, i );
+        if (rc)
+        {
+          handleXmlrpcServerError( n, i );
+          break;
+        }
         xmlrpcProcessChangeState( server_proc, XMLRPC_PROCESS_STATE_WRITING );
         break;
       case XMLRPC_PARSER_INCOMPLETE:
