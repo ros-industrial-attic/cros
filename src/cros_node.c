@@ -669,159 +669,256 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
 
 static void doWithRpcrosServerSocket(CrosNode *n, int i)
 {
-
   PRINT_VDEBUG ( "doWithRpcrosServerSocket()\n" );
 
-  //WARNING: following line is just stub code !!
   TcprosProcess *server_proc = &(n->rpcros_server_proc[i]);
 
-  if( server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER)
+  switch (server_proc->state)
   {
-    PRINT_DEBUG ( "doWithRpcrosServerSocket() : Reading header index %d \n", i );
-    tcprosProcessClear( server_proc, 0 );
-    TcpIpSocketState sock_state = tcpIpSocketReadBuffer( &(server_proc->socket),
-                                                         &(server_proc->packet) );
-    TcprosParserState parser_state = TCPROS_PARSER_ERROR;
-
-    switch ( sock_state )
+    case TCPROS_PROCESS_STATE_READING_HEADER_SIZE:
     {
-      case TCPIPSOCKET_DONE:
-        parser_state = cRosMessageParseServiceCallerHeader( n, i);
-        break;
+      size_t n_reads;
+      if (server_proc->left_to_recv == 0)
+        server_proc->left_to_recv = sizeof(uint32_t);
 
-      case TCPIPSOCKET_IN_PROGRESS:
-        parser_state = TCPROS_PARSER_HEADER_INCOMPLETE;
-        break;
+      TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(server_proc->socket),
+                                                          &(server_proc->packet),
+                                                          server_proc->left_to_recv,
+                                                          &n_reads);
 
-      case TCPIPSOCKET_DISCONNECTED:
-      case TCPIPSOCKET_FAILED:
-      default:
-        handleRpcrosServerError( n, i );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        break;
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          server_proc->left_to_recv -= n_reads;
+          if (server_proc->left_to_recv == 0)
+          {
+            const unsigned char *data = dynBufferGetCurrentData(&server_proc->packet);
+            uint32_t header_size;
+            ROS_TO_HOST_UINT32(*((uint32_t *)data), header_size);
+            tcprosProcessClear( server_proc, 0 );
+            server_proc->left_to_recv = header_size;
+            tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING_HEADER);
+            goto read_header;
+          }
+          break;
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+        case TCPIPSOCKET_DISCONNECTED:
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleRpcrosServerError( n, i );
+          break;
+      }
+
+      break;
     }
-
-    switch ( parser_state )
+    read_header:
+    case TCPROS_PROCESS_STATE_READING_HEADER:
     {
-      case TCPROS_PARSER_DONE:
+      size_t n_reads;
+      TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(server_proc->socket),
+                                                          &(server_proc->packet),
+                                                          server_proc->left_to_recv,
+                                                          &n_reads);
+      TcprosParserState parser_state = TCPROS_PARSER_ERROR;
 
-        PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done read() and parse() with no error\n" );
-        //tcprosProcessClear( server_proc );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
-        break;
-      case TCPROS_PARSER_HEADER_INCOMPLETE:
-        break;
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          server_proc->left_to_recv -= n_reads;
+          if (server_proc->left_to_recv == 0)
+          {
+            parser_state = cRosMessageParseServiceCallerHeader( n, i );
+            break;
+          }
+          parser_state = TCPROS_PARSER_HEADER_INCOMPLETE;
+          break;
+        case TCPIPSOCKET_IN_PROGRESS:
+          parser_state = TCPROS_PARSER_HEADER_INCOMPLETE;
+          break;
+        case TCPIPSOCKET_DISCONNECTED:
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleRpcrosServerError( n, i );
+          break;
+      }
 
-      case TCPROS_PARSER_ERROR:
-      default:
-        handleRpcrosServerError( n, i );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        break;
+      switch ( parser_state )
+      {
+        case TCPROS_PARSER_DONE:
+          tcprosProcessClear( server_proc, 0);
+          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
+          break;
+        case TCPROS_PARSER_HEADER_INCOMPLETE:
+          break;
+        case TCPROS_PARSER_ERROR:
+        default:
+          handleRpcrosServerError( n, i );
+          break;
+      }
+
+      break;
     }
-  }
-  else if(server_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER )
-  {
-    PRINT_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
-
-		tcprosProcessClear( server_proc, 0 );
-		cRosMessagePrepareServiceProviderHeader( n, i );
-
-    TcpIpSocketState sock_state =  tcpIpSocketWriteBuffer( &(server_proc->socket),
-                                                           &(server_proc->packet) );
-
-    switch ( sock_state )
+    case TCPROS_PROCESS_STATE_WRITING_HEADER:
     {
-      case TCPIPSOCKET_DONE:
-        PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
-        if(server_proc->probe)
-        {
-					tcprosProcessClear( server_proc, 1 );
-					tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        }
-        else
-        {
-					tcprosProcessClear( server_proc, 0 );
-          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING );
-        }
-        break;
+      PRINT_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
 
-      case TCPIPSOCKET_IN_PROGRESS:
-        break;
+      cRosMessagePrepareServiceProviderHeader( n, i );
 
-      case TCPIPSOCKET_DISCONNECTED:
-        tcprosProcessClear( server_proc , 1);
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        tcpIpSocketClose( &(server_proc->socket) );
-        break;
+      TcpIpSocketState sock_state =  tcpIpSocketWriteBuffer( &(server_proc->socket),
+                                                            &(server_proc->packet) );
 
-      case TCPIPSOCKET_FAILED:
-      default:
-        handleTcprosServerError( n, i );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        break;
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
+          if(server_proc->probe)
+          {
+            tcprosProcessClear( server_proc, 1 );
+            tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
+          }
+          else
+          {
+            tcprosProcessClear( server_proc, 0 );
+            server_proc->left_to_recv = sizeof(uint32_t);
+            tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING_SIZE );
+          }
+          break;
+
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+
+        case TCPIPSOCKET_DISCONNECTED:
+          tcprosProcessClear( server_proc , 1);
+          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
+          tcpIpSocketClose( &(server_proc->socket) );
+          break;
+
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleRpcrosServerError( n, i );
+          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
+          break;
+      }
+
+      break;
     }
-  }
-  else if( server_proc->state == TCPROS_PROCESS_STATE_READING )
-  {
-    PRINT_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
-
-    tcprosProcessClear( server_proc, 0 );
-    TcpIpSocketState sock_state =  tcpIpSocketReadBuffer( &(server_proc->socket),
-                                                           &(server_proc->packet) );
-
-    switch ( sock_state )
+    case TCPROS_PROCESS_STATE_READING_SIZE:
     {
-      case TCPIPSOCKET_DONE:
-        PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done read() with no error\n" );
-        cRosMessagePrepareServiceResponsePacket(n, i);
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
-        break;
+      size_t n_reads;
+      TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(server_proc->socket),
+                                                          &(server_proc->packet),
+                                                          server_proc->left_to_recv,
+                                                          &n_reads);
 
-      case TCPIPSOCKET_IN_PROGRESS:
-        break;
-
-      case TCPIPSOCKET_DISCONNECTED:
-        tcprosProcessClear( server_proc, 1 );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        tcpIpSocketClose( &(server_proc->socket) );
-        break;
-
-      case TCPIPSOCKET_FAILED:
-      default:
-        handleTcprosServerError( n, i );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        break;
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          server_proc->left_to_recv -= n_reads;
+          if (server_proc->left_to_recv == 0)
+          {
+            const unsigned char *data = dynBufferGetCurrentData(&server_proc->packet);
+            uint32_t msg_size = (uint32_t)*data;
+            tcprosProcessClear( server_proc, 0);
+            if (msg_size == 0)
+            {
+              PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done read() with no error\n" );
+              cRosMessagePrepareServiceResponsePacket(n, i);
+              tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING);
+              goto write_msg;
+            }
+            else
+            {
+              server_proc->left_to_recv = msg_size;
+              tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING);
+              goto read_msg;
+            }
+          }
+          break;
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+        case TCPIPSOCKET_DISCONNECTED:
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleRpcrosServerError( n, i );
+          break;
+      }
+      break;
     }
-  }
-  else if( server_proc->state == TCPROS_PROCESS_STATE_WRITING )
-  {
-    PRINT_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
-
-    TcpIpSocketState sock_state =  tcpIpSocketWriteBuffer( &(server_proc->socket),
-                                                           &(server_proc->packet) );
-
-    switch ( sock_state )
+    read_msg:
+    case TCPROS_PROCESS_STATE_READING:
     {
-      case TCPIPSOCKET_DONE:
-        PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
-        tcprosProcessClear( server_proc, 1 );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE);
-        break;
+      PRINT_DEBUG ( "doWithRpcrosServerSocket() : reading() index %d \n", i );
 
-      case TCPIPSOCKET_IN_PROGRESS:
-        break;
+      size_t n_reads;
+      TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(server_proc->socket),
+                                                          &(server_proc->packet),
+                                                          server_proc->left_to_recv,
+                                                          &n_reads);
 
-      case TCPIPSOCKET_DISCONNECTED:
-        tcprosProcessClear( server_proc, 1 );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        tcpIpSocketClose( &(server_proc->socket) );
-        break;
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          server_proc->left_to_recv -= n_reads;
+          if (server_proc->left_to_recv == 0)
+          {
+              PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done read() with no error\n" );
+              cRosMessagePrepareServiceResponsePacket(n, i);
+              tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
+          }
+          break;
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+        case TCPIPSOCKET_DISCONNECTED:
+          tcprosProcessClear( server_proc, 1 );
+          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
+          tcpIpSocketClose( &(server_proc->socket) );
+          break;
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleRpcrosServerError( n, i );
+          break;
+      }
 
-      case TCPIPSOCKET_FAILED:
-      default:
-        handleTcprosServerError( n, i );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        break;
+      break;
+    }
+    write_msg:
+    case TCPROS_PROCESS_STATE_WRITING:
+    {
+      PRINT_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
+
+      TcpIpSocketState sock_state =  tcpIpSocketWriteBuffer( &(server_proc->socket),
+                                                            &(server_proc->packet) );
+
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
+          tcprosProcessClear( server_proc, 1 );
+          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE);
+          break;
+
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+
+        case TCPIPSOCKET_DISCONNECTED:
+          tcprosProcessClear( server_proc, 1 );
+          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
+          tcpIpSocketClose( &(server_proc->socket) );
+          break;
+
+        case TCPIPSOCKET_FAILED:
+        default:
+          handleRpcrosServerError( n, i );
+          break;
+      }
+
+      break;
+    }
+    default:
+    {
+      // Invalid flow
+      assert(0);
     }
   }
 }
@@ -1388,7 +1485,9 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     {
     	next_rpcros_server_i = i;
     }
-    else if( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER ||
+    else if( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
+             n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER ||
+             n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_SIZE ||
     				 n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING)
     {
       FD_SET( server_fd, &r_fds);
@@ -1609,7 +1708,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
             tcpIpSocketSetNonBlocking( &(n->rpcros_server_proc[next_rpcros_server_i].socket ) ) &&
             tcpIpSocketSetKeepAlive( &(n->rpcros_server_proc[next_rpcros_server_i].socket ), 60, 10, 9 ) )
         {
-          tcprosProcessChangeState( &(n->rpcros_server_proc[next_rpcros_server_i]), TCPROS_PROCESS_STATE_READING_HEADER );
+          tcprosProcessChangeState( &(n->rpcros_server_proc[next_rpcros_server_i]), TCPROS_PROCESS_STATE_READING_HEADER_SIZE );
         }
       }
     }
@@ -1623,7 +1722,9 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
         tcpIpSocketClose( &(n->rpcros_server_proc[i].socket) );
         tcprosProcessChangeState( &(n->rpcros_server_proc[next_rpcros_server_i]), TCPROS_PROCESS_STATE_IDLE );
       }
-      else if( ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER && FD_ISSET(server_fd, &r_fds) ) ||
+      else if( ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE && FD_ISSET(server_fd, &r_fds) ) ||
+        ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER && FD_ISSET(server_fd, &r_fds) ) ||
+        ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_SIZE && FD_ISSET(server_fd, &r_fds) ) ||
         ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING && FD_ISSET(server_fd, &r_fds) ) ||
         ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER && FD_ISSET(server_fd, &w_fds) ) ||
         ( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING && FD_ISSET(server_fd, &w_fds) ) )
