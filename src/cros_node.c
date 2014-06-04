@@ -6,6 +6,7 @@
 #include <sys/select.h>
 #include <signal.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "cros_node_internal.h"
 #include "cros_node.h"
@@ -291,6 +292,10 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
         break;
 
       case TCPIPSOCKET_DISCONNECTED:
+        xmlrpcProcessClear( &(n->xmlrpc_server_proc[i]), 1);
+        xmlrpcProcessChangeState( &(n->xmlrpc_server_proc[i]), XMLRPC_PROCESS_STATE_IDLE );
+        tcpIpSocketClose( &(n->xmlrpc_server_proc[i].socket) );
+        break;
       case TCPIPSOCKET_FAILED:
       default:
         PRINT_ERROR("doWithXmlrpcServerSocket() : Unexpected failure reading request\n");
@@ -1513,18 +1518,18 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   struct timeval tv = cRosClockGetTimeVal( timeout );
 
   int n_set = select(nfds + 1, &r_fds, &w_fds, &err_fds, &tv);
-  
-  if ( n_set == -1 )
+
+  if (n_set == -1)
   {
-    perror("cRosNodeDoEventsLoop() :");
+    perror("cRosNodeDoEventsLoop() ");
     exit( EXIT_FAILURE );
   }
   else if( n_set == 0 )
   {
     PRINT_DEBUG ( "cRosNodeDoEventsLoop() : select() timeout\n");
-    
+
     uint64_t cur_time = cRosClockGetTimeMs();
-    
+
     if(n->xmlrpc_client_proc[0].state == XMLRPC_PROCESS_STATE_IDLE &&
       n->xmlrpc_client_proc[0].wake_up_time_ms <= cur_time )
     {
@@ -1646,7 +1651,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       {
         PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS listner error\n" ); 
       }
-      else if( next_tcpros_server_i >= 0 && FD_ISSET( tcpros_listner_fd, &r_fds) )
+      else if( FD_ISSET( tcpros_listner_fd, &r_fds) )
       {
         PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
         if( tcpIpSocketAccept( &(n->tcpros_listner_proc.socket), 

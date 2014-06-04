@@ -117,7 +117,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
     else
     {
       // Default behavior: ping roscore (actually, ping a node of roscore, i.e. default /rosout )
-      PRINT_INFO("cRosApiPrepareRequest() : ping roscore\n");
+      PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
 
       XmlrpcParamVector params;
       xmlrpcParamVectorInit(&params);
@@ -598,18 +598,15 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
         if( topic_found && protocol_found)
         {
-          xmlrpcParamArrayPushBackInt( xmlrpcParamVectorAt( &params, 0 ), 1 );
+          xmlrpcParamVectorPushBackArray(&params);
+          xmlrpcParamArrayPushBackInt(xmlrpcParamVectorAt(&params, 0), 1);
           // TODO Add statusMessage here
-          xmlrpcParamArrayPushBackString( xmlrpcParamVectorAt( &params, 0 ), "" );
-          xmlrpcParamArrayPushBackArray( xmlrpcParamVectorAt( &params, 0 ));
-          XmlrpcParam *array = xmlrpcParamArrayGetParamAt( xmlrpcParamVectorAt( &params, 0 ), 2 );
+          xmlrpcParamArrayPushBackString(xmlrpcParamVectorAt(&params, 0), "");
+          xmlrpcParamArrayPushBackArray(xmlrpcParamVectorAt(&params, 0));
+          XmlrpcParam* array = xmlrpcParamVectorAt(xmlrpcParamVectorAt(&params, 0 ), 2);
           xmlrpcParamArrayPushBackString( array, CROS_API_TCPROS_STRING );
           xmlrpcParamArrayPushBackString( array, n->host );
           xmlrpcParamArrayPushBackInt( array, n->tcpros_port );
-
-          // WARNING DEBUG CODE
-          //xmlrpcParamVectorPrint( &(server_proc->params) );
-
         }
         else
         {
