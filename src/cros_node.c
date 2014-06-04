@@ -1521,12 +1521,19 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
 
   if (n_set == -1)
   {
-    perror("cRosNodeDoEventsLoop() ");
-    exit( EXIT_FAILURE );
+    if (errno == EINTR)
+    {
+      PRINT_INFO("cRosNodeDoEventsLoop() : select() returned EINTR\n");
+    }
+    else
+    {
+      perror("cRosNodeDoEventsLoop() ");
+      exit( EXIT_FAILURE );
+    }
   }
   else if( n_set == 0 )
   {
-    PRINT_DEBUG ( "cRosNodeDoEventsLoop() : select() timeout\n");
+    PRINT_DEBUG ("cRosNodeDoEventsLoop() : select() timeout\n");
 
     uint64_t cur_time = cRosClockGetTimeMs();
 
