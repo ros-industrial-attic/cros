@@ -4,8 +4,9 @@ cmake_minimum_required (VERSION 2.6)
 
 cmake_policy(SET CMP0015 NEW)	
 
-set(CMAKE_C_FLAGS " -Wall -Wno-unused -Wno-strict-aliasing -Wno-unused-but-set-variable")
-set(CMAKE_C_FLAGS_DEBUG "-g -DDEBUG -fsanitize=address")
+set(CMAKE_C_FLAGS "-Wall -Wno-unused -Wno-strict-aliasing -Wno-unused-but-set-variable")
+set(CMAKE_C_FLAGS_DEBUG "-g -pg -DDEBUG -fsanitize=address")
+set(LINK_FLAGS_DEBUG_DEBUG "-pg")
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O1")
 
 include_directories ( include )

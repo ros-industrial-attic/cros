@@ -3,6 +3,7 @@
 
 #include "tcpip_socket.h"
 #include "xmlrpc_protocol.h"
+#include "cros_api_call.h"
 
 /*! \defgroup xmlrpc_process XMLRPC process */
 
@@ -26,17 +27,18 @@ typedef enum
 typedef struct XmlrpcProcess XmlrpcProcess;
 struct XmlrpcProcess
 {
+  ApiCallQueue api_calls_queue;
   XmlrpcProcessState state;             //! The state
   TcpIpSocket socket;                   //! The socket used for the XMLRPC communication
-  /*! Indentification number used to identify the called function (i.e., the request)
-   *  after the response */
-  int request_id;             
-  XmlrpcMessageType message_type;       //! The incoming/outoming XMLRPC message type
-  DynString method;                     //! The incoming/outoming XMLRPC method
-  XmlrpcParamVector params;             //! The incoming/outoming XMLRPC parameters
-   /*! The incoming/outoming XMLRPC message 
+  XmlrpcMessageType message_type;       //! The incoming/outgoing XMLRPC message type
+  DynString method;                     //! The incoming/outgoing XMLRPC method
+  CROS_API_METHOD method_id;
+  int provider_idx;                     //! Index of the current provider processed (publisher, subscriber or service)
+  XmlrpcParamVector params;             //! The incoming/outgoing XMLRPC response
+  XmlrpcParamVector response;           //! The incoming/outgoing XMLRPC response
+   /*! The incoming/outgoing XMLRPC message
     *  (e.g., generated using generateXmlrpcMessage() ) */
-  DynString message;                   
+  DynString message;
   uint64_t last_change_time;            //! Last state change time (in ms)
   uint64_t wake_up_time_ms;             //! The time for the next automatic cycle (in msec, since the Epoch) 
 };
@@ -59,7 +61,7 @@ void xmlrpcProcessRelease( XmlrpcProcess *p );
  * 
  *  \param s Pointer to XmlrpcProcess object
  */
-void xmlrpcProcessClear( XmlrpcProcess *p );
+void xmlrpcProcessClear( XmlrpcProcess *p, int fullclear);
 
 /*! \brief Change the internal state of an XmlrpcProcess object, and update its timer
  * 

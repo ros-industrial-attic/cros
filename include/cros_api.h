@@ -31,7 +31,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx );
  *  \param n Ponter to the CrosNode object
  *  \param client_idx The client id that manage the response
  * 
- *  \return Returns 1 on success, 0 on failure
+ *  \return Returns 0 on success, -1 on failure
  */
 int cRosApiParseResponse( CrosNode *n, int client_idx  );
 
@@ -43,6 +43,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx  );
  *  \param n Ponter to the CrosNode object
  *  \param server_idx Index of the XmlrpcProcess ( xmlrpc_server_proc[server_idx] ) to be considered for the parsing and
  *                    the response generation
+ *
+ *  \return Returns 0 on success, -1 on failure
  */
 int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx );
 

@@ -3,6 +3,7 @@
 
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
+#include <cros_api_call.h>
 
 /*! \defgroup cros_node cROS Node */
 
@@ -52,18 +53,6 @@ typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
 
 typedef uint8_t CallbackResponse;
-
-typedef enum
-{
-  CN_STATE_NONE = 0,
-  CN_STATE_PING_ROSCORE = 1,
-  CN_STATE_ADVERTISE_PUBLISHER = 2,
-  CN_STATE_ADVERTISE_SUBSCRIBER = 4,
-  CN_STATE_ADVERTISE_SERVICE = 8,
-  CN_STATE_ASK_FOR_CONNECTION = 16,
-  CN_STATE_ROSCORE_REQ = 32,
-}CrosNodeState;
-
 
 typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
 
@@ -119,8 +108,6 @@ struct ServiceProviderNode
 typedef struct CrosNode CrosNode;
 struct CrosNode
 {
-  CrosNodeState state;          //! The node state: it specified if we nood to advertise or subscribe somethings,...
-    
   char *name;                   //! The node name: it is the absolute name, i.e. it should includes the namespace
   char *host;                   //! The node host (ipv4, e.g. 192.168.0.2)
   unsigned short xmlrpc_port;          //! The node port for the XMLRPC protocol
@@ -152,17 +139,14 @@ struct CrosNode
 
   /*! Manage connections for RPCROS between this and other nodes  */
   TcprosProcess rpcros_server_proc[CN_MAX_RPCROS_SERVER_CONNECTIONS];
-  
+
   PublisherNode pubs[CN_MAX_PUBLISHED_TOPICS];            //! All the published topic, defined by PublisherNode structures
   SubscriberNode subs[CN_MAX_SUBSCRIBED_TOPICS];          //! All the subscribed topic, defined by PublisherNode structures
   ServiceProviderNode services[CN_MAX_SERVICE_PROVIDERS]; //! All the services to register
-  
+
   int n_pubs;                   //! Number of node's published topics
-  int n_advertised_pubs;        //! Number of published topics yet advertised
   int n_subs;                   //! Number of node's subscribed topics
-  int n_advertised_subs;        //! Number of topic subscriptions yet advertised
   int n_services;               //! Number of registered services
-  int n_advertised_services;    //! Number of services already advertised
 };
 
 
