@@ -875,7 +875,7 @@ static void paramPrint( XmlrpcParam *param, char *head )
       for ( i = 0; i< param->array_n_elem; i++ )
       {
         char elem_head[20];
-        sprintf(elem_head, "Elem [%d]",i);
+        snprintf(elem_head, 20, "Elem [%d]",i);
         paramPrint( & ( param->data.as_array[i] ), elem_head );
       }
     }

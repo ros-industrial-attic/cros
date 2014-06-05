@@ -156,7 +156,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
       xmlrpcParamVectorPushBackString( &(client_proc->params), n->pubs[n->n_advertised_pubs].topic_name );
       xmlrpcParamVectorPushBackString( &(client_proc->params), n->pubs[n->n_advertised_pubs].topic_type );
       char node_uri[256];
-      sprintf( node_uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+      snprintf( node_uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
       xmlrpcParamVectorPushBackString( &(client_proc->params), node_uri );
 
       client_proc->request_id = CROS_API_REGISTER_PUBLISHER;
@@ -173,7 +173,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
     xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[n->n_advertised_subs].topic_name );
     xmlrpcParamVectorPushBackString( &(client_proc->params), n->subs[n->n_advertised_subs].topic_type );
     char node_uri[256];
-    sprintf( node_uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+    snprintf( node_uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
     xmlrpcParamVectorPushBackString( &(client_proc->params), node_uri );
 
     client_proc->request_id = CROS_API_REGISTER_SUBSCRIBER;
@@ -189,9 +189,9 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
       xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
       xmlrpcParamVectorPushBackString( &(client_proc->params), n->services[n->n_advertised_services].service_name );
       char uri[256];
-      sprintf( uri, "rosrpc://%s:%d/", n->host, n->rpcros_port);
+      snprintf( uri, 256, "rosrpc://%s:%d/", n->host, n->rpcros_port);
       xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
-      sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+      snprintf( uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
       xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
 
       client_proc->request_id = CROS_API_REGISTER_SERVICE;
@@ -212,7 +212,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
           xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
           xmlrpcParamVectorPushBackString( &(client_proc->params), service_name.data );
           char uri[256];
-          sprintf( uri, "rosrpc://%s:%d/", n->host, n->rpcros_port);
+          snprintf( uri, 256, "rosrpc://%s:%d/", n->host, n->rpcros_port);
           xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
 
           generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
@@ -228,7 +228,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
           xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
           xmlrpcParamVectorPushBackString( &(client_proc->params), sub_name.data );
           char uri[256];
-          sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+          snprintf( uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
           xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
 
           generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
@@ -244,7 +244,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
           xmlrpcParamVectorPushBackString( &(client_proc->params), n->name );
           xmlrpcParamVectorPushBackString( &(client_proc->params), pub_name.data );
           char uri[256];
-          sprintf( uri, "http://%s:%d/", n->host, n->xmlrpc_port);
+          snprintf( uri, 256, "http://%s:%d/", n->host, n->xmlrpc_port);
           xmlrpcParamVectorPushBackString( &(client_proc->params), uri );
 
           generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
@@ -397,11 +397,22 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           //removing the 'http://' and the last '/'
           int dirty_string_len = strlen(pub_host_string);
           char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
+          if (clean_string == NULL)
+            exit(1);
           strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
           char * progress = NULL;
           char* hostname = strtok_r(clean_string,":",&progress);
-          requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
-          lookup_host(hostname, requesting_subscriber->topic_host);
+          if(requesting_subscriber->topic_host == NULL)
+          {
+            requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+            if (requesting_subscriber->topic_host == NULL)
+              exit(1);
+          }
+
+          int rc = lookup_host(hostname, requesting_subscriber->topic_host);
+          if (rc)
+            return 0;
+
           requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
         }
       }
@@ -559,7 +570,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   return ret;
 }
 
-void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
+int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
   PRINT_DEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
   
@@ -572,7 +583,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     xmlrpcProcessClear( server_proc );
     server_proc->message_type = XMLRPC_MESSAGE_RESPONSE;
     fillErrorParams ( &(server_proc->params), "" );
-    return;
+    return 0;
   }
 
   server_proc->message_type = XMLRPC_MESSAGE_RESPONSE;
@@ -654,14 +665,24 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 					//removing the 'http://' and the last '/'
 					int dirty_string_len = strlen(pub_host_string);
 					char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
+          if (clean_string == NULL)
+            exit(1);
 					strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
           char * progress = NULL;
           char* hostname = strtok_r(clean_string,":",&progress);
 					if(requesting_subscriber->topic_host == NULL)
 					{
 						requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+            if (requesting_subscriber->topic_host == NULL)
+              exit(1);
 					}
-					lookup_host(hostname, requesting_subscriber->topic_host);
+          int rc = lookup_host(hostname, requesting_subscriber->topic_host);
+          if (rc)
+          {
+            PRINT_ERROR ( "lookup_host() : Unable to resolve hostname \n" );
+            return 1;
+          }
+
 					requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
 					xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]),XMLRPC_PROCESS_STATE_WRITING);
 					n->state = (CrosNodeState)(n->state | CN_STATE_ASK_FOR_CONNECTION);
@@ -833,5 +854,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     xmlrpcProcessClear( server_proc );
     server_proc->message_type = XMLRPC_MESSAGE_RESPONSE;
     fillErrorParams ( &(server_proc->params), "" );
-  }        
+  }
+
+  return 0;
 }

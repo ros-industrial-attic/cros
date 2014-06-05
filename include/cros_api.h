@@ -44,7 +44,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx  );
  *  \param server_idx Index of the XmlrpcProcess ( xmlrpc_server_proc[server_idx] ) to be considered for the parsing and
  *                    the response generation
  */
-void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx );
+int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx );
 
 /*! @}*/
 
