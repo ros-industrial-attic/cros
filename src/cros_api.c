@@ -542,7 +542,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
     	tcpIpSocketOpen(&(tcpros_proc->socket));
     }
 
-    PRINT_INFO( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
+    PRINT_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
     xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
 
     //set the process to open the socket with the desired host
@@ -590,7 +590,7 @@ void cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   }
   else if(strcmp(method, "publisherUpdate") == 0)
   {
-    PRINT_INFO("publisherUpdate()\n");
+    PRINT_INFO("publisherUpdate() response.\n");
     // TODO Store the subscribed node name
     XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
 
