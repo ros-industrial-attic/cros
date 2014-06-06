@@ -603,7 +603,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           // TODO Add statusMessage here
           xmlrpcParamArrayPushBackString(xmlrpcParamVectorAt(&params, 0), "");
           xmlrpcParamArrayPushBackArray(xmlrpcParamVectorAt(&params, 0));
-          XmlrpcParam* array = xmlrpcParamVectorAt(xmlrpcParamVectorAt(&params, 0 ), 2);
+          XmlrpcParam* array = xmlrpcParamArrayGetParamAt(xmlrpcParamVectorAt(&params, 0 ), 2);
           xmlrpcParamArrayPushBackString( array, CROS_API_TCPROS_STRING );
           xmlrpcParamArrayPushBackString( array, n->host );
           xmlrpcParamArrayPushBackInt( array, n->tcpros_port );
