@@ -113,7 +113,12 @@ static void handleXmlrpcClientError(CrosNode *node, int i )
     }
     default:
     {
-      // Do nothing
+      ResultCallback callback = call->result_callback;
+      if (callback != NULL)
+      {
+        // Notifies an error with a NULL result
+        callback(NULL, call->context_data);
+      }
       break;
     }
   }
