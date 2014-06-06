@@ -1131,8 +1131,8 @@ void cRosNodeDestroy ( CrosNode *n )
   {
     if ( n->services[i].service_name != NULL ) free ( n->services[i].service_name );
     if ( n->services[i].service_type != NULL ) free ( n->services[i].service_type );
-    if ( n->services[i].servicerequest_type != NULL ) free ( n->services[i].service_type );
-    if ( n->services[i].serviceresponse_type != NULL ) free ( n->services[i].service_type );
+    if ( n->services[i].servicerequest_type != NULL ) free ( n->services[i].servicerequest_type );
+    if ( n->services[i].serviceresponse_type != NULL ) free ( n->services[i].serviceresponse_type );
     if ( n->services[i].md5sum != NULL ) free ( n->services[i].md5sum );
   }
 }
