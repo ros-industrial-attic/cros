@@ -5,8 +5,8 @@
 
 #define CROS_API_TCPROS_STRING "TCPROS"
 
-typedef int (*ApiCallback)();
-typedef int (*DeserializeResponseCallback)();
+typedef void (*ResultCallback)(void *result, void *data);
+typedef void * (*FetchResultCallback)(XmlrpcParamVector *response);
 
 typedef struct RosApiCall RosApiCall;
 typedef struct ApiCallNode ApiCallNode;
@@ -44,9 +44,9 @@ struct RosApiCall
   CROS_API_METHOD method;
   XmlrpcParamVector params;
   int provider_idx;
-  ApiCallback Callback;
-  void *ContextData;
-  DeserializeResponseCallback DeserializeResponse;
+  ResultCallback result_callback;
+  void *context_data;
+  FetchResultCallback fetch_result_callback;
 };
 
 struct ApiCallNode

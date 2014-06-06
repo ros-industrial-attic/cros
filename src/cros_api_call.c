@@ -9,6 +9,9 @@ RosApiCall * newRosApiCall()
   RosApiCall *ret = (RosApiCall *)malloc(sizeof(RosApiCall));
   ret->provider_idx = -1;
   xmlrpcParamVectorInit(&ret->params);
+  ret->result_callback = NULL;
+  ret->context_data = NULL;
+  ret->fetch_result_callback = NULL;
   return ret;
 }
 
