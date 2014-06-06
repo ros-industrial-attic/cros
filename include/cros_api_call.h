@@ -41,12 +41,12 @@ typedef enum
 
 struct RosApiCall
 {
-  CROS_API_METHOD method;
-  XmlrpcParamVector params;
-  int provider_idx;
-  ResultCallback result_callback;
-  void *context_data;
-  FetchResultCallback fetch_result_callback;
+  CROS_API_METHOD method;                     //! ROS api method
+  XmlrpcParamVector params;                   //! Method arguments
+  int provider_idx;                           //! Provider (sub, pub or service provider) index
+  ResultCallback result_callback;             //! Response callback
+  void *context_data;                         //! Result callback context
+  FetchResultCallback fetch_result_callback;  //! Callback to fetch the result
 };
 
 struct ApiCallNode

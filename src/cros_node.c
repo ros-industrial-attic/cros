@@ -93,13 +93,34 @@ static void openTcprosListnerSocket( CrosNode *n )
   }
 }
 
-static void handleXmlrpcClientError( CrosNode *n, int i )
+static void handleXmlrpcClientError(CrosNode *node, int i )
 {
-  tcpIpSocketClose( &(n->xmlrpc_client_proc[i].socket) );
-  xmlrpcProcessClear( &(n->xmlrpc_client_proc[i]), 1);
-  xmlrpcProcessChangeState( &(n->xmlrpc_client_proc[i]), XMLRPC_PROCESS_STATE_IDLE );
+  XmlrpcProcess *proc = &node->xmlrpc_client_proc[i];
+  RosApiCall *call = proc->current_call;
 
-  restartAdversing(n);
+  switch (call->method)
+  {
+    case CROS_API_REGISTER_SERVICE:
+    case CROS_API_UNREGISTER_SERVICE:
+    case CROS_API_UNREGISTER_PUBLISHER:
+    case CROS_API_UNREGISTER_SUBSCRIBER:
+    case CROS_API_REGISTER_PUBLISHER:
+    case CROS_API_REGISTER_SUBSCRIBER:
+    {
+      proc->current_call = NULL;
+      enqueueApiCall(&proc->api_calls_queue, call);
+      break;
+    }
+    default:
+    {
+      // Do nothing
+      break;
+    }
+  }
+
+  tcpIpSocketClose(&proc->socket);
+  xmlrpcProcessClear(proc, 1);
+  xmlrpcProcessChangeState(proc, XMLRPC_PROCESS_STATE_IDLE);
 }
 
 static void handleTcprosClientError( CrosNode *n, int i )

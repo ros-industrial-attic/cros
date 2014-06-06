@@ -28,12 +28,11 @@ typedef struct XmlrpcProcess XmlrpcProcess;
 struct XmlrpcProcess
 {
   ApiCallQueue api_calls_queue;
+  RosApiCall *current_call;
   XmlrpcProcessState state;             //! The state
   TcpIpSocket socket;                   //! The socket used for the XMLRPC communication
   XmlrpcMessageType message_type;       //! The incoming/outgoing XMLRPC message type
   DynString method;                     //! The incoming/outgoing XMLRPC method
-  CROS_API_METHOD method_id;
-  int provider_idx;                     //! Index of the current provider processed (publisher, subscriber or service)
   XmlrpcParamVector params;             //! The incoming/outgoing XMLRPC response
   XmlrpcParamVector response;           //! The incoming/outgoing XMLRPC response
    /*! The incoming/outgoing XMLRPC message

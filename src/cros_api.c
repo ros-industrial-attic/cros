@@ -108,43 +108,41 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
     if (getQueueCount(&client_proc->api_calls_queue) > 0)
     {
       RosApiCall *call = dequeueApiCall(&client_proc->api_calls_queue);
-      client_proc->method_id = call->method;
-      client_proc->provider_idx = call->provider_idx;
+      client_proc->current_call = call;
       generateXmlrpcMessage( n->host, n->roscore_port, XMLRPC_MESSAGE_REQUEST,
                           getMethodName(call->method), &call->params, &client_proc->message);
-      freeRosApiCall(call);
     }
     else
     {
       // Default behavior: ping roscore (actually, ping a node of roscore, i.e. default /rosout )
       PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
 
-      XmlrpcParamVector params;
-      xmlrpcParamVectorInit(&params);
-      int rc = xmlrpcParamVectorPushBackString(&params, "/rosout");
+      RosApiCall *call = newRosApiCall();
+      if (call == NULL)
+      {
+        PRINT_ERROR ( "cRosApiPrepareRequest() : Can't allocate memory\n");
+        exit(1);
+      }
 
-      client_proc->method_id = CROS_API_GET_PID;
+      client_proc->current_call = call;
+      call->method = CROS_API_GET_PID;
+      int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
+
       dynStringPushBackStr(&client_proc->method, getMethodName(CROS_API_GET_PID));
 
       generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
-                          dynStringGetData(&client_proc->method), &params, &client_proc->message );
-
-      xmlrpcParamVectorRelease(&params);
+                          dynStringGetData(&client_proc->method), &call->params, &client_proc->message );
     }
   }
   else // client_idx > 0
   {
-    if (getQueueCount(&client_proc->api_calls_queue) > 0)
-    {
-      RosApiCall *call = dequeueApiCall(&client_proc->api_calls_queue);
-      int subidx = call->provider_idx;
-      SubscriberNode *subscriber_node = &n->subs[subidx];
-      client_proc->method_id = call->method;
-      client_proc->provider_idx = subidx;
-      generateXmlrpcMessage( n->host, subscriber_node->topic_port, XMLRPC_MESSAGE_REQUEST,
+    assert(getQueueCount(&client_proc->api_calls_queue) > 0);
+
+    RosApiCall *call = dequeueApiCall(&client_proc->api_calls_queue);
+    SubscriberNode *subscriber_node = &n->subs[call->provider_idx];
+    client_proc->current_call = call;
+    generateXmlrpcMessage(n->host, subscriber_node->topic_port, XMLRPC_MESSAGE_REQUEST,
                           getMethodName(call->method), &call->params, &client_proc->message);
-      freeRosApiCall(call);
-    }
   }
 }
 
@@ -168,6 +166,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc[client_idx]);
   int ret = -1;
 
+  assert(client_proc->current_call != NULL);
+
   if(client_idx == 0) //xmlrpc client connected to roscore
   {
     if( client_proc->message_type != XMLRPC_MESSAGE_RESPONSE )
@@ -176,7 +176,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       return ret;
     }
 
-    switch (client_proc->method_id)
+    switch (client_proc->current_call->method)
     {
       case CROS_API_REGISTER_PUBLISHER:
       {
@@ -201,7 +201,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         //Get the next subscriber without a topic host
-        int subidx = client_proc->provider_idx;
+        assert(client_proc->current_call->provider_idx != -1);
+        int subidx = client_proc->current_call->provider_idx;
         SubscriberNode* requesting_subscriber = &(n->subs[subidx]);
 
         if(checkResponseValue( &client_proc->response ) )
@@ -348,7 +349,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   }
   else // client_idx > 0
   {
-    switch (client_proc->method_id)
+    switch (client_proc->current_call->method)
     {
       case CROS_API_REQUEST_TOPIC:
       {
