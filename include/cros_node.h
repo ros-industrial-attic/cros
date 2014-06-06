@@ -204,6 +204,24 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
                                char *service_type, char *md5sum,
                                 ServiceProviderCallback callback, void *data_context);
 
+/*! \brief Unregister the topic subscriber
+ *
+ *  \param subidx Index of the subscriber
+ */
+int unregisterSubscriber(CrosNode *node, int subidx);
+
+/*! \brief Unregister the topic publisher
+ *
+ *  \param subidx Index of the topic publisher
+ */
+int unregisterPublisher(CrosNode *node, int pubidx);
+
+/*! \brief Unregister the service provider
+ *
+ *  \param subidx Index of the service provider
+ */
+int unregisterService(CrosNode *node, int serviceidx);
+
 /*! \brief Perform a loop of the cROS node main cycle 
  * 
  *  \param n A pointer to a CrosNode object (e.g., created with cRosNodeCreate())

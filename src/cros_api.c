@@ -652,6 +652,26 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
       break;
     }
+    case CROS_API_GET_BUS_STATS:
+    {
+      break;
+    }
+    case CROS_API_GET_BUS_INFO:
+    {
+      break;
+    }
+    case CROS_API_GET_MASTER_URI:
+    {
+      break;
+    }
+    case CROS_API_SHUTDOWN:
+    {
+      break;
+    }
+    case CROS_API_PARAM_UPDATE:
+    {
+      break;
+    }
     default:
     {
       PRINT_ERROR("cRosApiParseRequestPrepareResponse() : Unknown method \n Message : \n %s",

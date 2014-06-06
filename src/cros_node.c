@@ -14,6 +14,7 @@
 #include "cros_message.h"
 #include "cros_clock.h"
 #include "cros_defs.h"
+#include "cros_node_api.h"
 
 static int enqueueSubscriberAdvertise(CrosNode *node, int subidx);
 static int enqueuePubliserAdvertise(CrosNode *node, int pubidx);
@@ -1275,6 +1276,21 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
     return -1;
 
   return subidx;
+}
+
+int unregisterSubscriber(CrosNode *node, int subidx)
+{
+  return 0;
+}
+
+int unregisterPublisher(CrosNode *node, int pubidx)
+{
+  return 0;
+}
+
+int unregisterService(CrosNode *node, int serviceidx)
+{
+  return 0;
 }
 
 void cRosNodeDoEventsLoop ( CrosNode *n )
