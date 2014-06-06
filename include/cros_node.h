@@ -3,6 +3,7 @@
 
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
+#include <cros_api_call.h>
 
 /*! \defgroup cros_node cROS Node */
 
@@ -53,18 +54,6 @@ typedef struct ServiceProviderNode ServiceProviderNode;
 
 typedef uint8_t CallbackResponse;
 
-typedef enum
-{
-  CN_STATE_NONE = 0,
-  CN_STATE_PING_ROSCORE = 1,
-  CN_STATE_ADVERTISE_PUBLISHER = 2,
-  CN_STATE_ADVERTISE_SUBSCRIBER = 4,
-  CN_STATE_ADVERTISE_SERVICE = 8,
-  CN_STATE_ASK_FOR_CONNECTION = 16,
-  CN_STATE_ROSCORE_REQ = 32,
-}CrosNodeState;
-
-
 typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
 
 /*! Structure that define a published topic */
@@ -74,7 +63,7 @@ struct PublisherNode
   char *topic_type;                             //! The published topic data type (e.g., std_msgs/String, ...)
   char *md5sum;                                 //! The md5sum of the message type
   char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
-
+  int client_tcpros_id;
   void *context;
   /*! The callback called to generate the (raw) packet data of type topic_type */
   PublisherCallback callback;
@@ -92,10 +81,10 @@ struct SubscriberNode
   char *topic_name;                             //! The subscribed topic name
   char *topic_type;                             //! The subscribed topic data type (e.g., std_msgs/String, ...)
   char *md5sum;                                 //! The md5sum of the message type
-  char *topic_host;								              //! The hostname of the topic already contacted.
-  int   topic_port;								              //! The host-port of the topic already contacted.
+  char *topic_host;                             //! The hostname of the topic already contacted.
+  int   topic_port;                             //! The host-port of the topic already contacted.
   int   client_xmlrpc_id;                       //! The xmlrpc client that manages the subscription
-  int		client_tcpros_id;
+  int   client_tcpros_id;
   int   tcpros_port;
   void *context;
   SubscriberCallback callback;
@@ -119,8 +108,6 @@ struct ServiceProviderNode
 typedef struct CrosNode CrosNode;
 struct CrosNode
 {
-  CrosNodeState state;          //! The node state: it specified if we nood to advertise or subscribe somethings,...
-    
   char *name;                   //! The node name: it is the absolute name, i.e. it should includes the namespace
   char *host;                   //! The node host (ipv4, e.g. 192.168.0.2)
   unsigned short xmlrpc_port;          //! The node port for the XMLRPC protocol
@@ -133,6 +120,9 @@ struct CrosNode
 
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
   unsigned short roscore_port;  //! The roscore port
+
+  ApiCallQueue master_api_queue;
+  ApiCallQueue slave_api_queue;
 
   //! Manage connections for XMLRPC calls from this node to others
   XmlrpcProcess xmlrpc_client_proc[CN_MAX_XMLRPC_CLIENT_CONNECTIONS];
@@ -152,17 +142,14 @@ struct CrosNode
 
   /*! Manage connections for RPCROS between this and other nodes  */
   TcprosProcess rpcros_server_proc[CN_MAX_RPCROS_SERVER_CONNECTIONS];
-  
+
   PublisherNode pubs[CN_MAX_PUBLISHED_TOPICS];            //! All the published topic, defined by PublisherNode structures
   SubscriberNode subs[CN_MAX_SUBSCRIBED_TOPICS];          //! All the subscribed topic, defined by PublisherNode structures
   ServiceProviderNode services[CN_MAX_SERVICE_PROVIDERS]; //! All the services to register
-  
+
   int n_pubs;                   //! Number of node's published topics
-  int n_advertised_pubs;        //! Number of published topics yet advertised
   int n_subs;                   //! Number of node's subscribed topics
-  int n_advertised_subs;        //! Number of topic subscriptions yet advertised
   int n_services;               //! Number of registered services
-  int n_advertised_services;    //! Number of services already advertised
 };
 
 
@@ -197,7 +184,7 @@ void cRosNodeDestroy( CrosNode *n );
  *  \param publisherDataCallback The callback called to generate the (raw) packet data 
  *                                of type topic_type
  * 
- *  \return Returns 1 on success, 0 on failure (e.g., the maximu number of 
+ *  \return Returns 0 on success, -1 on failure (e.g., the maximu number of
  *          published topics has been reached )
  */
 int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topic_name, 
@@ -219,6 +206,24 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
 int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
                                char *service_type, char *md5sum,
                                 ServiceProviderCallback callback, void *data_context);
+
+/*! \brief Unregister the topic subscriber
+ *
+ *  \param subidx Index of the subscriber
+ */
+int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx);
+
+/*! \brief Unregister the topic publisher
+ *
+ *  \param subidx Index of the topic publisher
+ */
+int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx);
+
+/*! \brief Unregister the service provider
+ *
+ *  \param subidx Index of the service provider
+ */
+int cRosNodeUnregisterService(CrosNode *node, int serviceidx);
 
 /*! \brief Perform a loop of the cROS node main cycle 
  * 

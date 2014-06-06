@@ -1,0 +1,5 @@
+TODO
+====
+
+- Check if forcing an error in the response of a xmlrpc request does
+  prevent established and new connections to work correctly.
