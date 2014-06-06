@@ -1,6 +1,7 @@
 #ifndef _CROS_GENTOOLS_H_
 #define _CROS_GENTOOLS_H_
 
+#include "dyn_string.h"
 /*! \defgroup cros_gentools cROS message generation tool
  * 
  * Implemenation of the  ROS message generation tool and
@@ -19,12 +20,18 @@ static const char* CHAR_SEP = "/";
 
 // character that designates a constant assignment rather than a field
 static const char* CHAR_CONST = "=";
+
+// char that denotes the comment line start
 static const char* CHAR_COMMENT = "#";
 
+// string that denotes the separation between request/response service parts
+static const char* SRV_DELIMITER = "---";
+
+static const char* HEADER_DEFAULT_PACK = "std_msgs";
+static const char* HEADER_DEFAULT_NAME = "Header";
 static const char* HEADER_DEFAULT_TYPE = "std_msgs/Header";
 
 static const char* HEADER_DEFAULT_TYPEDEF = "\
-MSG: std_msgs/Header\n\
 # Standard metadata for higher-level stamped data types.\n\
 # This is generally used to communicate timestamped data\n\
 # in a particular coordinate frame.\n\
@@ -63,6 +70,8 @@ typedef struct t_msgConst msgConst;
 
 struct t_msg{
 	char* name;
+	char* package;
+	char* root_dir;
 	char* plain_text;
 	msgField* fields;
 	msgField* first_field;
@@ -71,6 +80,17 @@ struct t_msg{
 };
 
 typedef struct t_msg cRosMsg;
+
+struct t_srv{
+	char* name;
+	char* package;
+	char* root_dir;
+	char* plain_text;
+	cRosMsg* request;
+	cRosMsg* response;
+};
+
+typedef struct t_srv cRosSrv;
 
 struct t_msgDep{
 	cRosMsg* msg;
@@ -92,9 +112,9 @@ static const char* PRIMITIVE_TYPES[] = {
  * 
  *  \param filename Full path of the message/service file
  */
-char* cRosGentoolsMD5(char* filename);
+unsigned char* cRosGentoolsMD5(char* filename);
 
-
+void cRosMD5Readable(unsigned char* data, DynString* output);
 /*! \brief Generate SHA1 hash of files
  * 
  *  \param filename Full path of the message/service file
