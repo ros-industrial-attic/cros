@@ -23,6 +23,9 @@ void xmlrpcProcessRelease( XmlrpcProcess *p )
   if( p->socket.connected )
     tcpIpSocketDisconnect( &(p->socket) );
 
+  if (p->current_call != NULL)
+    freeRosApiCall(p->current_call);
+
   tcpIpSocketClose( &(p->socket) );
   dynStringRelease( &(p->method) );
   dynStringRelease( &(p->message) );
