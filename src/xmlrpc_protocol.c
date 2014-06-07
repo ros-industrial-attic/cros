@@ -264,20 +264,29 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   dynStringPatch ( message, content_len_str, content_len_init );
 }
 
-XmlrpcParserState parseXmlrpcMessage ( DynString *message, XmlrpcMessageType *type,
-                                       DynString *method, XmlrpcParamVector *params )
+XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type,
+                                     DynString *method, XmlrpcParamVector *params,
+                                     char host[256], int *port)
 {
   PRINT_VDEBUG ( "parseXmlrpcMessage()\n" );
 
   int msg_len = dynStringGetLen ( message );
-  char *msg = ( char * ) dynStringGetData ( message ),
-        *body_len_init = NULL, *body_init = NULL;
+  char *msg = ( char * ) dynStringGetData ( message );
+  char *body_len_init = NULL;
+  char *body_init = NULL;
+  char *host_init = NULL;
 
   int i;
   for ( i = 0; i < msg_len; i++, msg++ )
   {
     if ( msg_len - i >= 16 && strncasecmp ( msg, "Content-length: ", 16 ) == 0 )
+    {
       body_len_init = msg + 16;
+    }
+    if ( msg_len - i >= 6 && strncasecmp ( msg, "Host: ", 16 ) == 0 )
+    {
+      host_init = msg + 6;
+    }
     else if ( msg_len - i >= 4 && strncmp ( msg, "\r\n\r\n", 4 ) == 0 )
     {
       body_init = msg + 4;
@@ -314,8 +323,26 @@ XmlrpcParserState parseXmlrpcMessage ( DynString *message, XmlrpcMessageType *ty
     return XMLRPC_PARSER_INCOMPLETE;
   }
 
+  if (host_init == NULL)
+  {
+    memset(host, 0, sizeof(256));
+    *port = -1;
+  }
+  else
+  {
+    char temp_host[256];
+    snprintf(temp_host, 256, "%s", host_init); // Temporary copy
+    char full_host[256];
+    sscanf(full_host, "%s", temp_host); // Remove spaces and newlines
+    strncpy(temp_host,full_host+7,strlen(full_host)-8); // Remove 'http://' and '/'
+    char * progress = NULL;
+    char* host_ = strtok_r(temp_host,":",&progress);
+    strcpy(host, host_);
+    *port = atoi(strtok_r(NULL,":",&progress));
+  }
+
   PRINT_DEBUG ( "parseXmlrpcMessage() : body len : %d\n", body_len );
-    
+
   return parseXmlrpcMessageBody ( body_init, body_len, type, method, params );
 
 }

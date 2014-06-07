@@ -157,7 +157,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       return ret;
     }
 
-    switch (client_proc->current_call->method)
+    RosApiCall *call = client_proc->current_call;
+    switch (call->method)
     {
       case CROS_API_REGISTER_PUBLISHER:
       {
@@ -182,8 +183,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         //Get the next subscriber without a topic host
-        assert(client_proc->current_call->provider_idx != -1);
-        int subidx = client_proc->current_call->provider_idx;
+        assert(call->provider_idx != -1);
+        int subidx = call->provider_idx;
         SubscriberNode* requesting_subscriber = &(n->subs[subidx]);
 
         if(checkResponseValue( &client_proc->response ) )
@@ -283,8 +284,9 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
-          XmlrpcParam* status_msg = xmlrpcParamVectorAt( &client_proc->response, 1);
-          XmlrpcParam* unreg_num = xmlrpcParamVectorAt( &client_proc->response, 2);
+          XmlrpcParam *array = xmlrpcParamVectorAt(&client_proc->response,0);
+          XmlrpcParam* status_msg = xmlrpcParamArrayGetParamAt(array, 1);
+          XmlrpcParam* unreg_num = xmlrpcParamArrayGetParamAt(array, 2);
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
@@ -297,8 +299,9 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
-          XmlrpcParam* status_msg = xmlrpcParamVectorAt( &client_proc->response, 1);
-          XmlrpcParam* unreg_num = xmlrpcParamVectorAt( &client_proc->response, 2);
+          XmlrpcParam *array = xmlrpcParamVectorAt(&client_proc->response, 0);
+          XmlrpcParam* status_msg = xmlrpcParamArrayGetParamAt(array, 1);
+          XmlrpcParam* unreg_num = xmlrpcParamArrayGetParamAt(array, 2);
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
@@ -328,8 +331,37 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   }
   else // client_idx > 0
   {
-    switch (client_proc->current_call->method)
+    void *result = NULL;
+    RosApiCall *call = client_proc->current_call;
+    switch (call->method)
     {
+      case CROS_API_LOOKUP_NODE:
+      case CROS_API_GET_PUBLISHED_TOPICS:
+      case CROS_API_GET_TOPIC_TYPES:
+      case CROS_API_GET_SYSTEM_STATE:
+      case CROS_API_GET_URI:
+      case CROS_API_LOOKUP_SERVICE:
+      case CROS_API_GET_BUS_STATS:
+      case CROS_API_GET_BUS_INFO:
+      case CROS_API_GET_MASTER_URI:
+      case CROS_API_SHUTDOWN:
+      case CROS_API_GET_PID:
+      case CROS_API_GET_SUBSCRIPTIONS:
+      case CROS_API_GET_PUBLICATIONS:
+      {
+        ret = 0;
+
+        ResultCallback callback = call->result_callback;
+        if (callback != NULL)
+        {
+          void *result = call->fetch_result_callback(&client_proc->response);
+          callback(call->id, result, call->context_data);
+          if (result != NULL)
+            call->free_result_callback(result);
+        }
+
+        break;
+      }
       case CROS_API_REQUEST_TOPIC:
       {
         if( checkResponseValue( &client_proc->response ) )
@@ -528,9 +560,18 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
         for( i = 0 ; i < n->n_pubs; i++)
         {
-          if( strcmp( xmlrpcParamGetString( topic_param ), n->pubs[i].topic_name ) == 0)
+          PublisherNode *pub = &n->pubs[i];
+          if( strcmp( xmlrpcParamGetString( topic_param ), pub->topic_name ) == 0)
           {
             topic_found = 1;
+            if (pub->slave_callback != NULL && strlen(server_proc->host) != 0)
+            {
+              CrosSlaveStatus status;
+              status.xmlrpc_host = server_proc->host;
+              status.xmlrpc_port = server_proc->port;
+              pub->slave_callback(&status, pub->context);
+            }
+
             break;
           }
         }

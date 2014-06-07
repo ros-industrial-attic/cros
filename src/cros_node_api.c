@@ -1,22 +1,140 @@
-#include "cros_node_api.h"
+#include <stdlib.h>
+
 #include "cros_defs.h"
+#include "cros_node_api.h"
+#include "cros_node_internal.h"
 #include "xmlrpc_process.h"
 
-static void * fetchLookupNodeResult(XmlrpcParamVector *response);
-static void * fetchGetPublishedTopicsResult(XmlrpcParamVector *response);
-static void * fetchGetTopicTypesResult(XmlrpcParamVector *response);
-static void * fetchGetSystemStateResult(XmlrpcParamVector *response);
-static void * fetchGetUriResult(XmlrpcParamVector *response);
-static void * fetchLookupServiceResult(XmlrpcParamVector *response);
-static void * fetchGetBusStatsResult(XmlrpcParamVector *response);
-static void * fetchGetBusInfoResult(XmlrpcParamVector *response);
-static void * fetchGetMasterUriResult(XmlrpcParamVector *response);
-static void * fetchRequestShutdownResult(XmlrpcParamVector *response);
-static void * fetchGetPidResult(XmlrpcParamVector *response);
-static void * fetchGetSubscriptionsResult(XmlrpcParamVector *response);
-static void * fetchGetPublicationsResult(XmlrpcParamVector *response);
+static LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response);
+static GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *response);
+static GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response);
+static GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response);
+static GetUriResult * fetchGetUriResult(XmlrpcParamVector *response);
+static LookupServiceResult * fetchLookupServiceResult(XmlrpcParamVector *response);
+static GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response);
+static GetBusInfoResult * fetchGetBusInfoResult(XmlrpcParamVector *response);
+static GetMasterUriResult * fetchGetMasterUriResult(XmlrpcParamVector *response);
+static ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response);
+static GetPidResult * fetchGetPidResult(XmlrpcParamVector *response);
+static GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response);
+static GetPublicationsResult * fetchGetPublicationsResult(XmlrpcParamVector *response);
 
-int lookupNode(CrosNode *node, const char *node_name, LookupNodeCallback *callback, void *data)
+static void freeLookupNodeResult(LookupNodeResult *result);
+static void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result);
+static void freeGetTopicTypesResult(GetTopicTypesResult *result);
+static void freeGetSystemStateResult(GetSystemStateResult *result);
+static void freeGetUriResult(GetUriResult *result);
+static void freeLookupServiceResult(LookupServiceResult *result);
+static void freeGetBusStatsResult(GetBusStatsResult *result);
+static void freeGetBusInfoResult(GetBusInfoResult *result);
+static void freeGetMasterUriResult(GetMasterUriResult *result);
+static void freeShutdownResult(ShutdownResult *result);
+static void freeGetPidResult(GetPidResult *result);
+static void freeGetSubscriptionsResult(GetSubscriptionsResult *result);
+static void freeGetPublicationsResult(GetPublicationsResult *result);
+
+typedef enum NodeType
+{
+  CROS_SUBSCRIBER,
+  CROS_PUBLISHER,
+  CROS_SERVICE_PROVIDER
+} NodeType;
+
+typedef struct NodeContext
+{
+  NodeType type;
+  CrosMessage incoming;
+  CrosMessage outgoing;
+  void *api_callback;
+  SlaveStatusCallback slave_callback;
+  void *context;
+  char *message_definition;
+  char *md5sum;
+} NodeContext;
+
+static NodeContext * newProviderContext(const char *provider_type, NodeType type)
+{
+  // TODO provider_type: nome qualificato con package di topic o servizio. Popolare message_definition, md5sum
+  // TODO inizializzare incoming e/o outgoing per consentire set/get in base al message/service type
+  NodeContext *providerContext = (NodeContext *)malloc(sizeof(NodeContext));
+  providerContext->api_callback = NULL;
+  providerContext->slave_callback = NULL;
+  return providerContext;
+}
+
+static void freeProviderContext(NodeContext *context)
+{
+  // TODO
+  free(context);
+}
+
+static void deserializeRosMessage(CrosMessage *message, DynBuffer *buffer)
+{
+  // TODO
+}
+
+static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* context_)
+{
+  NodeContext *context = (NodeContext *)context_;
+  deserializeRosMessage(&context->incoming, buffer);
+
+  // Cast to the appropriate public api callback and invoke it on the user context
+  SubscriberApiCallback subscriberApiCallback = (SubscriberApiCallback)context->api_callback;
+  return subscriberApiCallback(&context->incoming, context->context);
+}
+
+static void cRosNodeSlaveCallback(CrosSlaveStatus *status, void* context_)
+{
+  NodeContext *context = (NodeContext *)context_;
+  context->slave_callback(status, context->context);
+}
+
+int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context)
+{
+  return 0;
+}
+
+int cRosApisUnegisterService(CrosNode *node, int svcidx)
+{
+  return 0;
+}
+
+int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, SlaveStatusCallback slave_callback, void *context)
+{
+  NodeContext *nodeContext = newProviderContext(topic_type, CROS_SUBSCRIBER);
+  nodeContext->api_callback = callback;
+  nodeContext->slave_callback = slave_callback;
+  nodeContext->context = context;
+
+  // NB: Pass the private NodeContext to the private api, not the user context
+  int rc = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
+                                  nodeContext->md5sum, cRosNodeSubscriberCallback,
+                                  slave_callback == NULL ? NULL : cRosNodeSlaveCallback, nodeContext);
+  return rc;
+}
+
+int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
+{
+  SubscriberNode *sub = &node->subs[subidx];
+  NodeContext *context = (NodeContext *)sub->context;
+  int rc = cRosNodeUnregisterSubscriber(node, subidx);
+  if (rc != -1)
+    freeProviderContext(context);
+
+  return rc;
+}
+
+int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, SlaveStatusCallback slave_callback, void *context)
+{
+  return 0;
+}
+
+int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
+{
+  return 0;
+}
+
+int cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -27,15 +145,17 @@ int lookupNode(CrosNode *node, const char *node_name, LookupNodeCallback *callba
 
   call->method = CROS_API_LOOKUP_NODE;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchLookupNodeResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchLookupNodeResult;
+  call->free_result_callback = (FreeResultCallback)freeLookupNodeResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+  xmlrpcParamVectorPushBackString(&call->params, node_name);
 
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
-int getPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback *callback, void *data)
+int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -46,15 +166,17 @@ int getPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsC
 
   call->method = CROS_API_GET_PUBLISHED_TOPICS;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetPublishedTopicsResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetPublishedTopicsResult;
+  call->free_result_callback = (FreeResultCallback)freeGetPublishedTopicsResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+  xmlrpcParamVectorPushBackString(&call->params, subgraph);
 
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
-int getTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *data)
+int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -65,15 +187,16 @@ int getTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *data)
 
   call->method = CROS_API_GET_TOPIC_TYPES;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetTopicTypesResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetTopicTypesResult;
+  call->free_result_callback = (FreeResultCallback)freeGetTopicTypesResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
-int getSystemState(CrosNode *node, GetSystemStateCallback *callback, void *data)
+int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -84,15 +207,16 @@ int getSystemState(CrosNode *node, GetSystemStateCallback *callback, void *data)
 
   call->method = CROS_API_GET_SYSTEM_STATE;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetSystemStateResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetSystemStateResult;
+  call->free_result_callback = (FreeResultCallback)freeGetSystemStateResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
-int getUri(CrosNode *node, GetUriCallback *callback, void *data)
+int cRosApiGetUri(CrosNode *node, GetUriCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -103,15 +227,16 @@ int getUri(CrosNode *node, GetUriCallback *callback, void *data)
 
   call->method = CROS_API_GET_URI;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetUriResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetUriResult;
+  call->free_result_callback = (FreeResultCallback)freeGetUriResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
-int lookupService(CrosNode *node, const char *service, LookupServiceCallback *callback, void *data)
+int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -122,15 +247,18 @@ int lookupService(CrosNode *node, const char *service, LookupServiceCallback *ca
 
   call->method = CROS_API_LOOKUP_SERVICE;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchLookupServiceResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchLookupServiceResult;
+  call->free_result_callback = (FreeResultCallback)freeLookupServiceResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+  xmlrpcParamVectorPushBackString(&call->params, service);
 
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
-int getBusStats(CrosNode *node, int client_idx, GetBusStatsCallback *callback, void *data)
+int cRosApiGetBusStats(CrosNode *node, const char* host, int port,
+                       GetBusStatsCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -141,15 +269,17 @@ int getBusStats(CrosNode *node, int client_idx, GetBusStatsCallback *callback, v
 
   call->method = CROS_API_GET_BUS_STATS;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetBusStatsResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetBusStatsResult;
+  call->free_result_callback = (FreeResultCallback)freeGetBusStatsResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int getBusInfo(CrosNode *node, int client_idx, GetBusInfoCallback *callback, void *data)
+int cRosApiGetBusInfo(CrosNode *node, const char* host, int port,
+                      GetBusInfoCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -160,15 +290,17 @@ int getBusInfo(CrosNode *node, int client_idx, GetBusInfoCallback *callback, voi
 
   call->method = CROS_API_GET_BUS_INFO;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetBusInfoResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetBusInfoResult;
+  call->free_result_callback = (FreeResultCallback)freeGetBusInfoResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int getMasterUri(CrosNode *node, int client_idx, GetMasterUriCallback *callback, void *data)
+int cRosApiGetMasterUri(CrosNode *node, const char* host, int port,
+                        GetMasterUriCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -179,15 +311,17 @@ int getMasterUri(CrosNode *node, int client_idx, GetMasterUriCallback *callback,
 
   call->method = CROS_API_GET_MASTER_URI;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetMasterUriResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetMasterUriResult;
+  call->free_result_callback = (FreeResultCallback)freeGetMasterUriResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int requestShutdown(CrosNode *node, int client_idx, const char *msg, GetMasterUriCallback *callback, void *data)
+int cRosApiShutdown(CrosNode *node, const char* host, int port, const char *msg,
+                    GetMasterUriCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -198,15 +332,18 @@ int requestShutdown(CrosNode *node, int client_idx, const char *msg, GetMasterUr
 
   call->method = CROS_API_SHUTDOWN;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchRequestShutdownResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchShutdownResult;
+  call->free_result_callback = (FreeResultCallback)freeShutdownResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+  xmlrpcParamVectorPushBackString(&call->params, msg);
 
-  return 0;
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int getPid(CrosNode *node, int client_idx, GetPidCallback *callback, void *data)
+int cRosApiGetPid(CrosNode *node, const char* host, int port,
+                  GetPidCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -217,15 +354,17 @@ int getPid(CrosNode *node, int client_idx, GetPidCallback *callback, void *data)
 
   call->method = CROS_API_GET_PID;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetPidResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetPidResult;
+  call->free_result_callback = (FreeResultCallback)freeGetPidResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int getSubscriptions(CrosNode *node, int client_idx, GetSubscriptionsCallback *callback, void *data)
+int cRosApiGetSubscriptions(CrosNode *node, const char* host, int port,
+                            GetSubscriptionsCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -236,15 +375,17 @@ int getSubscriptions(CrosNode *node, int client_idx, GetSubscriptionsCallback *c
 
   call->method = CROS_API_GET_SUBSCRIPTIONS;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetSubscriptionsResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetSubscriptionsResult;
+  call->free_result_callback = (FreeResultCallback)freeGetSubscriptionsResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int getPublications(CrosNode *node, int client_idx, GetSubscriptionsCallback *callback, void *data)
+int cRosApiGetPublications(CrosNode *node, const char* host, int port,
+                    GetSubscriptionsCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -255,75 +396,149 @@ int getPublications(CrosNode *node, int client_idx, GetSubscriptionsCallback *ca
 
   call->method = CROS_API_GET_PUBLICATIONS;
   call->result_callback = (ResultCallback)callback;
-  call->context_data = data;
-  call->fetch_result_callback = fetchGetPublicationsResult;
+  call->context_data = context;
+  call->fetch_result_callback = (FetchResultCallback)fetchGetPublicationsResult;
+  call->free_result_callback = (FreeResultCallback)freeGetPublicationsResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return 0;
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-void * fetchLookupNodeResult(XmlrpcParamVector *response)
+LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetPublishedTopicsResult(XmlrpcParamVector *response)
+GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetTopicTypesResult(XmlrpcParamVector *response)
+GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetSystemStateResult(XmlrpcParamVector *response)
+GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetUriResult(XmlrpcParamVector *response)
+GetUriResult * fetchGetUriResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchLookupServiceResult(XmlrpcParamVector *response)
+LookupServiceResult * fetchLookupServiceResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetBusStatsResult(XmlrpcParamVector *response)
+GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetBusInfoResult(XmlrpcParamVector *response)
+GetBusInfoResult * fetchGetBusInfoResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetMasterUriResult(XmlrpcParamVector *response)
+GetMasterUriResult * fetchGetMasterUriResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchRequestShutdownResult(XmlrpcParamVector *response)
+ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetPidResult(XmlrpcParamVector *response)
+GetPidResult * fetchGetPidResult(XmlrpcParamVector *response)
+{
+  GetPidResult *result = (GetPidResult *)malloc(sizeof(GetPidResult));
+  if (result == NULL)
+    return NULL;
+
+  XmlrpcParam* roscore_pid_param =
+    xmlrpcParamArrayGetParamAt(xmlrpcParamVectorAt(response,0),2);
+
+  result->code = roscore_pid_param->data.as_int;
+  return result;
+}
+
+GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetSubscriptionsResult(XmlrpcParamVector *response)
+GetPublicationsResult * fetchGetPublicationsResult(XmlrpcParamVector *response)
 {
   return NULL;
 }
 
-void * fetchGetPublicationsResult(XmlrpcParamVector *response)
+void freeLookupNodeResult(LookupNodeResult *result)
 {
-  return NULL;
+
+}
+
+void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result)
+{
+
+}
+
+void freeGetTopicTypesResult(GetTopicTypesResult *result)
+{
+
+}
+
+void freeGetSystemStateResult(GetSystemStateResult *result)
+{
+
+}
+
+void freeGetUriResult(GetUriResult *result)
+{
+
+}
+
+void freeLookupServiceResult(LookupServiceResult *result)
+{
+
+}
+
+void freeGetBusStatsResult(GetBusStatsResult *result)
+{
+
+}
+
+void freeGetBusInfoResult(GetBusInfoResult *result)
+{
+
+}
+
+void freeGetMasterUriResult(GetMasterUriResult *result)
+{
+
+}
+
+void freeShutdownResult(ShutdownResult *result)
+{
+
+}
+
+void freeGetPidResult(GetPidResult *result)
+{
+
+}
+
+void freeGetSubscriptionsResult(GetSubscriptionsResult *result)
+{
+
+}
+
+void freeGetPublicationsResult(GetPublicationsResult *result)
+{
+
 }

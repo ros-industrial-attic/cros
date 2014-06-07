@@ -52,8 +52,17 @@ typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
 
-typedef uint8_t CallbackResponse;
+typedef struct CrosSlaveStatus
+{
+  const char *xmlrpc_host;
+  int xmlrpc_port;
+} CrosSlaveStatus;
 
+/*! \brief Callback to communicate publisher or subscriber status
+ */
+typedef void (*SlaveStatusCallback)(CrosSlaveStatus *status, void* context);
+
+typedef uint8_t CallbackResponse;
 typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
 
 /*! Structure that define a published topic */
@@ -65,8 +74,8 @@ struct PublisherNode
   char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
   int client_tcpros_id;
   void *context;
-  /*! The callback called to generate the (raw) packet data of type topic_type */
-  PublisherCallback callback;
+  PublisherCallback callback;                   //! The callback called to generate the (raw) packet data of type topic_type
+  SlaveStatusCallback slave_callback;
   int loop_period;                              //! Period (in msec) for publication cycle 
 };
 
@@ -88,6 +97,7 @@ struct SubscriberNode
   int   tcpros_port;
   void *context;
   SubscriberCallback callback;
+  SlaveStatusCallback slave_callback;
 };
 
 typedef CallbackResponse (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
@@ -121,6 +131,7 @@ struct CrosNode
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
   unsigned short roscore_port;  //! The roscore port
 
+  unsigned int next_call_id;
   ApiCallQueue master_api_queue;
   ApiCallQueue slave_api_queue;
 
@@ -152,7 +163,6 @@ struct CrosNode
   int n_services;               //! Number of registered services
 };
 
-
 /*! \brief Dynamically create a CrosNode instance. This is the right way to create a CrosNode object. 
  *         Once finished, the CrosNode should be released using cRosNodeDestroy()
  * 
@@ -173,57 +183,6 @@ CrosNode *cRosNodeCreate( char* node_name, char *node_host, char *roscore_host,
  *  \param n A pointer to the CrosNode object to be released
  */
 void cRosNodeDestroy( CrosNode *n );
-
-/*! \brief Register a new topic to be published by a node.
- * 
- *  \param message_definition Full text of message definition (output of gendeps --cat)
- *  \param topic_name The published topic namespace
- *  \param topic_type The published topic data type (e.g., std_msgs/String, ...)
- *  \param md5sum The md5sum of the message typedef
- *  \param loop_period Period (in msec) for publication cycle 
- *  \param publisherDataCallback The callback called to generate the (raw) packet data 
- *                                of type topic_type
- * 
- *  \return Returns 0 on success, -1 on failure (e.g., the maximu number of
- *          published topics has been reached )
- */
-int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topic_name, 
-                               char *topic_type, char *md5sum, int loop_period, 
-                               PublisherCallback callback, void *data_context);
-
-/*! \brief Register the node in roscore as topic subscriber.
- *
- *  \param TODO review doxy documentation
- */
-int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
-                               char *topic_name, char *topic_type, char *md5sum,
-                               SubscriberCallback callback, void *data_context);
-
-/*! \brief Register the service provider in roscore
- *
- *  \param TODO review doxy documentation
- */
-int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
-                               char *service_type, char *md5sum,
-                                ServiceProviderCallback callback, void *data_context);
-
-/*! \brief Unregister the topic subscriber
- *
- *  \param subidx Index of the subscriber
- */
-int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx);
-
-/*! \brief Unregister the topic publisher
- *
- *  \param subidx Index of the topic publisher
- */
-int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx);
-
-/*! \brief Unregister the service provider
- *
- *  \param subidx Index of the service provider
- */
-int cRosNodeUnregisterService(CrosNode *node, int serviceidx);
 
 /*! \brief Perform a loop of the cROS node main cycle 
  * 

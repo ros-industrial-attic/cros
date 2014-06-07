@@ -48,8 +48,9 @@ void generateXmlrpcMessage( const char*host, unsigned short port, XmlrpcMessageT
  *          XMLRPC_PARSER_INCOMPLETE if the message is incomplete,
  *          XMLRPC_PARSER_ERROR on failure
  */
-XmlrpcParserState parseXmlrpcMessage( DynString *message, XmlrpcMessageType *type,
-                                      DynString *method, XmlrpcParamVector *response );
+XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type,
+                                     DynString *method, XmlrpcParamVector *response,
+                                     char host[256], int *port);
 
 /*! @}*/
 #endif
