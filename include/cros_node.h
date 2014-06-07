@@ -63,7 +63,7 @@ struct PublisherNode
   char *topic_type;                             //! The published topic data type (e.g., std_msgs/String, ...)
   char *md5sum;                                 //! The md5sum of the message type
   char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
-
+  int client_tcpros_id;
   void *context;
   /*! The callback called to generate the (raw) packet data of type topic_type */
   PublisherCallback callback;
@@ -81,10 +81,10 @@ struct SubscriberNode
   char *topic_name;                             //! The subscribed topic name
   char *topic_type;                             //! The subscribed topic data type (e.g., std_msgs/String, ...)
   char *md5sum;                                 //! The md5sum of the message type
-  char *topic_host;								              //! The hostname of the topic already contacted.
-  int   topic_port;								              //! The host-port of the topic already contacted.
+  char *topic_host;                             //! The hostname of the topic already contacted.
+  int   topic_port;                             //! The host-port of the topic already contacted.
   int   client_xmlrpc_id;                       //! The xmlrpc client that manages the subscription
-  int		client_tcpros_id;
+  int   client_tcpros_id;
   int   tcpros_port;
   void *context;
   SubscriberCallback callback;
@@ -181,7 +181,7 @@ void cRosNodeDestroy( CrosNode *n );
  *  \param publisherDataCallback The callback called to generate the (raw) packet data 
  *                                of type topic_type
  * 
- *  \return Returns 1 on success, 0 on failure (e.g., the maximu number of 
+ *  \return Returns 0 on success, -1 on failure (e.g., the maximu number of
  *          published topics has been reached )
  */
 int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topic_name, 
@@ -208,19 +208,19 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
  *
  *  \param subidx Index of the subscriber
  */
-int unregisterSubscriber(CrosNode *node, int subidx);
+int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx);
 
 /*! \brief Unregister the topic publisher
  *
  *  \param subidx Index of the topic publisher
  */
-int unregisterPublisher(CrosNode *node, int pubidx);
+int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx);
 
 /*! \brief Unregister the service provider
  *
  *  \param subidx Index of the service provider
  */
-int unregisterService(CrosNode *node, int serviceidx);
+int cRosNodeUnregisterService(CrosNode *node, int serviceidx);
 
 /*! \brief Perform a loop of the cROS node main cycle 
  * 

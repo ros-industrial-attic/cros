@@ -72,6 +72,7 @@ void releaseApiCallQueue(ApiCallQueue *queue)
   ApiCallNode *current = queue->head;
   while(current != NULL)
   {
+    freeRosApiCall(current->call);
     ApiCallNode *next = current->next;
     free(current);
     current = next;

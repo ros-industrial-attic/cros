@@ -409,8 +409,9 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
           strcmp( n->pubs[i].topic_type, dynStringGetData(&(server_proc->type))) == 0 &&
           strcmp( n->pubs[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0 )
       {
-      	topic_found = 1;
+        topic_found = 1;
         server_proc->topic_idx = i;
+        n->pubs[i].client_tcpros_id = server_idx;
         break;
       }
     }
