@@ -27,7 +27,6 @@ typedef enum
 typedef struct XmlrpcProcess XmlrpcProcess;
 struct XmlrpcProcess
 {
-  ApiCallQueue api_calls_queue;
   RosApiCall *current_call;
   XmlrpcProcessState state;             //! The state
   TcpIpSocket socket;                   //! The socket used for the XMLRPC communication

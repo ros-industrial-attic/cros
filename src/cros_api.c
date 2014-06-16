@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 
+#include "cros_node.h"
 #include "cros_node_internal.h"
 #include "cros_api.h"
 #include "cros_defs.h"
@@ -103,46 +104,26 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
 
   client_proc->message_type = XMLRPC_MESSAGE_REQUEST;
 
+  assert(client_proc->current_call != NULL);
+  RosApiCall *call = client_proc->current_call;
   if(client_idx == 0) //requests managed by the xmlrpc client connected to roscore
   {
-    if (getQueueCount(&client_proc->api_calls_queue) > 0)
-    {
-      RosApiCall *call = dequeueApiCall(&client_proc->api_calls_queue);
-      client_proc->current_call = call;
-      generateXmlrpcMessage( n->host, n->roscore_port, XMLRPC_MESSAGE_REQUEST,
+    generateXmlrpcMessage(n->host, n->roscore_port, XMLRPC_MESSAGE_REQUEST,
                           getMethodName(call->method), &call->params, &client_proc->message);
-    }
-    else
-    {
-      // Default behavior: ping roscore (actually, ping a node of roscore, i.e. default /rosout )
-      PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
-
-      RosApiCall *call = newRosApiCall();
-      if (call == NULL)
-      {
-        PRINT_ERROR ( "cRosApiPrepareRequest() : Can't allocate memory\n");
-        exit(1);
-      }
-
-      client_proc->current_call = call;
-      call->method = CROS_API_GET_PID;
-      int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
-
-      dynStringPushBackStr(&client_proc->method, getMethodName(CROS_API_GET_PID));
-
-      generateXmlrpcMessage( n->host, n->roscore_port, client_proc->message_type,
-                          dynStringGetData(&client_proc->method), &call->params, &client_proc->message );
-    }
   }
   else // client_idx > 0
   {
-    assert(getQueueCount(&client_proc->api_calls_queue) > 0);
-
-    RosApiCall *call = dequeueApiCall(&client_proc->api_calls_queue);
-    SubscriberNode *subscriber_node = &n->subs[call->provider_idx];
-    client_proc->current_call = call;
-    generateXmlrpcMessage(n->host, subscriber_node->topic_port, XMLRPC_MESSAGE_REQUEST,
-                          getMethodName(call->method), &call->params, &client_proc->message);
+    if (call->provider_idx == -1)
+    {
+      generateXmlrpcMessage(n->host, call->port, XMLRPC_MESSAGE_REQUEST,
+                            getMethodName(call->method), &call->params, &client_proc->message);
+    }
+    else
+    {
+      SubscriberNode *subscriber_node = &n->subs[call->provider_idx];
+      generateXmlrpcMessage(n->host, subscriber_node->topic_port, XMLRPC_MESSAGE_REQUEST,
+                            getMethodName(call->method), &call->params, &client_proc->message);
+    }
   }
 }
 
@@ -242,9 +223,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                 return ret;
 
               requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-
               enqueueRequestTopic(n, subidx);
-              xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]), XMLRPC_PROCESS_STATE_WRITING);
 
               break;
             }
@@ -361,24 +340,14 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           XmlrpcParam* nested_array = xmlrpcParamArrayGetParamAt(param_array,2);
           XmlrpcParam* tcp_port = xmlrpcParamArrayGetParamAt(nested_array,2);
 
-          SubscriberNode* sub = NULL;
-          TcprosProcess* tcpros_proc = NULL;
+          RosApiCall *call = client_proc->current_call;
 
-          int i;
-          int tcp_port_print = -1;
-          for(i = 0; i < n->n_subs; i++)
-          {
-            if(n->subs[i].client_xmlrpc_id == client_idx)
-            {
-              sub = &(n->subs[i]);
-              n->subs[i].tcpros_port = tcp_port->data.as_int;
-              tcp_port_print = n->subs[i].tcpros_port;
-              break;
-            }
-          }
+          int tcp_port_print = tcp_port->data.as_int;
+          SubscriberNode* sub = &n->subs[call->provider_idx];
+          sub->tcpros_port = tcp_port_print;
 
-          tcpros_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
-          tcpros_proc->topic_idx = i;
+          TcprosProcess* tcpros_proc = &n->tcpros_client_proc[sub->client_tcpros_id];
+          tcpros_proc->topic_idx = call->provider_idx;
 
           //need to be checked because maybe the connection went down suddenly.
           if(!tcpros_proc->socket.open)
@@ -516,7 +485,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
             requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
             enqueueRequestTopic(n, i);
-            xmlrpcProcessChangeState(&(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]), XMLRPC_PROCESS_STATE_WRITING);
           }
 
           xmlrpcParamVectorPushBackInt( &params, 1 );
@@ -526,22 +494,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         else
         {
           PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic not available or protocol for publisherUpdate() not supported\n" );
-
-          //Resetting the xmlrpc connection
-
-          XmlrpcProcess* sub_xmlrpc_proc = &(n->xmlrpc_client_proc[requesting_subscriber->client_xmlrpc_id]);
-          xmlrpcProcessClear(sub_xmlrpc_proc, 1);
-          xmlrpcProcessRelease(sub_xmlrpc_proc);
-          xmlrpcProcessInit(sub_xmlrpc_proc);
-
-          //TODO: Evaluate if it's correct reopen the connection here
-          if( !tcpIpSocketOpen( &(sub_xmlrpc_proc->socket) ) ||
-              !tcpIpSocketSetReuse( &(sub_xmlrpc_proc->socket) ) ||
-              !tcpIpSocketSetNonBlocking( &(sub_xmlrpc_proc->socket) ) )
-          {
-            PRINT_ERROR("openXmlrpcClientSocket() at index %d failed", i);
-            exit( EXIT_FAILURE );
-          }
 
           //Resetting tcpros infos
           requesting_subscriber->tcpros_port = -1;
@@ -688,4 +640,179 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   xmlrpcParamVectorRelease(&params);
 
   return 0;
+}
+
+const char * getMethodName(CROS_API_METHOD method)
+{
+  switch (method)
+  {
+    case CROS_API_NONE:
+      return NULL;
+    case CROS_API_REGISTER_SERVICE:
+      return "registerService";
+    case CROS_API_UNREGISTER_SERVICE:
+      return "unregisterService";
+    case CROS_API_REGISTER_SUBSCRIBER:
+      return "registerSubscriber";
+    case CROS_API_UNREGISTER_SUBSCRIBER:
+      return "unregisterSubscriber";
+    case CROS_API_REGISTER_PUBLISHER:
+      return "registerPublisher";
+    case CROS_API_UNREGISTER_PUBLISHER:
+      return "unregisterPublisher";
+    case CROS_API_LOOKUP_NODE:
+      return "lookupNode";
+    case CROS_API_GET_PUBLISHED_TOPICS:
+      return "getPublishedTopics";
+    case CROS_API_GET_TOPIC_TYPES:
+      return "getTopicTypes";
+    case CROS_API_GET_SYSTEM_STATE:
+      return "getSystemState";
+    case CROS_API_GET_URI:
+      return "getUri";
+    case CROS_API_LOOKUP_SERVICE:
+      return "lookupService";
+    case CROS_API_GET_BUS_STATS:
+      return "getBusStats";
+    case CROS_API_GET_BUS_INFO:
+      return "getBusInfo";
+    case CROS_API_GET_MASTER_URI:
+      return "getMasterUri";
+    case CROS_API_SHUTDOWN:
+      return "shutdown";
+    case CROS_API_GET_PID:
+      return "getPid";
+    case CROS_API_GET_SUBSCRIPTIONS:
+      return "getSubscriptions";
+    case CROS_API_GET_PUBLICATIONS:
+      return "getPublications";
+    case CROS_API_PARAM_UPDATE:
+      return "paramUpdate";
+    case CROS_API_PUBLISHER_UPDATE:
+      return "publisherUpdate";
+    case CROS_API_REQUEST_TOPIC:
+      return "requestTopic";
+    default:
+      assert(0);
+  }
+}
+
+CROS_API_METHOD getMethodCode(const char *method)
+{
+  if (strcmp(method, "registerService") == 0)
+    return CROS_API_REGISTER_SERVICE;
+  else if (strcmp(method, "unregisterService") == 0)
+    return CROS_API_UNREGISTER_SERVICE;
+  else if (strcmp(method, "registerSubscriber") == 0)
+    return CROS_API_REGISTER_SUBSCRIBER;
+  else if (strcmp(method, "unregisterSubscriber") == 0)
+    return CROS_API_UNREGISTER_SUBSCRIBER;
+    else if (strcmp(method, "registerPublisher") == 0)
+    return CROS_API_REGISTER_PUBLISHER;
+  else if (strcmp(method, "unregisterPublisher") == 0)
+    return CROS_API_UNREGISTER_PUBLISHER;
+  else if (strcmp(method, "lookupNode") == 0)
+    return CROS_API_LOOKUP_NODE;
+  else if (strcmp(method, "getPublishedTopics") == 0)
+    return CROS_API_GET_PUBLISHED_TOPICS;
+  else if (strcmp(method, "getTopicTypes") == 0)
+    return CROS_API_GET_TOPIC_TYPES;
+  else if (strcmp(method, "getSystemState") == 0)
+    return CROS_API_GET_SYSTEM_STATE;
+  else if (strcmp(method, "getUri") == 0)
+    return CROS_API_GET_URI;
+  else if (strcmp(method, "lookupService") == 0)
+    return CROS_API_LOOKUP_SERVICE;
+  else if (strcmp(method, "getBusStats") == 0)
+    return CROS_API_GET_BUS_STATS;
+  else if (strcmp(method, "getBusInfo") == 0)
+    return CROS_API_GET_BUS_INFO;
+  else if (strcmp(method, "getMasterUri") == 0)
+    return CROS_API_GET_MASTER_URI;
+  else if (strcmp(method, "shutdown") == 0)
+    return CROS_API_SHUTDOWN;
+  else if (strcmp(method, "getPid") == 0)
+    return CROS_API_GET_PID;
+  else if (strcmp(method, "getSubscriptions") == 0)
+    return CROS_API_GET_SUBSCRIPTIONS;
+  else if (strcmp(method, "getPublications") == 0)
+    return CROS_API_GET_PUBLICATIONS;
+  else if (strcmp(method, "paramUpdate") == 0)
+    return CROS_API_PARAM_UPDATE;
+  else if (strcmp(method, "publisherUpdate") == 0)
+    return CROS_API_PUBLISHER_UPDATE;
+  else if (strcmp(method, "requestTopic") == 0)
+    return CROS_API_REQUEST_TOPIC;
+  else
+    return CROS_API_NONE;
+}
+
+int isRosMasterApi(CROS_API_METHOD method)
+{
+  switch (method)
+  {
+    case CROS_API_NONE:
+      return 0;
+    case CROS_API_REGISTER_SERVICE:
+    case CROS_API_UNREGISTER_SERVICE:
+    case CROS_API_REGISTER_SUBSCRIBER:
+    case CROS_API_UNREGISTER_SUBSCRIBER:
+    case CROS_API_REGISTER_PUBLISHER:
+    case CROS_API_UNREGISTER_PUBLISHER:
+    case CROS_API_LOOKUP_NODE:
+    case CROS_API_GET_PUBLISHED_TOPICS:
+    case CROS_API_GET_TOPIC_TYPES:
+    case CROS_API_GET_SYSTEM_STATE:
+    case CROS_API_GET_URI:
+    case CROS_API_LOOKUP_SERVICE:
+      return 1;
+    case CROS_API_GET_BUS_STATS:
+    case CROS_API_GET_BUS_INFO:
+    case CROS_API_GET_MASTER_URI:
+    case CROS_API_SHUTDOWN:
+    case CROS_API_GET_PID:
+    case CROS_API_GET_SUBSCRIPTIONS:
+    case CROS_API_GET_PUBLICATIONS:
+    case CROS_API_PARAM_UPDATE:
+    case CROS_API_PUBLISHER_UPDATE:
+    case CROS_API_REQUEST_TOPIC:
+      return 0;
+    default:
+      assert(0);
+  }
+}
+
+int isRosSlaveApi(CROS_API_METHOD method)
+{
+  switch (method)
+  {
+    case CROS_API_NONE:
+      return 0;
+    case CROS_API_REGISTER_SERVICE:
+    case CROS_API_UNREGISTER_SERVICE:
+    case CROS_API_REGISTER_SUBSCRIBER:
+    case CROS_API_UNREGISTER_SUBSCRIBER:
+    case CROS_API_REGISTER_PUBLISHER:
+    case CROS_API_UNREGISTER_PUBLISHER:
+    case CROS_API_LOOKUP_NODE:
+    case CROS_API_GET_PUBLISHED_TOPICS:
+    case CROS_API_GET_TOPIC_TYPES:
+    case CROS_API_GET_SYSTEM_STATE:
+    case CROS_API_GET_URI:
+    case CROS_API_LOOKUP_SERVICE:
+      return 0;
+    case CROS_API_GET_BUS_STATS:
+    case CROS_API_GET_BUS_INFO:
+    case CROS_API_GET_MASTER_URI:
+    case CROS_API_SHUTDOWN:
+    case CROS_API_GET_PID:
+    case CROS_API_GET_SUBSCRIPTIONS:
+    case CROS_API_GET_PUBLICATIONS:
+    case CROS_API_PARAM_UPDATE:
+    case CROS_API_PUBLISHER_UPDATE:
+    case CROS_API_REQUEST_TOPIC:
+      return 1;
+    default:
+      assert(0);
+  }
 }

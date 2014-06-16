@@ -121,6 +121,9 @@ struct CrosNode
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
   unsigned short roscore_port;  //! The roscore port
 
+  ApiCallQueue master_api_queue;
+  ApiCallQueue slave_api_queue;
+
   //! Manage connections for XMLRPC calls from this node to others
   XmlrpcProcess xmlrpc_client_proc[CN_MAX_XMLRPC_CLIENT_CONNECTIONS];
   XmlrpcProcess xmlrpc_listner_proc;   //! Accept new XMLRPC connections from roscore or other nodes

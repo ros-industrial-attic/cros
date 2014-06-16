@@ -30,8 +30,7 @@ int lookupNode(CrosNode *node, const char *node_name, LookupNodeCallback *callba
   call->context_data = data;
   call->fetch_result_callback = fetchLookupNodeResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[0];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->master_api_queue, call);
 
   return 0;
 }
@@ -50,8 +49,7 @@ int getPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsC
   call->context_data = data;
   call->fetch_result_callback = fetchGetPublishedTopicsResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[0];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->master_api_queue, call);
 
   return 0;
 }
@@ -70,8 +68,7 @@ int getTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *data)
   call->context_data = data;
   call->fetch_result_callback = fetchGetTopicTypesResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[0];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->master_api_queue, call);
 
   return 0;
 }
@@ -90,8 +87,7 @@ int getSystemState(CrosNode *node, GetSystemStateCallback *callback, void *data)
   call->context_data = data;
   call->fetch_result_callback = fetchGetSystemStateResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[0];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->master_api_queue, call);
 
   return 0;
 }
@@ -110,8 +106,7 @@ int getUri(CrosNode *node, GetUriCallback *callback, void *data)
   call->context_data = data;
   call->fetch_result_callback = fetchGetUriResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[0];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->master_api_queue, call);
 
   return 0;
 }
@@ -130,8 +125,7 @@ int lookupService(CrosNode *node, const char *service, LookupServiceCallback *ca
   call->context_data = data;
   call->fetch_result_callback = fetchLookupServiceResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[0];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->master_api_queue, call);
 
   return 0;
 }
@@ -150,8 +144,7 @@ int getBusStats(CrosNode *node, int client_idx, GetBusStatsCallback *callback, v
   call->context_data = data;
   call->fetch_result_callback = fetchGetBusStatsResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[client_idx + 1];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->slave_api_queue, call);
 
   return 0;
 }
@@ -170,8 +163,7 @@ int getBusInfo(CrosNode *node, int client_idx, GetBusInfoCallback *callback, voi
   call->context_data = data;
   call->fetch_result_callback = fetchGetBusInfoResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[client_idx + 1];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->slave_api_queue, call);
 
   return 0;
 }
@@ -190,8 +182,7 @@ int getMasterUri(CrosNode *node, int client_idx, GetMasterUriCallback *callback,
   call->context_data = data;
   call->fetch_result_callback = fetchGetMasterUriResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[client_idx + 1];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->slave_api_queue, call);
 
   return 0;
 }
@@ -210,8 +201,7 @@ int requestShutdown(CrosNode *node, int client_idx, const char *msg, GetMasterUr
   call->context_data = data;
   call->fetch_result_callback = fetchRequestShutdownResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[client_idx + 1];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->slave_api_queue, call);
 
   return 0;
 }
@@ -230,8 +220,7 @@ int getPid(CrosNode *node, int client_idx, GetPidCallback *callback, void *data)
   call->context_data = data;
   call->fetch_result_callback = fetchGetPidResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[client_idx + 1];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->slave_api_queue, call);
 
   return 0;
 }
@@ -250,8 +239,7 @@ int getSubscriptions(CrosNode *node, int client_idx, GetSubscriptionsCallback *c
   call->context_data = data;
   call->fetch_result_callback = fetchGetSubscriptionsResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[client_idx + 1];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->slave_api_queue, call);
 
   return 0;
 }
@@ -270,8 +258,7 @@ int getPublications(CrosNode *node, int client_idx, GetSubscriptionsCallback *ca
   call->context_data = data;
   call->fetch_result_callback = fetchGetPublicationsResult;
 
-  XmlrpcProcess *proc = &node->xmlrpc_client_proc[client_idx + 1];
-  enqueueApiCall(&proc->api_calls_queue, call);
+  enqueueApiCall(&node->slave_api_queue, call);
 
   return 0;
 }

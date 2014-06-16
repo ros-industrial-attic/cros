@@ -5,7 +5,6 @@
 
 void xmlrpcProcessInit( XmlrpcProcess *p )
 {
-  initApiCallQueue(&p->api_calls_queue);
   p->current_call = NULL;
   p->state = XMLRPC_PROCESS_STATE_IDLE;
   tcpIpSocketInit( &(p->socket) );
