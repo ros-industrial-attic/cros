@@ -179,7 +179,7 @@ static XmlrpcParserState parseXmlrpcMessageBody ( const char *body, int body_len
 }
 
 void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessageType type,
-                             DynString *method, XmlrpcParamVector *params, DynString *message )
+                             const char *method, XmlrpcParamVector *params, DynString *message )
 {
   PRINT_VDEBUG ( "generateXmlrpcMessage()\n" );
 
@@ -225,7 +225,7 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   {
     dynStringPushBackStr ( message, XMLRPC_REQUEST_BEGIN.str );
     dynStringPushBackStr ( message, XMLRPC_METHODNAME_BEGIN.str );
-    dynStringPushBackStr ( message, dynStringGetData( method ) );
+    dynStringPushBackStr ( message, method );
     dynStringPushBackStr ( message, XMLRPC_METHODNAME_END.str );
   }
   else if ( type == XMLRPC_MESSAGE_RESPONSE )
@@ -264,8 +264,8 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   dynStringPatch ( message, content_len_str, content_len_init );
 }
 
-XmlrpcParserState parseXmlrpcMessage ( DynString *message, XmlrpcMessageType *type, DynString *method,
-                                        XmlrpcParamVector *params )
+XmlrpcParserState parseXmlrpcMessage ( DynString *message, XmlrpcMessageType *type,
+                                       DynString *method, XmlrpcParamVector *params )
 {
   PRINT_VDEBUG ( "parseXmlrpcMessage()\n" );
 

@@ -6,12 +6,26 @@
 #include <sys/select.h>
 #include <signal.h>
 #include <assert.h>
+#include <errno.h>
 
+#include "cros_node_internal.h"
 #include "cros_node.h"
 #include "cros_api.h"
 #include "cros_message.h"
 #include "cros_clock.h"
 #include "cros_defs.h"
+#include "cros_node_api.h"
+
+static void initPublisherNode(PublisherNode *node);
+static void initSubscriberNode(SubscriberNode *node);
+static void initServiceProviderNode(ServiceProviderNode *node);
+static void releasePublisherNode(PublisherNode *node);
+static void releaseSubscriberNode(SubscriberNode *node);
+static void releaseServiceProviderNode(ServiceProviderNode *node);
+static int enqueueSubscriberAdvertise(CrosNode *node, int subidx);
+static int enqueuePubliserAdvertise(CrosNode *node, int pubidx);
+static int enqueueServiceAdvertise(CrosNode *node, int servivceidx);
+static void getIdleXmplrpcClients(CrosNode *node, int array[], size_t *count);
 
 static void openXmlrpcClientSocket( CrosNode *n, int i )
 {
@@ -86,93 +100,124 @@ static void openTcprosListnerSocket( CrosNode *n )
   }
 }
 
-static void handleXmlrpcClientError( CrosNode *n, int i )
+static void closeTcprosProcess(TcprosProcess *process)
 {
-  tcpIpSocketClose( &(n->xmlrpc_client_proc[i].socket) );
-  
-  xmlrpcProcessClear( &(n->xmlrpc_client_proc[i]) );
-  xmlrpcProcessChangeState( &(n->xmlrpc_client_proc[i]), XMLRPC_PROCESS_STATE_IDLE );
+  tcpIpSocketClose(&process->socket);
+  tcprosProcessClear(process, 1);
+  tcprosProcessChangeState(process, TCPROS_PROCESS_STATE_IDLE );
+}
 
-  if( n->n_pubs )
-  {
-    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
-    n->n_advertised_pubs = 0;
-  }
+static void closeXmlrpcProcess(XmlrpcProcess *process)
+{
+  tcpIpSocketClose(&process->socket);
+  xmlrpcProcessClear(process, 1);
+  xmlrpcProcessChangeState(process, XMLRPC_PROCESS_STATE_IDLE);
+}
 
-  if( n->n_subs )
+static void cleanNodeApiCallState(CrosNode *node, RosApiCall *call)
+{
+  if (call->method == CROS_API_REQUEST_TOPIC)
   {
-    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SUBSCRIBER);
-    n->n_advertised_subs = 0;
-  }
-
-  if( n->n_services )
-  {
-    n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SERVICE);
-    n->n_advertised_services = 0;
+    node->subs[call->provider_idx].client_xmlrpc_id = -1;
   }
 }
 
-static void handleTcprosClientError( CrosNode *n, int i )
+static void handleXmlrpcClientError(CrosNode *node, int i)
 {
+  XmlrpcProcess *proc = &node->xmlrpc_client_proc[i];
+  RosApiCall *call = proc->current_call;
 
-  tcpIpSocketClose( &(n->tcpros_client_proc[i].socket) );
-  tcprosProcessClear( &(n->tcpros_client_proc[i]), 1 );
-  tcprosProcessChangeState( &(n->tcpros_client_proc[i]), TCPROS_PROCESS_STATE_IDLE );
+  switch (call->method)
+  {
+    case CROS_API_REGISTER_SERVICE:
+    case CROS_API_UNREGISTER_SERVICE:
+    case CROS_API_UNREGISTER_PUBLISHER:
+    case CROS_API_UNREGISTER_SUBSCRIBER:
+    case CROS_API_REGISTER_PUBLISHER:
+    case CROS_API_REGISTER_SUBSCRIBER:
+    {
+      proc->current_call = NULL;
+      enqueueApiCall(&node->master_api_queue, call);
+      break;
+    }
+    default:
+    {
+      ResultCallback callback = call->result_callback;
+      if (callback != NULL)
+      {
+        // Notifies an error with a NULL result
+        callback(NULL, call->context_data);
+      }
+      break;
+    }
+  }
+
+  cleanNodeApiCallState(node, call);
+  closeXmlrpcProcess(proc);
 }
 
-static void handleXmlrpcServerError( CrosNode *n, int i )
+static void handleTcprosClientError(CrosNode *n, int i)
 {
-  xmlrpcProcessClear( &(n->xmlrpc_server_proc[i]) );
-  xmlrpcProcessChangeState( &(n->xmlrpc_server_proc[i]), XMLRPC_PROCESS_STATE_IDLE );
-  tcpIpSocketClose( &(n->xmlrpc_server_proc[i].socket) );
+  TcprosProcess *process = &n->tcpros_client_proc[i];
+  closeTcprosProcess(process);
+  // CHECK-ME Riaccoda register subscriber?
 }
 
-static void handleTcprosServerError( CrosNode *n, int i )
+static void handleXmlrpcServerError(CrosNode *n, int i)
 {
-  tcprosProcessClear( &(n->tcpros_server_proc[i]), 1 );
-  tcprosProcessChangeState( &(n->tcpros_server_proc[i]), TCPROS_PROCESS_STATE_IDLE );
-  tcpIpSocketClose( &(n->tcpros_server_proc[i].socket) );
-  n->tcpros_server_proc[i].topic_idx = -1;
+  XmlrpcProcess *process = &n->xmlrpc_server_proc[i];
+  closeXmlrpcProcess(process);
 }
 
-static void handleRpcrosServerError( CrosNode *n, int i )
+static void handleTcprosServerError(CrosNode *n, int i)
 {
-  tcprosProcessClear( &(n->rpcros_server_proc[i]), 1 );
-  tcprosProcessChangeState( &(n->rpcros_server_proc[i]), TCPROS_PROCESS_STATE_IDLE );
-  tcpIpSocketClose( &(n->rpcros_server_proc[i].socket) );
+  TcprosProcess *process = &n->tcpros_server_proc[i];
+  PublisherNode *pub = &n->pubs[process->topic_idx];
+  pub->client_tcpros_id = -1;
+  closeTcprosProcess(process);
 }
 
-static void doWithXmlrpcClientSocket( CrosNode *n, int i)
-{ 
+static void handleRpcrosServerError(CrosNode *n, int i)
+{
+  TcprosProcess *process = &n->rpcros_server_proc[i];
+  closeTcprosProcess(process);
+}
+
+static void doWithXmlrpcClientSocket(CrosNode *n, int i)
+{
   PRINT_VDEBUG ( "doWithXmlrpcClientSocket()\n" );
-  
+
   XmlrpcProcess *xmlrpc_client_proc = &(n->xmlrpc_client_proc[i]);
 
   if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_WRITING )
   {
     PRINT_DEBUG ( "doWithXmlrpcClientSocket() : writing\n" );
-    
+
     if( !xmlrpc_client_proc->socket.connected )
     {
 
       TcpIpSocketState conn_state = TCPIPSOCKET_FAILED;
 
-      if(i == 0) //connection with roscore node
+      if (i == 0) // Connection with roscore node
       {
     	  conn_state = tcpIpSocketConnect( &(xmlrpc_client_proc->socket),
                                        	   n->roscore_host, n->roscore_port );
       }
-      else
+      else // (i > 0)
       {
-        int j;
+        RosApiCall *call = xmlrpc_client_proc->current_call;
+        assert(call != NULL);
 
-        for(j = 0; j < n->n_subs; j++)
+        if (call->provider_idx == -1)
         {
-          if(i == n->subs[j].client_xmlrpc_id)
-          {
-            conn_state = tcpIpSocketConnect( &(xmlrpc_client_proc->socket),
-                                             n->subs[j].topic_host, n->subs[j].topic_port );
-          }
+          conn_state = tcpIpSocketConnect(&xmlrpc_client_proc->socket,
+                                          call->host, call->port);
+        }
+        else // It's client xmlrpc to be invoked from a subscriber
+        {
+          SubscriberNode *sub = &n->subs[call->provider_idx];
+          conn_state = tcpIpSocketConnect(&xmlrpc_client_proc->socket,
+                                          sub->topic_host, sub->topic_port);
         }
       }
 
@@ -184,30 +229,31 @@ static void doWithXmlrpcClientSocket( CrosNode *n, int i)
       }
       else if( conn_state == TCPIPSOCKET_FAILED )
       {
-        PRINT_DEBUG ( "doWithXmlrpcClientSocket() : error\n" );
+        PRINT_ERROR("doWithXmlrpcClientSocket() : Can't connect\n" );
         handleXmlrpcClientError( n, i);
         return;
       }
     }
 
     cRosApiPrepareRequest( n, i );
-    
+
     TcpIpSocketState sock_state =  tcpIpSocketWriteString( &(xmlrpc_client_proc->socket), 
                                                            &(xmlrpc_client_proc->message) );
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
-        xmlrpcProcessClear( xmlrpc_client_proc );
+        xmlrpcProcessClear(xmlrpc_client_proc, 0);
         xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_READING );
         break;
-        
+
       case TCPIPSOCKET_IN_PROGRESS:
         PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Write in progress...\n" );
         break;
-        
+
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
+        PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure writing request\n");
         handleXmlrpcClientError( n, i );
         break;
     }
@@ -215,55 +261,61 @@ static void doWithXmlrpcClientSocket( CrosNode *n, int i)
   else if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_READING )
   {
     PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Reading()\n" );
-    TcpIpSocketState sock_state = tcpIpSocketReadString( &(xmlrpc_client_proc->socket), 
-                                                         &(xmlrpc_client_proc->message) );
+    TcpIpSocketState sock_state = tcpIpSocketReadString( &xmlrpc_client_proc->socket,
+                                                         &xmlrpc_client_proc->message );
     //printf("%s\n", xmlrpc_client_proc->message.data);
     XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
-    
+
+    int disconnected = 0;
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
-        parser_state = parseXmlrpcMessage( &(xmlrpc_client_proc->message), 
-                                           &(xmlrpc_client_proc->message_type), 
-                                            &(xmlrpc_client_proc->method), 
-                                           &(xmlrpc_client_proc->params) );
+        parser_state = parseXmlrpcMessage( &xmlrpc_client_proc->message,
+                                           &xmlrpc_client_proc->message_type,
+                                           NULL,
+                                           &xmlrpc_client_proc->response );
         break;
-        
+
       case TCPIPSOCKET_IN_PROGRESS:
         break;
-        
+
       case TCPIPSOCKET_DISCONNECTED:
-        parser_state = parseXmlrpcMessage( &(xmlrpc_client_proc->message), 
-                                           &(xmlrpc_client_proc->message_type), 
-                                           &(xmlrpc_client_proc->method), 
-                                           &(xmlrpc_client_proc->params) );
-        xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_IDLE );
-        tcpIpSocketClose ( &(xmlrpc_client_proc->socket) );
+        parser_state = parseXmlrpcMessage( &xmlrpc_client_proc->message,
+                                           &xmlrpc_client_proc->message_type,
+                                           NULL,
+                                           &xmlrpc_client_proc->response );
+        disconnected = 1;
         break;
-        
+
       case TCPIPSOCKET_FAILED:
       default:
+        PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure reading response\n" );
         handleXmlrpcClientError( n, i );
         break;
     }
-    
+
     switch ( parser_state )
     {
       case XMLRPC_PARSER_DONE:
         PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
-        
-        if( !cRosApiParseResponse( n, i ) )
+
+        int rc = cRosApiParseResponse( n, i );
+        if (rc != 0)
+        {
           handleXmlrpcClientError( n, i );
+        }
         else
         {
-          xmlrpcProcessChangeState( &xmlrpc_client_proc[i], XMLRPC_PROCESS_STATE_IDLE );
-          tcpIpSocketClose( &(xmlrpc_client_proc[i].socket) );
+          cleanNodeApiCallState(n, xmlrpc_client_proc->current_call);
+          closeXmlrpcProcess(xmlrpc_client_proc);
         }
         break;
-        
+
       case XMLRPC_PARSER_INCOMPLETE:
+        if (disconnected)
+          handleXmlrpcClientError( n, i );
         break;
-        
+
       case XMLRPC_PARSER_ERROR:
       default:
         handleXmlrpcClientError( n, i );
@@ -275,41 +327,47 @@ static void doWithXmlrpcClientSocket( CrosNode *n, int i)
 static void doWithXmlrpcServerSocket( CrosNode *n, int i )
 {
   PRINT_VDEBUG ( "doWithXmlrpcServerSocket()\n" );
-  
+
   XmlrpcProcess *server_proc = &(n->xmlrpc_server_proc[i]);
 
   if( server_proc->state == XMLRPC_PROCESS_STATE_READING )
   {
     PRINT_DEBUG ( "doWithXmlrpcServerSocket() : Reading() index %d \n", i );
-    xmlrpcProcessClear( server_proc );
     TcpIpSocketState sock_state = tcpIpSocketReadString( &(server_proc->socket), 
                                                          &(server_proc->message) );
     XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
-    
+
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
-        parser_state = parseXmlrpcMessage( &(server_proc->message), &(server_proc->message_type), 
-                                            &(server_proc->method), &(server_proc->params) );
+        parser_state = parseXmlrpcMessage( &server_proc->message,
+                                           &server_proc->message_type,
+                                           &server_proc->method,
+                                           &server_proc->params);
         break;
-        
+
       case TCPIPSOCKET_IN_PROGRESS:
         break;
-        
+
       case TCPIPSOCKET_DISCONNECTED:
+        xmlrpcProcessClear( &(n->xmlrpc_server_proc[i]), 1);
+        xmlrpcProcessChangeState( &(n->xmlrpc_server_proc[i]), XMLRPC_PROCESS_STATE_IDLE );
+        tcpIpSocketClose( &(n->xmlrpc_server_proc[i].socket) );
+        break;
       case TCPIPSOCKET_FAILED:
       default:
+        PRINT_ERROR("doWithXmlrpcServerSocket() : Unexpected failure reading request\n");
         handleXmlrpcServerError( n, i );
         break;
     }
-    
+
     switch ( parser_state )
     {
       case XMLRPC_PARSER_DONE:
-        
+
         PRINT_DEBUG ( "doWithXmlrpcServerSocket() : Done read() and parse() with no error\n" );
         int rc = cRosApiParseRequestPrepareResponse( n, i );
-        if (rc)
+        if (rc == -1)
         {
           handleXmlrpcServerError( n, i );
           break;
@@ -318,7 +376,7 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
         break;
       case XMLRPC_PARSER_INCOMPLETE:
         break;
-        
+
       case XMLRPC_PARSER_ERROR:
       default:
         handleXmlrpcServerError( n, i );
@@ -333,21 +391,22 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
-        xmlrpcProcessClear( server_proc );
+        xmlrpcProcessClear( server_proc, 1);
         xmlrpcProcessChangeState( server_proc, XMLRPC_PROCESS_STATE_READING );
         break;
-        
+
       case TCPIPSOCKET_IN_PROGRESS:
         break;
 
       case TCPIPSOCKET_DISCONNECTED:
-        xmlrpcProcessClear( server_proc );
+        xmlrpcProcessClear( server_proc, 1);
         xmlrpcProcessChangeState( server_proc, XMLRPC_PROCESS_STATE_IDLE );
         tcpIpSocketClose( &(server_proc->socket) );
         break;
-        
+
       case TCPIPSOCKET_FAILED:
       default:
+        PRINT_ERROR("doWithXmlrpcServerSocket() : Unexpected failure writing response\n");
         handleXmlrpcServerError( n, i );
         break;
     }
@@ -607,6 +666,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
+        PRINT_INFO( "doWithTcprosServerSocket() : Client disconnected\n" );
         handleTcprosServerError( n, i );
         break;
     }
@@ -625,6 +685,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
         
       case TCPROS_PARSER_ERROR:
       default:
+        PRINT_INFO( "doWithTcprosServerSocket() : Parser error\n" );
         handleTcprosServerError( n, i );
         break;
     }
@@ -649,22 +710,18 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
         tcprosProcessClear( server_proc, 0);
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WAIT_FOR_WRITING );
         break;
-        
+
       case TCPIPSOCKET_IN_PROGRESS:
         break;
 
       case TCPIPSOCKET_DISCONNECTED:
-        tcprosProcessClear( server_proc, 1);
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-        tcpIpSocketClose( &(server_proc->socket) );
-        break;
-        
       case TCPIPSOCKET_FAILED:
       default:
-        handleTcprosServerError( n, i );
+        PRINT_INFO( "doWithTcprosServerSocket() : Client disconnected\n" );
+        handleTcprosServerError(n, i);
         break;
     }
-  }  
+  }
 }
 
 static void doWithRpcrosServerSocket(CrosNode *n, int i)
@@ -935,7 +992,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
     PRINT_ERROR ( "cRosNodeCreate() : NULL parameters\n" );
     return NULL;
   }
-  
+
   CrosNode *new_n = ( CrosNode * ) malloc ( sizeof ( CrosNode ) );
 
   if ( new_n == NULL )
@@ -960,7 +1017,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
   strcpy ( new_n->name, node_name );
   strcpy ( new_n->host, node_host );
   strcpy ( new_n->roscore_host, roscore_host );
-  
+
   new_n->xmlrpc_port = 0;
   new_n->tcpros_port = 0;
   new_n->roscore_port = roscore_port;
@@ -968,13 +1025,15 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
 
   xmlrpcProcessInit( &(new_n->xmlrpc_listner_proc) );
 
-  int i;
+  initApiCallQueue(&new_n->master_api_queue);
+  initApiCallQueue(&new_n->slave_api_queue);
 
+  int i;
   for (i = 0 ; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++)
     xmlrpcProcessInit( &(new_n->xmlrpc_server_proc[i]) ); 
-  
+
   for ( i = 0 ; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
-  	xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
+    xmlrpcProcessInit( &(new_n->xmlrpc_client_proc[i]) );
 
   tcprosProcessInit( &(new_n->tcpros_listner_proc) );
 
@@ -990,59 +1049,26 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
     tcprosProcessInit( &(new_n->rpcros_server_proc[i]) );
 
   for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS; i++)
-  {
-    new_n->pubs[i].message_definition = NULL;
-    new_n->pubs[i].topic_name = NULL;
-    new_n->pubs[i].topic_type = NULL;
-    new_n->pubs[i].md5sum = NULL;
-    new_n->pubs[i].callback = NULL;
-    new_n->pubs[i].context = NULL;
-    new_n->pubs[i].loop_period = 1000;
-  }
-  
+    initPublisherNode(&new_n->pubs[i]);
+
   new_n->n_pubs = 0;
-  new_n->n_advertised_pubs = 0; 
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS; i++)
-  {
-    new_n->subs[i].message_definition = NULL;
-    new_n->subs[i].topic_host = NULL;
-    new_n->subs[i].topic_port = -1;
-    new_n->subs[i].topic_name = NULL;
-    new_n->subs[i].topic_type = NULL;
-    new_n->subs[i].md5sum = NULL;
-    new_n->subs[i].callback = NULL;
-    new_n->subs[i].context = NULL;
-    new_n->subs[i].client_xmlrpc_id = -1;
-    new_n->subs[i].client_tcpros_id = -1;
-    new_n->subs[i].tcpros_port = -1;
-  }
+    initSubscriberNode(&new_n->subs[i]);
 
   new_n->n_subs = 0;
-  new_n->n_advertised_subs = 0;
 
   for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS; i++)
-  {
-    new_n->services[i].service_name = NULL;
-    new_n->services[i].service_type = NULL;
-    new_n->services[i].md5sum = NULL;
-    new_n->services[i].callback = NULL;
-    new_n->services[i].context = NULL;
-    new_n->services[i].servicerequest_type = NULL;
-    new_n->services[i].serviceresponse_type = NULL;
-  }
+    initServiceProviderNode(&new_n->services[i]);
 
   new_n->n_services = 0;
-  new_n->n_advertised_services = 0;
-    
-  new_n->state = CN_STATE_NONE;
 
   if (select_timeout_ms == NULL)
     new_n->select_timeout = UINT64_MAX;
   else
     new_n->select_timeout = *select_timeout_ms;
   new_n->pid = (int)getpid();
-  
+
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
     openXmlrpcClientSocket( new_n, i );
@@ -1069,8 +1095,10 @@ void cRosNodeDestroy ( CrosNode *n )
 
   xmlrpcProcessRelease( &(n->xmlrpc_listner_proc) );
 
-  int i;
+  releaseApiCallQueue(&n->master_api_queue);
+  releaseApiCallQueue(&n->slave_api_queue);
 
+  int i;
   for (i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++)
     xmlrpcProcessRelease( &(n->xmlrpc_server_proc[i]) ); 
 
@@ -1093,30 +1121,13 @@ void cRosNodeDestroy ( CrosNode *n )
   if ( n->roscore_host != NULL ) free ( n->roscore_host );
 
   for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS; i++)
-  {  
-    if ( n->pubs[i].message_definition != NULL ) free ( n->pubs[i].message_definition );
-    if ( n->pubs[i].topic_name != NULL ) free ( n->pubs[i].topic_name );
-    if ( n->pubs[i].topic_type != NULL ) free ( n->pubs[i].topic_type );
-    if ( n->pubs[i].md5sum != NULL ) free ( n->pubs[i].md5sum );
-  }
+    releasePublisherNode(&n->pubs[i]);
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS; i++)
-  {
-    if ( n->subs[i].message_definition != NULL ) free ( n->subs[i].message_definition );
-    if ( n->subs[i].topic_name != NULL ) free ( n->subs[i].topic_name );
-    if ( n->subs[i].topic_type != NULL ) free ( n->subs[i].topic_type );
-    if ( n->subs[i].md5sum != NULL ) free ( n->subs[i].md5sum );
-    if ( n->subs[i].topic_host != NULL ) free ( n->subs[i].topic_host );
-  }
+    releaseSubscriberNode(&n->subs[i]);
 
   for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS; i++)
-  {
-    if ( n->services[i].service_name != NULL ) free ( n->services[i].service_name );
-    if ( n->services[i].service_type != NULL ) free ( n->services[i].service_type );
-    if ( n->services[i].servicerequest_type != NULL ) free ( n->services[i].service_type );
-    if ( n->services[i].serviceresponse_type != NULL ) free ( n->services[i].service_type );
-    if ( n->services[i].md5sum != NULL ) free ( n->services[i].md5sum );
-  }
+    releaseServiceProviderNode(&n->services[i]);
 }
 
 int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition, 
@@ -1130,41 +1141,54 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   {
     PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't register a new publisher: \
                  reached the maximum number of published topics\n");
-    return 0;
+    return -1;
   }
 
   char *pub_message_definition = ( char * ) malloc ( ( strlen ( message_definition ) + 1 ) * sizeof ( char ) );
   char *pub_topic_name = ( char * ) malloc ( ( strlen ( topic_name ) + 1 ) * sizeof ( char ) );
   char *pub_topic_type = ( char * ) malloc ( ( strlen ( topic_type ) + 1 ) * sizeof ( char ) );
   char *pub_md5sum = ( char * ) malloc ( ( strlen ( md5sum ) + 1 ) * sizeof ( char ) );
-  
+
   if ( pub_message_definition == NULL || pub_topic_name == NULL || 
        pub_topic_type == NULL || pub_md5sum == NULL)
   {
     PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't allocate memory\n" );
-    return 0;
+    return -1;
   }
 
   strcpy ( pub_message_definition, message_definition );
   strcpy ( pub_topic_name, topic_name );
   strcpy ( pub_topic_type, topic_type );
   strcpy ( pub_md5sum, md5sum );
-  
-  n->pubs[n->n_pubs].message_definition = pub_message_definition;
-  n->pubs[n->n_pubs].topic_name = pub_topic_name;
-  n->pubs[n->n_pubs].topic_type = pub_topic_type;
-  n->pubs[n->n_pubs].md5sum = pub_md5sum;
-  
-  n->pubs[n->n_pubs].loop_period = loop_period;
-  n->pubs[n->n_pubs].callback = callback;
-  n->pubs[n->n_pubs].context = data_context;
+
+  int pubidx = -1;
+  int it = 0;
+  for (; it < CN_MAX_PUBLISHED_TOPICS; it++)
+  {
+    if (n->pubs[it].topic_name == NULL)
+    {
+      pubidx = it;
+      break;
+    }
+  }
+
+  PublisherNode *node = &n->pubs[pubidx];
+  node->message_definition = pub_message_definition;
+  node->topic_name = pub_topic_name;
+  node->topic_type = pub_topic_type;
+  node->md5sum = pub_md5sum;
+
+  node->loop_period = loop_period;
+  node->callback = callback;
+  node->context = data_context;
 
   n->n_pubs++;
-  
-  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_PUBLISHER);
-  n->n_advertised_pubs = 0;
-  
-  return 1;
+
+  int rc = enqueuePubliserAdvertise(n, pubidx);
+  if (rc == -1)
+    return -1;
+
+  return pubidx;
 }
 
 int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
@@ -1174,11 +1198,11 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
   PRINT_VDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
   PRINT_INFO ( "Registering service %s type %s \n", service_name, service_type );
 
-  if ( n->n_advertised_services >= CN_MAX_SERVICE_PROVIDERS )
+  if ( n->n_services >= CN_MAX_SERVICE_PROVIDERS )
   {
     PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't register a new service provider: \
                  reached the maximum number of services\n");
-    return 0;
+    return -1;
   }
 
   char *srv_service_name = ( char * ) malloc ( ( strlen ( service_name ) + 1 ) * sizeof ( char ) );
@@ -1191,7 +1215,7 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
        srv_md5sum == NULL)
   {
     PRINT_ERROR ( "cRosNodeRegisterServiceProvider() : Can't allocate memory\n" );
-    return 0;
+    return -1;
   }
 
   strncpy ( srv_service_name, service_name, strlen ( service_name ) + 1 );
@@ -1202,7 +1226,18 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
   strncat ( srv_serviceresponse_type, "Response", strlen("Response") +1 );
   strncpy ( srv_md5sum, md5sum, strlen(md5sum) + 1 );
 
-  ServiceProviderNode *node = &(n->services[n->n_services]);
+  int serviceidx = -1;
+  int it = 0;
+  for (; it < CN_MAX_SERVICE_PROVIDERS; it++)
+  {
+    if (n->services[it].service_name == NULL)
+    {
+      serviceidx = it;
+      break;
+    }
+  }
+
+  ServiceProviderNode *node = &(n->services[serviceidx]);
 
   node->service_name = srv_service_name;
   node->service_type = srv_service_type;
@@ -1214,10 +1249,11 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
 
   n->n_services++;
 
-  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SERVICE);
-  n->n_advertised_services = 0;
+  int rc = enqueueServiceAdvertise(n, serviceidx);
+  if (rc == -1)
+    return -1;
 
-  return 1;
+  return serviceidx;
 }
 
 int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
@@ -1231,7 +1267,7 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
   {
     PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't register a new subscriber: \
                   reached the maximum number of published topics\n");
-    return 0;
+    return -1;
   }
 
   char *pub_message_definition = ( char * ) malloc ( ( strlen ( message_definition ) + 1 ) * sizeof ( char ) );
@@ -1242,7 +1278,7 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
   if ( pub_topic_name == NULL || pub_topic_type == NULL )
   {
     PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't allocate memory\n" );
-    return 0;
+    return -1;
   }
 
   strcpy ( pub_message_definition, message_definition );
@@ -1250,7 +1286,18 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
   strcpy ( pub_topic_type, topic_type );
   strcpy ( pub_md5sum, md5sum );
 
-  SubscriberNode *sub = &n->subs[n->n_subs];
+  int subidx = n->n_subs;
+  int it = 0;
+  for (; it < CN_MAX_SUBSCRIBED_TOPICS; it++)
+  {
+    if (n->subs[it].topic_name == NULL)
+    {
+      subidx = it;
+      break;
+    }
+  }
+
+  SubscriberNode *sub = &n->subs[subidx];
   sub->message_definition = pub_message_definition;
   sub->topic_name = pub_topic_name;
   sub->topic_type = pub_topic_type;
@@ -1259,75 +1306,223 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
   sub->callback = callback;
   sub->context = data_context;
 
-  sub->client_xmlrpc_id = 1 + n->n_subs;
-  sub->client_tcpros_id = 1 + n->n_subs;
+  int clientidx = subidx + 1;
+  sub->client_tcpros_id = clientidx;
 
-  TcprosProcess *client_proc = &(n->tcpros_client_proc[sub->client_tcpros_id]);
-  client_proc->topic_idx = n->n_subs;
+  TcprosProcess *client_proc = &(n->tcpros_client_proc[clientidx]);
+  client_proc->topic_idx = subidx;
 
   n->n_subs++;
 
-  n->state = (CrosNodeState)(n->state | CN_STATE_ADVERTISE_SUBSCRIBER);
-  n->n_advertised_subs = 0;
+  int rc = enqueueSubscriberAdvertise(n, subidx);
+  if (rc == -1)
+    return -1;
 
-  return 1;
+  return subidx;
+}
+
+int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx)
+{
+  if (subidx < 0 || subidx >= CN_MAX_SUBSCRIBED_TOPICS)
+    return -1;
+
+  SubscriberNode *sub = &node->subs[subidx];
+  if (sub->topic_name == NULL)
+    return -1;
+
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't allocate memory\n");
+    return -1;
+  }
+
+  TcprosProcess *tcprosProc = &node->tcpros_client_proc[sub->client_tcpros_id];
+  closeTcprosProcess(tcprosProc);
+  if (sub->client_xmlrpc_id != -1)
+  {
+    XmlrpcProcess *xmlrpcProc = &node->xmlrpc_client_proc[sub->client_xmlrpc_id];
+    closeXmlrpcProcess(xmlrpcProc);
+  }
+
+  XmlrpcProcess *coreproc = &node->xmlrpc_client_proc[0];
+  if (coreproc->current_call != NULL
+      && coreproc->current_call->method == CROS_API_REGISTER_SUBSCRIBER
+      && coreproc->current_call->provider_idx == subidx)
+  {
+    // Delist current registration
+    closeXmlrpcProcess(coreproc);
+  }
+
+  call->method = CROS_API_UNREGISTER_PUBLISHER;
+
+  xmlrpcParamVectorPushBackString( &call->params, node->name);
+  xmlrpcParamVectorPushBackString( &call->params, sub->topic_name );
+  char node_uri[256];
+  snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+  xmlrpcParamVectorPushBackString( &call->params, node_uri );
+
+  releaseSubscriberNode(sub);
+  initSubscriberNode(sub);
+
+  enqueueApiCall(&node->master_api_queue, call);
+
+  return 0;
+}
+
+int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx)
+{
+  if (pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
+    return -1;
+
+  PublisherNode *pub = &node->pubs[pubidx];
+  if (pub->topic_name == NULL)
+    return -1;
+
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't allocate memory\n");
+    return -1;
+  }
+
+  TcprosProcess *tcprosProc = &node->tcpros_server_proc[pub->client_tcpros_id];
+  closeTcprosProcess(tcprosProc);
+
+  XmlrpcProcess *coreproc = &node->xmlrpc_client_proc[0];
+  if (coreproc->current_call != NULL
+      && coreproc->current_call->method == CROS_API_REGISTER_PUBLISHER
+      && coreproc->current_call->provider_idx == pubidx)
+  {
+    // Delist current registration
+    closeXmlrpcProcess(coreproc);
+  }
+
+  call->method = CROS_API_UNREGISTER_PUBLISHER;
+
+  xmlrpcParamVectorPushBackString( &call->params, node->name);
+  xmlrpcParamVectorPushBackString( &call->params, pub->topic_name );
+  char node_uri[256];
+  snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+  xmlrpcParamVectorPushBackString( &call->params, node_uri );
+
+  releasePublisherNode(pub);
+  initPublisherNode(pub);
+
+  enqueueApiCall(&node->master_api_queue, call);
+
+  return 0;
+}
+
+int cRosNodeUnregisterService(CrosNode *node, int serviceidx)
+{
+  if (serviceidx < 0 || serviceidx >= CN_MAX_SERVICE_PROVIDERS)
+    return -1;
+
+  ServiceProviderNode *svc = &node->services[serviceidx];
+  if (svc->service_name == NULL)
+    return -1;
+
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't allocate memory\n");
+    return -1;
+  }
+
+  XmlrpcProcess *coreproc = &node->xmlrpc_client_proc[0];
+  if (coreproc->current_call != NULL
+      && coreproc->current_call->method == CROS_API_REGISTER_SERVICE
+      && coreproc->current_call->provider_idx == serviceidx)
+  {
+    // Delist current registration
+    closeXmlrpcProcess(coreproc);
+  }
+
+  call->method = CROS_API_UNREGISTER_SERVICE;
+
+  xmlrpcParamVectorPushBackString( &call->params, node->name);
+  xmlrpcParamVectorPushBackString( &call->params, svc->service_name);
+  char uri[256];
+  snprintf( uri, 256, "rosrpc://%s:%d/", node->host, node->rpcros_port);
+  xmlrpcParamVectorPushBackString( &call->params, uri );
+  snprintf( uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+  xmlrpcParamVectorPushBackString( &call->params, uri );
+
+  releaseServiceProviderNode(svc);
+  initServiceProviderNode(svc);
+
+  enqueueApiCall(&node->master_api_queue, call);
+
+  return 0;
 }
 
 void cRosNodeDoEventsLoop ( CrosNode *n )
 {
   PRINT_VDEBUG ( "cRosNodeDoEventsLoop ()\n" );
-  
+
   int nfds = -1;
   fd_set r_fds, w_fds, err_fds;
   int i = 0;
-  
+
   FD_ZERO( &r_fds );
   FD_ZERO( &w_fds );
   FD_ZERO( &err_fds );
-  
+
   int xmlrpc_listner_fd = tcpIpSocketGetFD( &(n->xmlrpc_listner_proc.socket) );
   int tcpros_listner_fd = tcpIpSocketGetFD( &(n->tcpros_listner_proc.socket) );
   int rpcros_listner_fd = tcpIpSocketGetFD( &(n->rpcros_listner_proc.socket) );
-  
-  /*
-   *
-   * XMLRPC PROCESSES SELECT() MANAGEMENT
-   *
-   */
+
+  XmlrpcProcess *coreproc = &n->xmlrpc_client_proc[0];
+  if (coreproc->state == XMLRPC_PROCESS_STATE_IDLE && !isQueueEmpty(&n->master_api_queue))
+  {
+    RosApiCall *call = dequeueApiCall(&n->master_api_queue);
+    coreproc->current_call = call;
+    xmlrpcProcessChangeState( coreproc, XMLRPC_PROCESS_STATE_WRITING );
+  }
+
+  size_t idle_client_count;
+  int idle_clients[CN_MAX_XMLRPC_CLIENT_CONNECTIONS];
+  getIdleXmplrpcClients(n, idle_clients, &idle_client_count);
+
+  int next_idle_client_idx = 0;
+  while (!isQueueEmpty(&n->slave_api_queue) && next_idle_client_idx != idle_client_count)
+  {
+    int idle_client_idx = idle_clients[next_idle_client_idx];
+    RosApiCall *call = dequeueApiCall(&n->slave_api_queue);
+    if (call->method == CROS_API_REQUEST_TOPIC)
+      n->subs[call->provider_idx].client_xmlrpc_id = idle_client_idx;
+
+    XmlrpcProcess *proc =  &n->xmlrpc_client_proc[idle_client_idx];
+    proc->current_call = call;
+    xmlrpcProcessChangeState( proc, XMLRPC_PROCESS_STATE_WRITING );
+
+    next_idle_client_idx++;
+  }
 
   /* If active (not idle state), add to the select() the XMLRPC clients */
-  int next_xmlrpc_client_i = -1;
-
-//  int w_count = 0;
-//  int r_count = 0;
-
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
     int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
-
-    if( next_xmlrpc_client_i < 0 &&
-        i != 0 && //the zero-index is reserved to the roscore communications
-        n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_IDLE )
+    fd_set *fdset = NULL;
+    if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
     {
-      next_xmlrpc_client_i = i;
-    }
-    else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
-    {
-      FD_SET( xmlrpc_client_fd, &w_fds);
-      FD_SET( xmlrpc_client_fd, &err_fds);
+      fdset = &w_fds;
       if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
-
-      //w_count++;
-
     }
     else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_READING )
     {
-      FD_SET( xmlrpc_client_fd, &r_fds);
-      FD_SET( xmlrpc_client_fd, &err_fds);
+      fdset = &r_fds;
       if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
+    }
 
-      //r_count++;
+    if (fdset != NULL)
+    {
+      if(!n->xmlrpc_client_proc[i].socket.open)
+        openXmlrpcClientSocket(n, i);
 
+      FD_SET( xmlrpc_client_fd, fdset);
+      FD_SET( xmlrpc_client_fd, &err_fds);
     }
   }
 
@@ -1523,29 +1718,50 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   struct timeval tv = cRosClockGetTimeVal( timeout );
 
   int n_set = select(nfds + 1, &r_fds, &w_fds, &err_fds, &tv);
-  
-  if ( n_set == -1 )
+
+  if (n_set == -1)
   {
-    PRINT_ERROR ( "cRosNodeDoEventsLoop() : select() failed\n" );
-    exit( EXIT_FAILURE );
+    if (errno == EINTR)
+    {
+      PRINT_INFO("cRosNodeDoEventsLoop() : select() returned EINTR\n");
+    }
+    else
+    {
+      perror("cRosNodeDoEventsLoop() ");
+      exit( EXIT_FAILURE );
+    }
   }
   else if( n_set == 0 )
   {
-    PRINT_DEBUG ( "cRosNodeDoEventsLoop() : select() timeout\n");
-    
-    uint64_t cur_time = cRosClockGetTimeMs();
-    
-    if(n->xmlrpc_client_proc[0].state == XMLRPC_PROCESS_STATE_IDLE &&
-      n->xmlrpc_client_proc[0].wake_up_time_ms <= cur_time )
-    {
-      n->xmlrpc_client_proc[0].wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD;
+    PRINT_DEBUG ("cRosNodeDoEventsLoop() : select() timeout\n");
 
-      if( !n->xmlrpc_client_proc[0].socket.open )
-        openXmlrpcClientSocket( n, 0 );
+    uint64_t cur_time = cRosClockGetTimeMs();
+
+    XmlrpcProcess *rosproc = &n->xmlrpc_client_proc[0];
+    if(rosproc->state == XMLRPC_PROCESS_STATE_IDLE && rosproc->wake_up_time_ms <= cur_time )
+    {
+      rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD;
 
       /* Prepare to ping roscore ... */
-      PRINT_DEBUG ( "cRosNodeDoEventsLoop() : Client start writing\n");
-      xmlrpcProcessChangeState( &(n->xmlrpc_client_proc[0]), XMLRPC_PROCESS_STATE_WRITING );
+      PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
+
+      RosApiCall *call = newRosApiCall();
+      if (call == NULL)
+      {
+        PRINT_ERROR ( "cRosApiPrepareRequest() : Can't allocate memory\n");
+        exit(1);
+      }
+
+      call->method = CROS_API_GET_PID;
+      int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
+
+      rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
+      generateXmlrpcMessage( n->host, n->roscore_port, rosproc->message_type,
+                          getMethodName(call->method), &call->params, &rosproc->message );
+
+      rosproc->current_call = call;
+      xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_WRITING );
+
     }
     else if( n->xmlrpc_client_proc[0].state != XMLRPC_PROCESS_STATE_IDLE &&
              cur_time - n->xmlrpc_client_proc[0].last_change_time > CN_IO_TIMEOUT )
@@ -1659,7 +1875,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       {
         PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS listner error\n" ); 
       }
-      else if( next_tcpros_server_i >= 0 && FD_ISSET( tcpros_listner_fd, &r_fds) )
+      else if( FD_ISSET( tcpros_listner_fd, &r_fds) )
       {
         PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
         if( tcpIpSocketAccept( &(n->tcpros_listner_proc.socket), 
@@ -1741,4 +1957,198 @@ void cRosNodeStart( CrosNode *n, unsigned char *exit )
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
   while( !(*exit) )
     cRosNodeDoEventsLoop( n );
+}
+
+int enqueueSubscriberAdvertise(CrosNode *node, int subidx)
+{
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't allocate memory\n");
+    return -1;
+  }
+
+  call->provider_idx= subidx;
+  call->method = CROS_API_REGISTER_SUBSCRIBER;
+
+  SubscriberNode *sub = &node->subs[subidx];
+  xmlrpcParamVectorPushBackString( &call->params, node->name );
+  xmlrpcParamVectorPushBackString( &call->params, sub->topic_name );
+  xmlrpcParamVectorPushBackString( &call->params, sub->topic_type );
+  char node_uri[256];
+  snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+  xmlrpcParamVectorPushBackString( &call->params, node_uri );
+
+  enqueueApiCall(&node->master_api_queue, call);
+
+  return 0;
+}
+
+int enqueuePubliserAdvertise(CrosNode *node, int pubidx)
+{
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't allocate memory\n");
+    return -1;
+  }
+
+  call->provider_idx= pubidx;
+  call->method = CROS_API_REGISTER_PUBLISHER;
+
+  PublisherNode *publiser = &node->pubs[pubidx];
+  xmlrpcParamVectorPushBackString( &call->params, node->name);
+  xmlrpcParamVectorPushBackString( &call->params, publiser->topic_name );
+  xmlrpcParamVectorPushBackString( &call->params, publiser->topic_type );
+  char node_uri[256];
+  snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+  xmlrpcParamVectorPushBackString( &call->params, node_uri );
+
+  enqueueApiCall(&node->master_api_queue, call);
+
+  return 0;
+}
+
+int enqueueServiceAdvertise(CrosNode *node, int serviceidx)
+{
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterServiceProvider() : Can't allocate memory\n");
+    return -1;
+  }
+
+  call->provider_idx = serviceidx;
+  call->method = CROS_API_REGISTER_SERVICE;
+
+  ServiceProviderNode *service = &node->services[serviceidx];
+  xmlrpcParamVectorPushBackString( &call->params, node->name );
+  xmlrpcParamVectorPushBackString( &call->params, service->service_name );
+  char uri[256];
+  snprintf( uri, 256, "rosrpc://%s:%d/", node->host, node->rpcros_port);
+  xmlrpcParamVectorPushBackString( &call->params, uri );
+  snprintf( uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+  xmlrpcParamVectorPushBackString( &call->params, uri );
+
+  enqueueApiCall(&node->master_api_queue, call);
+
+  return 0;
+}
+
+int enqueueRequestTopic(CrosNode *node, int subidx)
+{
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't allocate memory\n");
+    return -1;
+  }
+
+  call->provider_idx = subidx;
+  call->method = CROS_API_REQUEST_TOPIC;
+
+  SubscriberNode *sub = &node->subs[subidx];
+  xmlrpcParamVectorPushBackString(&call->params, node->name );
+  xmlrpcParamVectorPushBackString(&call->params, sub->topic_name );
+  xmlrpcParamVectorPushBackArray(&call->params);
+  XmlrpcParam* array_param = xmlrpcParamVectorAt(&call->params,2);
+  xmlrpcParamArrayPushBackArray(array_param);
+  xmlrpcParamArrayPushBackString(xmlrpcParamArrayGetParamAt(array_param,0),CROS_API_TCPROS_STRING);
+
+  enqueueApiCall(&node->slave_api_queue, call);
+
+  return 0;
+}
+
+void restartAdversing(CrosNode* n)
+{
+  int it;
+  for(it = 0; it < n->n_pubs; it++)
+    enqueuePubliserAdvertise(n, it);
+
+  for(it = 0; it < n->n_subs; it++)
+    enqueueSubscriberAdvertise(n, it);
+
+  for(it = 0; it < n->n_services; it++)
+    enqueueServiceAdvertise(n, it);
+}
+
+void initPublisherNode(PublisherNode *node)
+{
+  node->message_definition = NULL;
+  node->topic_name = NULL;
+  node->topic_type = NULL;
+  node->md5sum = NULL;
+  node->callback = NULL;
+  node->context = NULL;
+  node->client_tcpros_id = -1;
+  node->loop_period = 1000;
+}
+
+void initSubscriberNode(SubscriberNode *node)
+{
+  node->message_definition = NULL;
+  node->topic_host = NULL;
+  node->topic_port = -1;
+  node->topic_name = NULL;
+  node->topic_type = NULL;
+  node->md5sum = NULL;
+  node->callback = NULL;
+  node->context = NULL;
+  node->client_xmlrpc_id = -1;
+  node->client_tcpros_id = -1;
+  node->tcpros_port = -1;
+}
+
+void initServiceProviderNode(ServiceProviderNode *node)
+{
+  node->service_name = NULL;
+  node->service_type = NULL;
+  node->md5sum = NULL;
+  node->callback = NULL;
+  node->context = NULL;
+  node->servicerequest_type = NULL;
+  node->serviceresponse_type = NULL;
+}
+
+void releasePublisherNode(PublisherNode *node)
+{
+  free(node->message_definition);
+  free(node->topic_name);
+  free(node->topic_type);
+  free(node->md5sum);
+}
+
+void releaseSubscriberNode(SubscriberNode *node)
+{
+  free(node->message_definition);
+  free(node->topic_name);
+  free(node->topic_type);
+  free(node->md5sum);
+  free(node->topic_host);
+}
+
+void releaseServiceProviderNode(ServiceProviderNode *node)
+{
+  free(node->service_name);
+  free(node->service_type);
+  free(node->servicerequest_type);
+  free(node->serviceresponse_type);
+  free(node->md5sum);
+}
+
+void getIdleXmplrpcClients(CrosNode *node, int idle_clients[], size_t *idle_client_count)
+{
+  int client_it = 1; // client_it = 0 is for roscore only
+  int idle_it = 0;
+  *idle_client_count = 0;
+  for(; client_it < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; client_it++)
+  {
+    if (node->xmlrpc_client_proc[client_it].state == XMLRPC_PROCESS_STATE_IDLE)
+    {
+      idle_clients[idle_it] = client_it;
+      (*idle_client_count)++;
+      idle_it++;
+    }
+  }
 }
