@@ -125,6 +125,7 @@ struct CrosNode
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
   unsigned short roscore_port;  //! The roscore port
 
+  unsigned int next_call_id;
   ApiCallQueue master_api_queue;
   ApiCallQueue slave_api_queue;
 

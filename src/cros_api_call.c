@@ -3,10 +3,12 @@
 #include <assert.h>
 
 #include "cros_api_call.h"
+#include "cros_defs.h"
 
 RosApiCall * newRosApiCall()
 {
   RosApiCall *ret = (RosApiCall *)malloc(sizeof(RosApiCall));
+  ret->id = -1;
   ret->provider_idx = -1;
   ret->host = NULL;
   ret->port = -1;
@@ -14,6 +16,7 @@ RosApiCall * newRosApiCall()
   ret->result_callback = NULL;
   ret->context_data = NULL;
   ret->fetch_result_callback = NULL;
+  ret->free_result_callback = NULL;
   return ret;
 }
 
@@ -38,12 +41,15 @@ RosApiCall * peekApiCallQueue(ApiCallQueue *queue)
   return queue->head->call;
 }
 
-void enqueueApiCall(ApiCallQueue *queue, RosApiCall* apiCall)
+int enqueueApiCall(ApiCallQueue *queue, RosApiCall* apiCall)
 {
   ApiCallNode* node = malloc(sizeof(ApiCallNode));
 
   if(node == NULL)
-    exit(1);
+  {
+    PRINT_ERROR("enqueueApiCall() : Can't enqueue call\n");
+    return -1;
+  }
 
   node->call = apiCall;
   node->next = NULL;
@@ -60,6 +66,8 @@ void enqueueApiCall(ApiCallQueue *queue, RosApiCall* apiCall)
   }
 
   queue->count++;
+
+  return 0;
 }
 
 RosApiCall * dequeueApiCall(ApiCallQueue *queue)

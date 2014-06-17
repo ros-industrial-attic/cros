@@ -6,8 +6,9 @@
 
 #define CROS_API_TCPROS_STRING "TCPROS"
 
-typedef void (*ResultCallback)(void *result, void *data);
+typedef void (*ResultCallback)(int callid, void *result, void *context);
 typedef void * (*FetchResultCallback)(XmlrpcParamVector *response);
+typedef void (*FreeeResultCallback)(void *result);
 
 typedef struct RosApiCall RosApiCall;
 typedef struct ApiCallNode ApiCallNode;
@@ -15,6 +16,7 @@ typedef struct ApiCallQueue ApiCallQueue;
 
 struct RosApiCall
 {
+  int id;                                     //! Progressive id of the call
   CROS_API_METHOD method;                     //! ROS api method
   XmlrpcParamVector params;                   //! Method arguments
   char *host;                                 //! Host to contact for the api
@@ -23,6 +25,7 @@ struct RosApiCall
   ResultCallback result_callback;             //! Response callback
   void *context_data;                         //! Result callback context
   FetchResultCallback fetch_result_callback;  //! Callback to fetch the result
+  FreeeResultCallback free_result_callback;
 };
 
 struct ApiCallNode
@@ -42,7 +45,7 @@ RosApiCall * newRosApiCall();
 void freeRosApiCall(RosApiCall *call);
 
 void initApiCallQueue(ApiCallQueue *queue);
-void enqueueApiCall(ApiCallQueue *queue, RosApiCall* apiCall);
+int enqueueApiCall(ApiCallQueue *queue, RosApiCall* apiCall);
 RosApiCall * peekApiCallQueue(ApiCallQueue *queue);
 RosApiCall * dequeueApiCall(ApiCallQueue *queue);
 void releaseApiCallQueue(ApiCallQueue *queue);

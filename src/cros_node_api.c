@@ -134,9 +134,7 @@ int cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCa
   call->context_data = context;
   call->fetch_result_callback = fetchLookupNodeResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
-
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
 int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback *callback, void *context)
@@ -153,9 +151,7 @@ int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublished
   call->context_data = context;
   call->fetch_result_callback = fetchGetPublishedTopicsResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
-
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
 int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *context)
@@ -172,9 +168,7 @@ int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *
   call->context_data = context;
   call->fetch_result_callback = fetchGetTopicTypesResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
-
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
 int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback *callback, void *context)
@@ -191,9 +185,7 @@ int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback *callback, void
   call->context_data = context;
   call->fetch_result_callback = fetchGetSystemStateResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
-
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
 int cRosApiGetUri(CrosNode *node, GetUriCallback *callback, void *context)
@@ -210,9 +202,7 @@ int cRosApiGetUri(CrosNode *node, GetUriCallback *callback, void *context)
   call->context_data = context;
   call->fetch_result_callback = fetchGetUriResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
-
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
 int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback *callback, void *context)
@@ -229,9 +219,7 @@ int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallb
   call->context_data = context;
   call->fetch_result_callback = fetchLookupServiceResult;
 
-  enqueueApiCall(&node->master_api_queue, call);
-
-  return 0;
+  return enqueueMasterApiCall(node, call);
 }
 
 int cRosApiGetBusStats(CrosNode *node, int *subidx, const char* host, int port,
@@ -249,9 +237,7 @@ int cRosApiGetBusStats(CrosNode *node, int *subidx, const char* host, int port,
   call->context_data = context;
   call->fetch_result_callback = fetchGetBusStatsResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
-
-  return 0;
+  return enqueueSlaveApiCall(node, call);
 }
 
 int cRosApiGetBusInfo(CrosNode *node, int *subidx, const char* host, int port,
@@ -269,9 +255,7 @@ int cRosApiGetBusInfo(CrosNode *node, int *subidx, const char* host, int port,
   call->context_data = context;
   call->fetch_result_callback = fetchGetBusInfoResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
-
-  return 0;
+  return enqueueSlaveApiCall(node, call);
 }
 
 int cRosApiGetMasterUri(CrosNode *node, int *subidx, const char* host, int port,
@@ -289,9 +273,7 @@ int cRosApiGetMasterUri(CrosNode *node, int *subidx, const char* host, int port,
   call->context_data = context;
   call->fetch_result_callback = fetchGetMasterUriResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
-
-  return 0;
+  return enqueueSlaveApiCall(node, call);
 }
 
 int cRosApiShutdown(CrosNode *node, int *subidx, const char* host, int port, const char *msg,
@@ -309,9 +291,7 @@ int cRosApiShutdown(CrosNode *node, int *subidx, const char* host, int port, con
   call->context_data = context;
   call->fetch_result_callback = fetchRequestShutdownResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
-
-  return 0;
+  return enqueueSlaveApiCall(node, call);
 }
 
 int cRosApiGetPid(CrosNode *node, int *subidx, const char* host, int port,
@@ -329,9 +309,7 @@ int cRosApiGetPid(CrosNode *node, int *subidx, const char* host, int port,
   call->context_data = context;
   call->fetch_result_callback = fetchGetPidResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
-
-  return 0;
+  return enqueueSlaveApiCall(node, call);
 }
 
 int cRosApiGetSubscriptions(CrosNode *node, int *subidx, const char* host, int port,
@@ -349,12 +327,10 @@ int cRosApiGetSubscriptions(CrosNode *node, int *subidx, const char* host, int p
   call->context_data = context;
   call->fetch_result_callback = fetchGetSubscriptionsResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
-
-  return 0;
+  return enqueueSlaveApiCall(node, call);
 }
 
-int getPublications(CrosNode *node, int *subidx, const char* host, int port,
+int cRosApiGetPublications(CrosNode *node, int *subidx, const char* host, int port,
                     GetSubscriptionsCallback *callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
@@ -369,9 +345,7 @@ int getPublications(CrosNode *node, int *subidx, const char* host, int port,
   call->context_data = context;
   call->fetch_result_callback = fetchGetPublicationsResult;
 
-  enqueueApiCall(&node->slave_api_queue, call);
-
-  return 0;
+  return enqueueSlaveApiCall(node, call);
 }
 
 void * fetchLookupNodeResult(XmlrpcParamVector *response)

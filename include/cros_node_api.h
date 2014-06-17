@@ -196,19 +196,19 @@ typedef struct GetPidResult GetPidResult;
 typedef struct GetSubscriptionsResult GetSubscriptionsResult;
 typedef struct GetPublicationsResult GetPublicationsResult;
 
-typedef void (*LookupNodeCallback)(LookupNodeResult *result, void *context);
-typedef void (*GetPublishedTopicsCallback)(GetPublishedTopicsResult *result, void *context);
-typedef void (*GetTopicTypesCallback)(GetTopicTypesResult *result, void *context);
-typedef void (*GetSystemStateCallback)(GetSystemStateResult *result, void *context);
-typedef void (*GetUriCallback)(GetUriResult *result, void *context);
-typedef void (*LookupServiceCallback)(LookupServiceResult *result, void *context);
-typedef void (*GetBusStatsCallback)(GetBusStatsResult *result, void *context);
-typedef void (*GetBusInfoCallback)(GetBusInfoResult *result, void *context);
-typedef void (*GetMasterUriCallback)(GetMasterUriResult *result, void *context);
-typedef void (*RequestShutdownCallback)(ShutdownResult *result, void *context);
+typedef void (*LookupNodeCallback)(int callid, LookupNodeResult *result, void *context);
+typedef void (*GetPublishedTopicsCallback)(int callid, GetPublishedTopicsResult *result, void *context);
+typedef void (*GetTopicTypesCallback)(int callid, GetTopicTypesResult *result, void *context);
+typedef void (*GetSystemStateCallback)(int callid, GetSystemStateResult *result, void *context);
+typedef void (*GetUriCallback)(int callid, GetUriResult *result, void *context);
+typedef void (*LookupServiceCallback)(int callid, LookupServiceResult *result, void *context);
+typedef void (*GetBusStatsCallback)(int callid, GetBusStatsResult *result, void *context);
+typedef void (*GetBusInfoCallback)(int callid, GetBusInfoResult *result, void *context);
+typedef void (*GetMasterUriCallback)(int callid, GetMasterUriResult *result, void *context);
+typedef void (*RequestShutdownCallback)(int callid, ShutdownResult *result, void *context);
 typedef void (*GetPidCallback)(GetPidResult *result, void *context);
-typedef void (*GetSubscriptionsCallback)(GetSubscriptionsResult *result, void *context);
-typedef void (*GetPublicationsCallback)(GetPublicationsResult *result, void *context);
+typedef void (*GetSubscriptionsCallback)(int callid, GetSubscriptionsResult *result, void *context);
+typedef void (*GetPublicationsCallback)(int callid, GetPublicationsResult *result, void *context);
 
 typedef struct CrosMessage
 {

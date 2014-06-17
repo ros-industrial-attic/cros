@@ -56,5 +56,7 @@ int cRosNodeUnregisterService(CrosNode *node, int serviceidx);
 
 void restartAdversing(CrosNode* node);
 int enqueueRequestTopic(CrosNode *node, int subidx);
+int enqueueMasterApiCall(CrosNode *node, RosApiCall *call);
+int enqueueSlaveApiCall(CrosNode *node, RosApiCall *call);
 
 #endif // _CROS_NODE_INTERNAL_H_
