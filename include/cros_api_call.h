@@ -8,7 +8,7 @@
 
 typedef void (*ResultCallback)(int callid, void *result, void *context);
 typedef void * (*FetchResultCallback)(XmlrpcParamVector *response);
-typedef void (*FreeeResultCallback)(void *result);
+typedef void (*FreeResultCallback)(void *result);
 
 typedef struct RosApiCall RosApiCall;
 typedef struct ApiCallNode ApiCallNode;
@@ -25,7 +25,7 @@ struct RosApiCall
   ResultCallback result_callback;             //! Response callback
   void *context_data;                         //! Result callback context
   FetchResultCallback fetch_result_callback;  //! Callback to fetch the result
-  FreeeResultCallback free_result_callback;
+  FreeResultCallback free_result_callback;
 };
 
 struct ApiCallNode
