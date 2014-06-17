@@ -196,35 +196,107 @@ typedef struct GetPidResult GetPidResult;
 typedef struct GetSubscriptionsResult GetSubscriptionsResult;
 typedef struct GetPublicationsResult GetPublicationsResult;
 
-typedef void (*LookupNodeCallback)(LookupNodeResult *result, void *data);
-typedef void (*GetPublishedTopicsCallback)(GetPublishedTopicsResult *result, void *data);
-typedef void (*GetTopicTypesCallback)(GetTopicTypesResult *result, void *data);
-typedef void (*GetSystemStateCallback)(GetSystemStateResult *result, void *data);
-typedef void (*GetUriCallback)(GetUriResult *result, void *data);
-typedef void (*LookupServiceCallback)(LookupServiceResult *result, void *data);
-typedef void (*GetBusStatsCallback)(GetBusStatsResult *result, void *data);
-typedef void (*GetBusInfoCallback)(GetBusInfoResult *result, void *data);
-typedef void (*GetMasterUriCallback)(GetMasterUriResult *result, void *data);
-typedef void (*RequestShutdownCallback)(ShutdownResult *result, void *data);
-typedef void (*GetPidCallback)(GetPidResult *result, void *data);
-typedef void (*GetSubscriptionsCallback)(GetSubscriptionsResult *result, void *data);
-typedef void (*GetPublicationsCallback)(GetPublicationsResult *result, void *data);
+typedef void (*LookupNodeCallback)(LookupNodeResult *result, void *context);
+typedef void (*GetPublishedTopicsCallback)(GetPublishedTopicsResult *result, void *context);
+typedef void (*GetTopicTypesCallback)(GetTopicTypesResult *result, void *context);
+typedef void (*GetSystemStateCallback)(GetSystemStateResult *result, void *context);
+typedef void (*GetUriCallback)(GetUriResult *result, void *context);
+typedef void (*LookupServiceCallback)(LookupServiceResult *result, void *context);
+typedef void (*GetBusStatsCallback)(GetBusStatsResult *result, void *context);
+typedef void (*GetBusInfoCallback)(GetBusInfoResult *result, void *context);
+typedef void (*GetMasterUriCallback)(GetMasterUriResult *result, void *context);
+typedef void (*RequestShutdownCallback)(ShutdownResult *result, void *context);
+typedef void (*GetPidCallback)(GetPidResult *result, void *context);
+typedef void (*GetSubscriptionsCallback)(GetSubscriptionsResult *result, void *context);
+typedef void (*GetPublicationsCallback)(GetPublicationsResult *result, void *context);
 
-// Master api
-int lookupNode(CrosNode *node, const char *node_name, LookupNodeCallback *callback, void *data);
-int getPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback *callback, void *data);
-int getTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *data);
-int getSystemState(CrosNode *node, GetSystemStateCallback *callback, void *data);
-int getUri(CrosNode *node, GetUriCallback *callback, void *data);
-int lookupService(CrosNode *node, const char *service, LookupServiceCallback *callback, void *data);
+typedef struct CrosMessage
+{
+} CrosMessage;
+
+typedef CallbackResponse (*ServiceProviderApiCallback)(CrosMessage *messageRequest, CrosMessage *messageResponse, void* context);
+typedef CallbackResponse (*SubscriberApiCallback)(CrosMessage *message,  void* context);
+typedef CallbackResponse (*PublisherApiCallback)(CrosMessage *message, void* context);
+
+// Master api: register/unregister methods
+int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context);
+int cRosApisUnegisterService(CrosNode *node, int svcidx);
+int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, SlaveCallback slave_callback, void *context);
+int cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
+int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, SlaveCallback slave_callback, void *context);
+int cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
+
+// Master api: name service and system state
+int cRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback *callback, void *context);
+int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback *callback, void *context);
+int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *context);
+int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback *callback, void *context);
+int cRosApiGetUri(CrosNode *node, GetUriCallback *callback, void *context);
+int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback *callback, void *context);
 
 // Slave api
-int getBusStats(CrosNode *node, int client_idx, GetBusStatsCallback *callback, void *data);
-int getBusInfo(CrosNode *node, int client_idx, GetBusInfoCallback *callback, void *data);
-int getMasterUri(CrosNode *node, int client_idx, GetMasterUriCallback *callback, void *data);
-int requestShutdown(CrosNode *node, int client_idx, const char *msg, GetMasterUriCallback *callback, void *data);
-int getPid(CrosNode *node, int client_idx, GetPidCallback *callback, void *data);
-int getSubscriptions(CrosNode *node, int client_idx, GetSubscriptionsCallback *callback, void *data);
-int getPublications(CrosNode *node, int client_idx, GetSubscriptionsCallback *callback, void *data);
+
+/*!
+ *  \param subidx If >= 0 it will be contacted the xmlrpc server of the topic being subcribed
+ *                If == -1 it will be contacted the roscore
+ *                If == NULL it will fallback on the host and port provided
+ *  \param host Used only if subidx == NULL
+ *  \param port Used only if subidx == NULL
+ */
+int cRosApiGetBusStats(CrosNode *node, int *subidx, const char* host, int port, GetBusStatsCallback *callback, void *context);
+
+/*!
+ *  \param subidx If >= 0 it will be contacted the xmlrpc server of the topic being subcribed
+ *                If == -1 it will be contacted the roscore
+ *                If == NULL it will fallback on the host and port provided
+ *  \param host Used only if subidx == NULL
+ *  \param port Used only if subidx == NULL
+ */
+int cRosApiGetBusInfo(CrosNode *node, int *subidx, const char* host, int port, GetBusInfoCallback *callback, void *context);
+
+/*!
+ *  \param subidx If >= 0 it will be contacted the xmlrpc server of the topic being subcribed
+ *                If == -1 it will be contacted the roscore
+ *                If == NULL it will fallback on the host and port provided
+ *  \param host Used only if subidx == NULL
+ *  \param port Used only if subidx == NULL
+ */
+int cRosApiGetMasterUri(CrosNode *node, int *subidx, const char* host, int port, GetMasterUriCallback *callback, void *context);
+
+/*!
+ *  \param subidx If >= 0 it will be contacted the xmlrpc server of the topic being subcribed
+ *                If == -1 it will be contacted the roscore
+ *                If == NULL it will fallback on the host and port provided
+ *  \param host Used only if subidx == NULL
+ *  \param port Used only if subidx == NULL
+ */
+int cRosApiShutdown(CrosNode *node, int *subidx, const char* host, int port, const char *msg, GetMasterUriCallback *callback, void *context);
+
+/*!
+ *  \param subidx If >= 0 it will be contacted the xmlrpc server of the topic being subcribed
+ *                If == -1 it will be contacted the roscore
+ *                If == NULL it will fallback on the host and port provided
+ *  \param host Used only if subidx == NULL
+ *  \param port Used only if subidx == NULL
+ */
+int cRosApiGetPid(CrosNode *node, int *subidx, const char* host, int port, GetPidCallback *callback, void *context);
+
+/*!
+ *  \param subidx If >= 0 it will be contacted the xmlrpc server of the topic being subcribed
+ *                If == -1 it will be contacted the roscore
+ *                If == NULL it will fallback on the host and port provided
+ *  \param host Used only if subidx == NULL
+ *  \param port Used only if subidx == NULL
+ */
+int cRosApiGetSubscriptions(CrosNode *node, int *subidx, const char* host, int port, GetSubscriptionsCallback *callback, void *context);
+
+/*!
+ *  \param subidx If >= 0 it will be contacted the xmlrpc server of the topic being subcribed
+ *                If == -1 it will be contacted the roscore
+ *                If == NULL it will fallback on the host and port provided
+ *  \param host Used only if subidx == NULL
+ *  \param port Used only if subidx == NULL
+ */
+int cRosApiGetPublications(CrosNode *node, int *subidx, const char* host, int port, GetSubscriptionsCallback *callback, void *context);
 
 #endif // _CROS_NODE_API_H_
