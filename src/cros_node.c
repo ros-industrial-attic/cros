@@ -1154,7 +1154,7 @@ void cRosNodeDestroy ( CrosNode *n )
 
 int cRosNodeRegisterPublisher (CrosNode *n, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum, int loop_period,
-                               PublisherCallback callback, SlaveCallback slave_callback, void *data_context)
+                               PublisherCallback callback, SlaveStatusCallback slave_callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterPublisher()\n" );
   PRINT_INFO ( "Publishing topic %s type %s \n", topic_name, topic_type );
@@ -1281,7 +1281,7 @@ int cRosNodeRegisterServiceProvider(CrosNode *n, const char *service_name,
 
 int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum,
-                               SubscriberCallback callback, SlaveCallback slave_callback, void *data_context)
+                               SubscriberCallback callback, SlaveStatusCallback slave_callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
   PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
@@ -2060,7 +2060,12 @@ int enqueueRequestTopic(CrosNode *node, int subidx)
 
   SubscriberNode *sub = &node->subs[subidx];
   if (sub->slave_callback != NULL)
-    sub->slave_callback(sub->topic_host, sub->topic_port, sub->context);
+  {
+    CrosSlaveStatus status;
+    status.xmlrpc_host = sub->topic_host;
+    status.xmlrpc_port = sub->topic_port;
+    sub->slave_callback(&status, sub->context);
+  }
 
   xmlrpcParamVectorPushBackString(&call->params, node->name );
   xmlrpcParamVectorPushBackString(&call->params, sub->topic_name );

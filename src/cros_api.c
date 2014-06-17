@@ -533,7 +533,12 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           {
             topic_found = 1;
             if (pub->slave_callback != NULL && strlen(server_proc->host) != 0)
-              pub->slave_callback(server_proc->host, server_proc->port, pub->context);
+            {
+              CrosSlaveStatus status;
+              status.xmlrpc_host = server_proc->host;
+              status.xmlrpc_port = server_proc->port;
+              pub->slave_callback(&status, pub->context);
+            }
 
             break;
           }

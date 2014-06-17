@@ -32,7 +32,7 @@ typedef struct NodeContext
   CrosMessage incoming;
   CrosMessage outgoing;
   void *api_callback;
-  SlaveCallback slave_callback;
+  SlaveStatusCallback slave_callback;
   void *context;
   char *message_definition;
   char *md5sum;
@@ -69,10 +69,10 @@ static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* cont
   return subscriberApiCallback(&context->incoming, context->context);
 }
 
-static void cRosNodeSlaveCallback(const char *host, int port, void* context_)
+static void cRosNodeSlaveCallback(CrosSlaveStatus *status, void* context_)
 {
   NodeContext *context = (NodeContext *)context_;
-  context->slave_callback(host, port, context->context);
+  context->slave_callback(status, context->context);
 }
 
 int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context)
@@ -85,7 +85,7 @@ int cRosApisUnegisterService(CrosNode *node, int svcidx)
   return 0;
 }
 
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, SlaveCallback slave_callback, void *context)
+int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, SlaveStatusCallback slave_callback, void *context)
 {
   NodeContext *nodeContext = newProviderContext(topic_type, CROS_SUBSCRIBER);
   nodeContext->api_callback = callback;
@@ -110,7 +110,7 @@ int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
   return rc;
 }
 
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, SlaveCallback slave_callback, void *context)
+int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, SlaveStatusCallback slave_callback, void *context)
 {
   return 0;
 }

@@ -52,9 +52,15 @@ typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
 
-/*! \brief Callback to communicate publiser or subscriber host and port
+typedef struct CrosSlaveStatus
+{
+  const char *xmlrpc_host;
+  int xmlrpc_port;
+} CrosSlaveStatus;
+
+/*! \brief Callback to communicate publisher or subscriber status
  */
-typedef void (*SlaveCallback)(const char *host, int port, void* context);
+typedef void (*SlaveStatusCallback)(CrosSlaveStatus *status, void* context);
 
 typedef uint8_t CallbackResponse;
 typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
@@ -69,7 +75,7 @@ struct PublisherNode
   int client_tcpros_id;
   void *context;
   PublisherCallback callback;                   //! The callback called to generate the (raw) packet data of type topic_type
-  SlaveCallback slave_callback;
+  SlaveStatusCallback slave_callback;
   int loop_period;                              //! Period (in msec) for publication cycle 
 };
 
@@ -91,7 +97,7 @@ struct SubscriberNode
   int   tcpros_port;
   void *context;
   SubscriberCallback callback;
-  SlaveCallback slave_callback;
+  SlaveStatusCallback slave_callback;
 };
 
 typedef CallbackResponse (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
