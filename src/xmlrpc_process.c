@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <string.h>
 
 #include "xmlrpc_process.h"
 #include "cros_clock.h"
@@ -15,6 +16,8 @@ void xmlrpcProcessInit( XmlrpcProcess *p )
   xmlrpcParamVectorInit( &(p->response) );
   p->last_change_time = 0;
   p->wake_up_time_ms = 0;
+  memset(p->host, 0, sizeof(p->host));
+  p->port = -1;
 }
 
 void xmlrpcProcessRelease( XmlrpcProcess *p )
@@ -45,6 +48,8 @@ void xmlrpcProcessClear( XmlrpcProcess *p, int fullclear)
     xmlrpcParamVectorRelease(&p->params);
     xmlrpcParamVectorRelease(&p->response);
     p->message_type = XMLRPC_MESSAGE_UNKNOWN;
+    memset(p->host, 0, sizeof(p->host));
+    p->port = -1;
   }
 }
 

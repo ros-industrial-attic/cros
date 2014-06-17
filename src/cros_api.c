@@ -528,9 +528,13 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
         for( i = 0 ; i < n->n_pubs; i++)
         {
-          if( strcmp( xmlrpcParamGetString( topic_param ), n->pubs[i].topic_name ) == 0)
+          PublisherNode *pub = &n->pubs[i];
+          if( strcmp( xmlrpcParamGetString( topic_param ), pub->topic_name ) == 0)
           {
             topic_found = 1;
+            if (pub->slave_callback != NULL && strlen(server_proc->host) != 0)
+              pub->slave_callback(server_proc->host, server_proc->port, pub->context);
+
             break;
           }
         }

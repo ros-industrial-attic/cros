@@ -52,8 +52,11 @@ typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
 
-typedef uint8_t CallbackResponse;
+/*! \brief Callback to communicate publiser or subscriber host and port
+ */
+typedef void (*SlaveCallback)(const char *host, int port, void* context);
 
+typedef uint8_t CallbackResponse;
 typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
 
 /*! Structure that define a published topic */
@@ -65,8 +68,8 @@ struct PublisherNode
   char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
   int client_tcpros_id;
   void *context;
-  /*! The callback called to generate the (raw) packet data of type topic_type */
-  PublisherCallback callback;
+  PublisherCallback callback;                   //! The callback called to generate the (raw) packet data of type topic_type
+  SlaveCallback slave_callback;
   int loop_period;                              //! Period (in msec) for publication cycle 
 };
 
@@ -88,6 +91,7 @@ struct SubscriberNode
   int   tcpros_port;
   void *context;
   SubscriberCallback callback;
+  SlaveCallback slave_callback;
 };
 
 typedef CallbackResponse (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
@@ -152,7 +156,6 @@ struct CrosNode
   int n_services;               //! Number of registered services
 };
 
-
 /*! \brief Dynamically create a CrosNode instance. This is the right way to create a CrosNode object. 
  *         Once finished, the CrosNode should be released using cRosNodeDestroy()
  * 
@@ -183,29 +186,29 @@ void cRosNodeDestroy( CrosNode *n );
  *  \param loop_period Period (in msec) for publication cycle 
  *  \param publisherDataCallback The callback called to generate the (raw) packet data 
  *                                of type topic_type
- * 
+ *  \param slave_callback Callback that gives feedback on connected xmlrpc clients
  *  \return Returns 0 on success, -1 on failure (e.g., the maximu number of
  *          published topics has been reached )
  */
-int cRosNodeRegisterPublisher( CrosNode *n, char *message_definition, char *topic_name, 
-                               char *topic_type, char *md5sum, int loop_period, 
-                               PublisherCallback callback, void *data_context);
+int cRosNodeRegisterPublisher(CrosNode *n, const char *message_definition, const char *topic_name,
+                              const char *topic_type, const char *md5sum, int loop_period,
+                              PublisherCallback callback, SlaveCallback slave_callback, void *data_context);
 
 /*! \brief Register the node in roscore as topic subscriber.
- *
+ *  \param slave_callback Callback that gives feedback on available xmlrpc servers
  *  \param TODO review doxy documentation
  */
-int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
-                               char *topic_name, char *topic_type, char *md5sum,
-                               SubscriberCallback callback, void *data_context);
+int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
+                               const char *topic_name, const char *topic_type, const char *md5sum,
+                               SubscriberCallback callback, SlaveCallback slave_callback, void *data_context);
 
 /*! \brief Register the service provider in roscore
  *
  *  \param TODO review doxy documentation
  */
-int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
-                               char *service_type, char *md5sum,
-                                ServiceProviderCallback callback, void *data_context);
+int cRosNodeRegisterServiceProvider(CrosNode *n, const char *service_name,
+                                    const char *service_type, const char *md5sum,
+                                    ServiceProviderCallback callback, void *data_context);
 
 /*! \brief Unregister the topic subscriber
  *

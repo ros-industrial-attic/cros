@@ -273,7 +273,9 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
         parser_state = parseXmlrpcMessage( &xmlrpc_client_proc->message,
                                            &xmlrpc_client_proc->message_type,
                                            NULL,
-                                           &xmlrpc_client_proc->response );
+                                           &xmlrpc_client_proc->response,
+                                           xmlrpc_client_proc->host,
+                                           &xmlrpc_client_proc->port);
         break;
 
       case TCPIPSOCKET_IN_PROGRESS:
@@ -283,7 +285,9 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
         parser_state = parseXmlrpcMessage( &xmlrpc_client_proc->message,
                                            &xmlrpc_client_proc->message_type,
                                            NULL,
-                                           &xmlrpc_client_proc->response );
+                                           &xmlrpc_client_proc->response,
+                                           xmlrpc_client_proc->host,
+                                           &xmlrpc_client_proc->port);
         disconnected = 1;
         break;
 
@@ -343,7 +347,9 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
         parser_state = parseXmlrpcMessage( &server_proc->message,
                                            &server_proc->message_type,
                                            &server_proc->method,
-                                           &server_proc->params);
+                                           &server_proc->params,
+                                           server_proc->host,
+                                           &server_proc->port);
         break;
 
       case TCPIPSOCKET_IN_PROGRESS:
@@ -1130,9 +1136,9 @@ void cRosNodeDestroy ( CrosNode *n )
     releaseServiceProviderNode(&n->services[i]);
 }
 
-int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition, 
-                                char *topic_name, char *topic_type, char *md5sum, int loop_period,
-                                PublisherCallback callback, void *data_context )
+int cRosNodeRegisterPublisher (CrosNode *n, const char *message_definition,
+                               const char *topic_name, const char *topic_type, const char *md5sum, int loop_period,
+                               PublisherCallback callback, SlaveCallback slave_callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterPublisher()\n" );
   PRINT_INFO ( "Publishing topic %s type %s \n", topic_name, topic_type );
@@ -1180,6 +1186,7 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
 
   node->loop_period = loop_period;
   node->callback = callback;
+  node->slave_callback = slave_callback;
   node->context = data_context;
 
   n->n_pubs++;
@@ -1191,9 +1198,9 @@ int cRosNodeRegisterPublisher ( CrosNode *n, char *message_definition,
   return pubidx;
 }
 
-int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
-                               char *service_type, char *md5sum,
-                                ServiceProviderCallback callback, void *data_context)
+int cRosNodeRegisterServiceProvider(CrosNode *n, const char *service_name,
+                                    const char *service_type, const char *md5sum,
+                                    ServiceProviderCallback callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
   PRINT_INFO ( "Registering service %s type %s \n", service_name, service_type );
@@ -1256,9 +1263,9 @@ int cRosNodeRegisterServiceProvider( CrosNode *n, char *service_name,
   return serviceidx;
 }
 
-int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
-                               char *topic_name, char *topic_type, char *md5sum,
-                               SubscriberCallback callback, void *data_context)
+int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
+                               const char *topic_name, const char *topic_type, const char *md5sum,
+                               SubscriberCallback callback, SlaveCallback slave_callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
   PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
@@ -1302,7 +1309,7 @@ int cRosNodeRegisterSubscriber(CrosNode *n, char *message_definition,
   sub->topic_name = pub_topic_name;
   sub->topic_type = pub_topic_type;
   sub->md5sum = pub_md5sum;
-
+  sub->slave_callback = slave_callback;
   sub->callback = callback;
   sub->context = data_context;
 
@@ -2048,6 +2055,9 @@ int enqueueRequestTopic(CrosNode *node, int subidx)
   call->method = CROS_API_REQUEST_TOPIC;
 
   SubscriberNode *sub = &node->subs[subidx];
+  if (sub->slave_callback != NULL)
+    sub->slave_callback(sub->topic_host, sub->topic_port, sub->context);
+
   xmlrpcParamVectorPushBackString(&call->params, node->name );
   xmlrpcParamVectorPushBackString(&call->params, sub->topic_name );
   xmlrpcParamVectorPushBackArray(&call->params);
@@ -2080,6 +2090,7 @@ void initPublisherNode(PublisherNode *node)
   node->topic_type = NULL;
   node->md5sum = NULL;
   node->callback = NULL;
+  node->slave_callback = NULL;
   node->context = NULL;
   node->client_tcpros_id = -1;
   node->loop_period = 1000;
@@ -2094,6 +2105,7 @@ void initSubscriberNode(SubscriberNode *node)
   node->topic_type = NULL;
   node->md5sum = NULL;
   node->callback = NULL;
+  node->slave_callback = NULL;
   node->context = NULL;
   node->client_xmlrpc_id = -1;
   node->client_tcpros_id = -1;
