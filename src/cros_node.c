@@ -26,6 +26,7 @@ static int enqueueSubscriberAdvertise(CrosNode *node, int subidx);
 static int enqueuePubliserAdvertise(CrosNode *node, int pubidx);
 static int enqueueServiceAdvertise(CrosNode *node, int servivceidx);
 static void getIdleXmplrpcClients(CrosNode *node, int array[], size_t *count);
+static int enqueueSlaveApiCallInternal(CrosNode *node, RosApiCall *call);
 
 static void openXmlrpcClientSocket( CrosNode *n, int i )
 {
@@ -114,26 +115,63 @@ static void closeXmlrpcProcess(XmlrpcProcess *process)
   xmlrpcProcessChangeState(process, XMLRPC_PROCESS_STATE_IDLE);
 }
 
-static void cleanNodeApiCallState(CrosNode *node, RosApiCall *call)
+static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
 {
-  if (call->method == CROS_API_REQUEST_TOPIC)
+  switch(call->method)
   {
-    node->subs[call->provider_idx].client_xmlrpc_id = -1;
+    case CROS_API_UNREGISTER_PUBLISHER:
+    {
+      PublisherNode *pub = &node->pubs[call->provider_idx];
+      SlaveStatusCallback callback = pub->slave_callback;
+      if (callback != NULL)
+      {
+        CrosSlaveStatus status;
+        status.xmlrpc_port = -1;
+        status.xmlrpc_host = NULL;
+        callback(&status, call->context_data);
+
+        releasePublisherNode(pub);
+        initPublisherNode(pub);
+      }
+      break;
+    }
+    case CROS_API_UNREGISTER_SUBSCRIBER:
+    {
+      SubscriberNode *sub = &node->subs[call->provider_idx];
+      SlaveStatusCallback callback = sub->slave_callback;
+      if (callback != NULL)
+      {
+        CrosSlaveStatus status;
+        status.xmlrpc_port = -1;
+        status.xmlrpc_host = NULL;
+        callback(&status, call->context_data);
+        sub->slave_callback = NULL;
+
+        releaseSubscriberNode(sub);
+        initSubscriberNode(sub);
+      }
+      break;
+    }
+    default:
+    {
+      break;
+    }
   }
 }
 
-static void closeApiCallWithSucces(CrosNode *node, XmlrpcProcess *process)
+static void cleanApiCallState(CrosNode *node, RosApiCall *call)
 {
-  RosApiCall *call = process->current_call;
-  cleanNodeApiCallState(node, call);
-
-  ResultCallback callback = call->result_callback;
-  if (callback != NULL)
+  switch(call->method)
   {
-    void *result = call->fetch_result_callback(&process->response);
-    callback(call->id, result, call->context_data);
-    if (result != NULL)
-      call->free_result_callback(result);
+    case CROS_API_REQUEST_TOPIC:
+    {
+      node->subs[call->provider_idx].client_xmlrpc_id = -1;
+      break;
+    }
+    default:
+    {
+      break;
+    }
   }
 }
 
@@ -145,9 +183,6 @@ static void handleXmlrpcClientError(CrosNode *node, int i)
   switch (call->method)
   {
     case CROS_API_REGISTER_SERVICE:
-    case CROS_API_UNREGISTER_SERVICE:
-    case CROS_API_UNREGISTER_PUBLISHER:
-    case CROS_API_UNREGISTER_SUBSCRIBER:
     case CROS_API_REGISTER_PUBLISHER:
     case CROS_API_REGISTER_SUBSCRIBER:
     {
@@ -167,7 +202,8 @@ static void handleXmlrpcClientError(CrosNode *node, int i)
     }
   }
 
-  cleanNodeApiCallState(node, call);
+  handleApiCallAttempt(node, call);
+  cleanApiCallState(node, call);
   closeXmlrpcProcess(proc);
 }
 
@@ -257,6 +293,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
+        handleApiCallAttempt(n, xmlrpc_client_proc->current_call);
         xmlrpcProcessClear(xmlrpc_client_proc, 0);
         xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_READING );
         break;
@@ -325,7 +362,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
         }
         else
         {
-          closeApiCallWithSucces(n, xmlrpc_client_proc);
+          cleanApiCallState(n, xmlrpc_client_proc->current_call);
           closeXmlrpcProcess(xmlrpc_client_proc);
         }
         break;
@@ -1377,7 +1414,8 @@ int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx)
     closeXmlrpcProcess(coreproc);
   }
 
-  call->method = CROS_API_UNREGISTER_PUBLISHER;
+  call->method = CROS_API_UNREGISTER_SUBSCRIBER;
+  call->provider_idx = subidx;
 
   xmlrpcParamVectorPushBackString( &call->params, node->name);
   xmlrpcParamVectorPushBackString( &call->params, sub->topic_name );
@@ -1385,8 +1423,7 @@ int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx)
   snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
   xmlrpcParamVectorPushBackString( &call->params, node_uri );
 
-  releaseSubscriberNode(sub);
-  initSubscriberNode(sub);
+  // NB: Node release is done in handleApiCallAttempt()
 
   return enqueueMasterApiCall(node, call);
 }
@@ -1420,6 +1457,7 @@ int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx)
   }
 
   call->method = CROS_API_UNREGISTER_PUBLISHER;
+  call->provider_idx = pubidx;
 
   xmlrpcParamVectorPushBackString( &call->params, node->name);
   xmlrpcParamVectorPushBackString( &call->params, pub->topic_name );
@@ -1427,8 +1465,7 @@ int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx)
   snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
   xmlrpcParamVectorPushBackString( &call->params, node_uri );
 
-  releasePublisherNode(pub);
-  initPublisherNode(pub);
+  // NB: Node release is done in handleApiCallAttempt()
 
   return enqueueMasterApiCall(node, call);
 }
@@ -2074,7 +2111,7 @@ int enqueueRequestTopic(CrosNode *node, int subidx)
   xmlrpcParamArrayPushBackArray(array_param);
   xmlrpcParamArrayPushBackString(xmlrpcParamArrayGetParamAt(array_param,0),CROS_API_TCPROS_STRING);
 
-  return enqueueSlaveApiCall(node, call);
+  return enqueueSlaveApiCallInternal(node, call);
 }
 
 void restartAdversing(CrosNode* n)
@@ -2184,7 +2221,30 @@ int enqueueMasterApiCall(CrosNode *node, RosApiCall *call)
   return callid;
 }
 
-int enqueueSlaveApiCall(CrosNode *node, RosApiCall *call)
+int enqueueSlaveApiCall(CrosNode *node, RosApiCall *call, const char *host, int port)
+{
+  if (host == NULL)
+  {
+    call->host = node->roscore_host;
+    call->port = node->roscore_port;
+  }
+  else
+  {
+    call->host = malloc(strlen(host) + 1);
+    if (call->host == NULL)
+    {
+      PRINT_ERROR("enqueueSlaveApiCall() : Not enough memory\n");
+      return -1;
+    }
+
+    strcpy(call->host, host);
+    call->port = port;
+  }
+
+  return enqueueSlaveApiCallInternal(node, call);
+}
+
+int enqueueSlaveApiCallInternal(CrosNode *node, RosApiCall *call)
 {
   int callid = (int)node->next_call_id;
   call->id = callid;

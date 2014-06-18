@@ -134,7 +134,7 @@ int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
   return 0;
 }
 
-int cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback *callback, void *context)
+int cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -149,10 +149,13 @@ int cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCa
   call->fetch_result_callback = (FetchResultCallback)fetchLookupNodeResult;
   call->free_result_callback = (FreeResultCallback)freeLookupNodeResult;
 
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+  xmlrpcParamVectorPushBackString(&call->params, node_name);
+
   return enqueueMasterApiCall(node, call);
 }
 
-int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback *callback, void *context)
+int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -167,10 +170,13 @@ int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublished
   call->fetch_result_callback = (FetchResultCallback)fetchGetPublishedTopicsResult;
   call->free_result_callback = (FreeResultCallback)freeGetPublishedTopicsResult;
 
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+  xmlrpcParamVectorPushBackString(&call->params, subgraph);
+
   return enqueueMasterApiCall(node, call);
 }
 
-int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *context)
+int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -185,10 +191,12 @@ int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback *callback, void *
   call->fetch_result_callback = (FetchResultCallback)fetchGetTopicTypesResult;
   call->free_result_callback = (FreeResultCallback)freeGetTopicTypesResult;
 
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
   return enqueueMasterApiCall(node, call);
 }
 
-int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback *callback, void *context)
+int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -203,10 +211,12 @@ int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback *callback, void
   call->fetch_result_callback = (FetchResultCallback)fetchGetSystemStateResult;
   call->free_result_callback = (FreeResultCallback)freeGetSystemStateResult;
 
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
   return enqueueMasterApiCall(node, call);
 }
 
-int cRosApiGetUri(CrosNode *node, GetUriCallback *callback, void *context)
+int cRosApiGetUri(CrosNode *node, GetUriCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -221,10 +231,12 @@ int cRosApiGetUri(CrosNode *node, GetUriCallback *callback, void *context)
   call->fetch_result_callback = (FetchResultCallback)fetchGetUriResult;
   call->free_result_callback = (FreeResultCallback)freeGetUriResult;
 
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
   return enqueueMasterApiCall(node, call);
 }
 
-int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback *callback, void *context)
+int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -239,11 +251,14 @@ int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallb
   call->fetch_result_callback = (FetchResultCallback)fetchLookupServiceResult;
   call->free_result_callback = (FreeResultCallback)freeLookupServiceResult;
 
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+  xmlrpcParamVectorPushBackString(&call->params, service);
+
   return enqueueMasterApiCall(node, call);
 }
 
-int cRosApiGetBusStats(CrosNode *node, int *subidx, const char* host, int port,
-                       GetBusStatsCallback *callback, void *context)
+int cRosApiGetBusStats(CrosNode *node, const char* host, int port,
+                       GetBusStatsCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -258,11 +273,13 @@ int cRosApiGetBusStats(CrosNode *node, int *subidx, const char* host, int port,
   call->fetch_result_callback = (FetchResultCallback)fetchGetBusStatsResult;
   call->free_result_callback = (FreeResultCallback)freeGetBusStatsResult;
 
-  return enqueueSlaveApiCall(node, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int cRosApiGetBusInfo(CrosNode *node, int *subidx, const char* host, int port,
-                      GetBusInfoCallback *callback, void *context)
+int cRosApiGetBusInfo(CrosNode *node, const char* host, int port,
+                      GetBusInfoCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -277,11 +294,13 @@ int cRosApiGetBusInfo(CrosNode *node, int *subidx, const char* host, int port,
   call->fetch_result_callback = (FetchResultCallback)fetchGetBusInfoResult;
   call->free_result_callback = (FreeResultCallback)freeGetBusInfoResult;
 
-  return enqueueSlaveApiCall(node, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int cRosApiGetMasterUri(CrosNode *node, int *subidx, const char* host, int port,
-                        GetMasterUriCallback *callback, void *context)
+int cRosApiGetMasterUri(CrosNode *node, const char* host, int port,
+                        GetMasterUriCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -296,11 +315,13 @@ int cRosApiGetMasterUri(CrosNode *node, int *subidx, const char* host, int port,
   call->fetch_result_callback = (FetchResultCallback)fetchGetMasterUriResult;
   call->free_result_callback = (FreeResultCallback)freeGetMasterUriResult;
 
-  return enqueueSlaveApiCall(node, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int cRosApiShutdown(CrosNode *node, int *subidx, const char* host, int port, const char *msg,
-                    GetMasterUriCallback *callback, void *context)
+int cRosApiShutdown(CrosNode *node, const char* host, int port, const char *msg,
+                    GetMasterUriCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -315,11 +336,14 @@ int cRosApiShutdown(CrosNode *node, int *subidx, const char* host, int port, con
   call->fetch_result_callback = (FetchResultCallback)fetchShutdownResult;
   call->free_result_callback = (FreeResultCallback)freeShutdownResult;
 
-  return enqueueSlaveApiCall(node, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+  xmlrpcParamVectorPushBackString(&call->params, msg);
+
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int cRosApiGetPid(CrosNode *node, int *subidx, const char* host, int port,
-                  GetPidCallback *callback, void *context)
+int cRosApiGetPid(CrosNode *node, const char* host, int port,
+                  GetPidCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -334,11 +358,13 @@ int cRosApiGetPid(CrosNode *node, int *subidx, const char* host, int port,
   call->fetch_result_callback = (FetchResultCallback)fetchGetPidResult;
   call->free_result_callback = (FreeResultCallback)freeGetPidResult;
 
-  return enqueueSlaveApiCall(node, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int cRosApiGetSubscriptions(CrosNode *node, int *subidx, const char* host, int port,
-                            GetSubscriptionsCallback *callback, void *context)
+int cRosApiGetSubscriptions(CrosNode *node, const char* host, int port,
+                            GetSubscriptionsCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -353,11 +379,13 @@ int cRosApiGetSubscriptions(CrosNode *node, int *subidx, const char* host, int p
   call->fetch_result_callback = (FetchResultCallback)fetchGetSubscriptionsResult;
   call->free_result_callback = (FreeResultCallback)freeGetSubscriptionsResult;
 
-  return enqueueSlaveApiCall(node, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int cRosApiGetPublications(CrosNode *node, int *subidx, const char* host, int port,
-                    GetSubscriptionsCallback *callback, void *context)
+int cRosApiGetPublications(CrosNode *node, const char* host, int port,
+                    GetSubscriptionsCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -372,7 +400,9 @@ int cRosApiGetPublications(CrosNode *node, int *subidx, const char* host, int po
   call->fetch_result_callback = (FetchResultCallback)fetchGetPublicationsResult;
   call->free_result_callback = (FreeResultCallback)freeGetPublicationsResult;
 
-  return enqueueSlaveApiCall(node, call);
+  xmlrpcParamVectorPushBackString(&call->params, node->name);
+
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
 LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)
@@ -427,7 +457,15 @@ ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response)
 
 GetPidResult * fetchGetPidResult(XmlrpcParamVector *response)
 {
-  return NULL;
+  GetPidResult *result = (GetPidResult *)malloc(sizeof(GetPidResult));
+  if (result == NULL)
+    return NULL;
+
+  XmlrpcParam* roscore_pid_param =
+    xmlrpcParamArrayGetParamAt(xmlrpcParamVectorAt(response,0),2);
+
+  result->code = roscore_pid_param->data.as_int;
+  return result;
 }
 
 GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response)

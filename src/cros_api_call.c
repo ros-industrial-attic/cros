@@ -23,6 +23,8 @@ RosApiCall * newRosApiCall()
 void freeRosApiCall(RosApiCall *call)
 {
   xmlrpcParamVectorRelease(&call->params);
+  if (call->host != NULL)
+    free(call->host);
   free(call);
 }
 
