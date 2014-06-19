@@ -564,12 +564,12 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           if( strcmp( xmlrpcParamGetString( topic_param ), pub->topic_name ) == 0)
           {
             topic_found = 1;
-            if (pub->slave_callback != NULL && strlen(server_proc->host) != 0)
+            if (pub->status_callback != NULL && strlen(server_proc->host) != 0)
             {
-              CrosSlaveStatus status;
+              CrosNodeStatusUsr status;
               status.xmlrpc_host = server_proc->host;
               status.xmlrpc_port = server_proc->port;
-              pub->slave_callback(&status, pub->context);
+              pub->status_callback(&status, pub->context);
             }
 
             break;

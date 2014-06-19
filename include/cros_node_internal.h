@@ -18,7 +18,7 @@
  */
 int cRosNodeRegisterPublisher(CrosNode *n, const char *message_definition, const char *topic_name,
                               const char *topic_type, const char *md5sum, int loop_period,
-                              PublisherCallback callback, SlaveStatusCallback slave_callback, void *data_context);
+                              PublisherCallback callback, NodeStatusCallback status_callback, void *data_context);
 
 /*! \brief Register the node in roscore as topic subscriber.
  *  \param slave_callback Callback that gives feedback on available xmlrpc servers. Can be NULL
@@ -26,7 +26,7 @@ int cRosNodeRegisterPublisher(CrosNode *n, const char *message_definition, const
  */
 int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum,
-                               SubscriberCallback callback, SlaveStatusCallback slave_callback, void *data_context);
+                               SubscriberCallback callback, NodeStatusCallback status_callback, void *data_context);
 
 /*! \brief Register the service provider in roscore
  *
@@ -34,7 +34,8 @@ int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
  */
 int cRosNodeRegisterServiceProvider(CrosNode *n, const char *service_name,
                                     const char *service_type, const char *md5sum,
-                                    ServiceProviderCallback callback, void *data_context);
+                                    ServiceProviderCallback callback, NodeStatusCallback status_callback,
+                                    void *data_context);
 
 /*! \brief Unregister the topic subscriber
  *

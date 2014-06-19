@@ -221,9 +221,9 @@ typedef CallbackResponse (*PublisherApiCallback)(CrosMessage *message, void* con
 // Master api: register/unregister methods
 int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context);
 int cRosApisUnegisterService(CrosNode *node, int svcidx);
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, SlaveStatusCallback slave_callback, void *context);
+int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context);
 int cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, SlaveStatusCallback slave_callback, void *context);
+int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context);
 int cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
 
 // Master api: name service and system state

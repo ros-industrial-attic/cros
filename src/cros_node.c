@@ -115,41 +115,74 @@ static void closeXmlrpcProcess(XmlrpcProcess *process)
   xmlrpcProcessChangeState(process, XMLRPC_PROCESS_STATE_IDLE);
 }
 
+// This method is used to communicate that some api calls at least attempted
+// to complete, like in the case of unregistration when a gracefully shutdown
+// is requested
 static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
 {
   switch(call->method)
   {
     case CROS_API_UNREGISTER_PUBLISHER:
     {
+      if (call->provider_idx == -1)
+        break;
+
       PublisherNode *pub = &node->pubs[call->provider_idx];
-      SlaveStatusCallback callback = pub->slave_callback;
+      NodeStatusCallback callback = pub->status_callback;
       if (callback != NULL)
       {
-        CrosSlaveStatus status;
+        CrosNodeStatusUsr status;
         status.xmlrpc_port = -1;
         status.xmlrpc_host = NULL;
         callback(&status, call->context_data);
-
-        releasePublisherNode(pub);
-        initPublisherNode(pub);
       }
+
+      // Finally release publisher
+      releasePublisherNode(pub);
+      initPublisherNode(pub);
+      call->provider_idx = -1;
       break;
     }
     case CROS_API_UNREGISTER_SUBSCRIBER:
     {
+      if (call->provider_idx == -1)
+        break;
+
       SubscriberNode *sub = &node->subs[call->provider_idx];
-      SlaveStatusCallback callback = sub->slave_callback;
+      NodeStatusCallback callback = sub->status_callback;
       if (callback != NULL)
       {
-        CrosSlaveStatus status;
+        CrosNodeStatusUsr status;
         status.xmlrpc_port = -1;
         status.xmlrpc_host = NULL;
         callback(&status, call->context_data);
-        sub->slave_callback = NULL;
-
-        releaseSubscriberNode(sub);
-        initSubscriberNode(sub);
       }
+
+      // Finally release subscriber
+      releaseSubscriberNode(sub);
+      initSubscriberNode(sub);
+      call->provider_idx = -1;
+      break;
+    }
+    case CROS_API_UNREGISTER_SERVICE:
+    {
+      if (call->provider_idx == -1)
+        break;
+
+      ServiceProviderNode *service = &node->services[call->provider_idx];
+      NodeStatusCallback callback = service->status_callback;
+      if (callback != NULL)
+      {
+        CrosNodeStatusUsr status;
+        status.xmlrpc_port = -1;
+        status.xmlrpc_host = NULL;
+        callback(&status, call->context_data);
+      }
+
+      // Finally release service provider
+      releaseServiceProviderNode(service);
+      initServiceProviderNode(service);
+      call->provider_idx = -1;
       break;
     }
     default:
@@ -165,6 +198,8 @@ static void cleanApiCallState(CrosNode *node, RosApiCall *call)
   {
     case CROS_API_REQUEST_TOPIC:
     {
+      // This is needed to clean transitory xmlrpc client process that is set on
+      // the subscriber
       node->subs[call->provider_idx].client_xmlrpc_id = -1;
       break;
     }
@@ -1189,14 +1224,14 @@ void cRosNodeDestroy ( CrosNode *n )
     releaseServiceProviderNode(&n->services[i]);
 }
 
-int cRosNodeRegisterPublisher (CrosNode *n, const char *message_definition,
+int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum, int loop_period,
-                               PublisherCallback callback, SlaveStatusCallback slave_callback, void *data_context)
+                               PublisherCallback callback, NodeStatusCallback status_callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterPublisher()\n" );
   PRINT_INFO ( "Publishing topic %s type %s \n", topic_name, topic_type );
 
-  if ( n->n_pubs >= CN_MAX_PUBLISHED_TOPICS )
+  if ( node->n_pubs >= CN_MAX_PUBLISHED_TOPICS )
   {
     PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't register a new publisher: \
                  reached the maximum number of published topics\n");
@@ -1224,41 +1259,42 @@ int cRosNodeRegisterPublisher (CrosNode *n, const char *message_definition,
   int it = 0;
   for (; it < CN_MAX_PUBLISHED_TOPICS; it++)
   {
-    if (n->pubs[it].topic_name == NULL)
+    if (node->pubs[it].topic_name == NULL)
     {
       pubidx = it;
       break;
     }
   }
 
-  PublisherNode *node = &n->pubs[pubidx];
-  node->message_definition = pub_message_definition;
-  node->topic_name = pub_topic_name;
-  node->topic_type = pub_topic_type;
-  node->md5sum = pub_md5sum;
+  PublisherNode *pub = &node->pubs[pubidx];
+  pub->message_definition = pub_message_definition;
+  pub->topic_name = pub_topic_name;
+  pub->topic_type = pub_topic_type;
+  pub->md5sum = pub_md5sum;
 
-  node->loop_period = loop_period;
-  node->callback = callback;
-  node->slave_callback = slave_callback;
-  node->context = data_context;
+  pub->loop_period = loop_period;
+  pub->callback = callback;
+  pub->status_callback = status_callback;
+  pub->context = data_context;
 
-  n->n_pubs++;
+  node->n_pubs++;
 
-  int rc = enqueuePubliserAdvertise(n, pubidx);
+  int rc = enqueuePubliserAdvertise(node, pubidx);
   if (rc == -1)
     return -1;
 
   return pubidx;
 }
 
-int cRosNodeRegisterServiceProvider(CrosNode *n, const char *service_name,
+int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
                                     const char *service_type, const char *md5sum,
-                                    ServiceProviderCallback callback, void *data_context)
+                                    ServiceProviderCallback callback, NodeStatusCallback status_callback,
+                                    void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
   PRINT_INFO ( "Registering service %s type %s \n", service_name, service_type );
 
-  if ( n->n_services >= CN_MAX_SERVICE_PROVIDERS )
+  if (node->n_services >= CN_MAX_SERVICE_PROVIDERS)
   {
     PRINT_ERROR ( "cRosNodeRegisterPublisher() : Can't register a new service provider: \
                  reached the maximum number of services\n");
@@ -1290,40 +1326,41 @@ int cRosNodeRegisterServiceProvider(CrosNode *n, const char *service_name,
   int it = 0;
   for (; it < CN_MAX_SERVICE_PROVIDERS; it++)
   {
-    if (n->services[it].service_name == NULL)
+    if (node->services[it].service_name == NULL)
     {
       serviceidx = it;
       break;
     }
   }
 
-  ServiceProviderNode *node = &(n->services[serviceidx]);
+  ServiceProviderNode *service = &(node->services[serviceidx]);
 
-  node->service_name = srv_service_name;
-  node->service_type = srv_service_type;
-  node->servicerequest_type = srv_servicerequest_type;
-  node->serviceresponse_type = srv_serviceresponse_type;
-  node->md5sum = srv_md5sum;
-  node->callback = callback;
-  node->context = data_context;
+  service->service_name = srv_service_name;
+  service->service_type = srv_service_type;
+  service->servicerequest_type = srv_servicerequest_type;
+  service->serviceresponse_type = srv_serviceresponse_type;
+  service->md5sum = srv_md5sum;
+  service->callback = callback;
+  service->status_callback = status_callback;
+  service->context = data_context;
 
-  n->n_services++;
+  node->n_services++;
 
-  int rc = enqueueServiceAdvertise(n, serviceidx);
+  int rc = enqueueServiceAdvertise(node, serviceidx);
   if (rc == -1)
     return -1;
 
   return serviceidx;
 }
 
-int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
+int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum,
-                               SubscriberCallback callback, SlaveStatusCallback slave_callback, void *data_context)
+                               SubscriberCallback callback, NodeStatusCallback status_callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
   PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
 
-  if ( n->n_subs >= CN_MAX_SUBSCRIBED_TOPICS )
+  if (node->n_subs >= CN_MAX_SUBSCRIBED_TOPICS)
   {
     PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't register a new subscriber: \
                   reached the maximum number of published topics\n");
@@ -1346,35 +1383,35 @@ int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
   strcpy ( pub_topic_type, topic_type );
   strcpy ( pub_md5sum, md5sum );
 
-  int subidx = n->n_subs;
+  int subidx = node->n_subs;
   int it = 0;
   for (; it < CN_MAX_SUBSCRIBED_TOPICS; it++)
   {
-    if (n->subs[it].topic_name == NULL)
+    if (node->subs[it].topic_name == NULL)
     {
       subidx = it;
       break;
     }
   }
 
-  SubscriberNode *sub = &n->subs[subidx];
+  SubscriberNode *sub = &node->subs[subidx];
   sub->message_definition = pub_message_definition;
   sub->topic_name = pub_topic_name;
   sub->topic_type = pub_topic_type;
   sub->md5sum = pub_md5sum;
-  sub->slave_callback = slave_callback;
+  sub->status_callback = status_callback;
   sub->callback = callback;
   sub->context = data_context;
 
   int clientidx = subidx + 1;
   sub->client_tcpros_id = clientidx;
 
-  TcprosProcess *client_proc = &(n->tcpros_client_proc[clientidx]);
+  TcprosProcess *client_proc = &node->tcpros_client_proc[clientidx];
   client_proc->topic_idx = subidx;
 
-  n->n_subs++;
+  node->n_subs++;
 
-  int rc = enqueueSubscriberAdvertise(n, subidx);
+  int rc = enqueueSubscriberAdvertise(node, subidx);
   if (rc == -1)
     return -1;
 
@@ -1505,8 +1542,7 @@ int cRosNodeUnregisterService(CrosNode *node, int serviceidx)
   snprintf( uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
   xmlrpcParamVectorPushBackString( &call->params, uri );
 
-  releaseServiceProviderNode(svc);
-  initServiceProviderNode(svc);
+  // NB: Node release is done in handleApiCallAttempt()
 
   return enqueueMasterApiCall(node, call);
 }
@@ -2096,12 +2132,12 @@ int enqueueRequestTopic(CrosNode *node, int subidx)
   call->method = CROS_API_REQUEST_TOPIC;
 
   SubscriberNode *sub = &node->subs[subidx];
-  if (sub->slave_callback != NULL)
+  if (sub->status_callback != NULL)
   {
-    CrosSlaveStatus status;
+    CrosNodeStatusUsr status;
     status.xmlrpc_host = sub->topic_host;
     status.xmlrpc_port = sub->topic_port;
-    sub->slave_callback(&status, sub->context);
+    sub->status_callback(&status, sub->context);
   }
 
   xmlrpcParamVectorPushBackString(&call->params, node->name );
@@ -2134,7 +2170,7 @@ void initPublisherNode(PublisherNode *node)
   node->topic_type = NULL;
   node->md5sum = NULL;
   node->callback = NULL;
-  node->slave_callback = NULL;
+  node->status_callback = NULL;
   node->context = NULL;
   node->client_tcpros_id = -1;
   node->loop_period = 1000;
@@ -2149,7 +2185,7 @@ void initSubscriberNode(SubscriberNode *node)
   node->topic_type = NULL;
   node->md5sum = NULL;
   node->callback = NULL;
-  node->slave_callback = NULL;
+  node->status_callback = NULL;
   node->context = NULL;
   node->client_xmlrpc_id = -1;
   node->client_tcpros_id = -1;
@@ -2162,6 +2198,7 @@ void initServiceProviderNode(ServiceProviderNode *node)
   node->service_type = NULL;
   node->md5sum = NULL;
   node->callback = NULL;
+  node->status_callback = NULL;
   node->context = NULL;
   node->servicerequest_type = NULL;
   node->serviceresponse_type = NULL;

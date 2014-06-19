@@ -52,15 +52,27 @@ typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
 
-typedef struct CrosSlaveStatus
+typedef enum CrosNodeStatus
 {
+  // TODO: this is a work in progress
+  CROS_STATUS_NONE,
+  CROS_STATUS_PUBLISHER_UNREGISTERED,
+  CROS_STATUS_SUBSCRIBER_UNREGISTERED,
+  CROS_STATUS_SERVICE_PROVIDER_UNREGISTERED
+} CrosNodeStatus;
+
+typedef struct CrosNodeStatusUsr
+{
+  // FIXME: this is a work in progress
+  // int callid; // This may be useful to track register/unregister
+  // CrosNodeState state; // May be useful to udnerstand what the node, or the particular sub/pub/svc is doing
   const char *xmlrpc_host;
   int xmlrpc_port;
-} CrosSlaveStatus;
+} CrosNodeStatusUsr;
 
 /*! \brief Callback to communicate publisher or subscriber status
  */
-typedef void (*SlaveStatusCallback)(CrosSlaveStatus *status, void* context);
+typedef void (*NodeStatusCallback)(CrosNodeStatusUsr *status, void* context);
 
 typedef uint8_t CallbackResponse;
 typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
@@ -75,7 +87,7 @@ struct PublisherNode
   int client_tcpros_id;
   void *context;
   PublisherCallback callback;                   //! The callback called to generate the (raw) packet data of type topic_type
-  SlaveStatusCallback slave_callback;
+  NodeStatusCallback status_callback;
   int loop_period;                              //! Period (in msec) for publication cycle 
 };
 
@@ -97,7 +109,7 @@ struct SubscriberNode
   int   tcpros_port;
   void *context;
   SubscriberCallback callback;
-  SlaveStatusCallback slave_callback;
+  NodeStatusCallback status_callback;
 };
 
 typedef CallbackResponse (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
@@ -111,6 +123,7 @@ struct ServiceProviderNode
   char *md5sum;
   void *context;
   ServiceProviderCallback callback;
+  NodeStatusCallback status_callback;
 };
 
 /*! \brief CrosNode object. Don't modify its internal members: use

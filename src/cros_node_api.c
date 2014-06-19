@@ -46,7 +46,7 @@ typedef struct NodeContext
   CrosMessage incoming;
   CrosMessage outgoing;
   void *api_callback;
-  SlaveStatusCallback slave_callback;
+  NodeStatusCallback status_callback;
   void *context;
   char *message_definition;
   char *md5sum;
@@ -58,7 +58,7 @@ static NodeContext * newProviderContext(const char *provider_type, NodeType type
   // TODO inizializzare incoming e/o outgoing per consentire set/get in base al message/service type
   NodeContext *providerContext = (NodeContext *)malloc(sizeof(NodeContext));
   providerContext->api_callback = NULL;
-  providerContext->slave_callback = NULL;
+  providerContext->status_callback = NULL;
   return providerContext;
 }
 
@@ -83,10 +83,10 @@ static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* cont
   return subscriberApiCallback(&context->incoming, context->context);
 }
 
-static void cRosNodeSlaveCallback(CrosSlaveStatus *status, void* context_)
+static void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
 {
   NodeContext *context = (NodeContext *)context_;
-  context->slave_callback(status, context->context);
+  context->status_callback(status, context->context);
 }
 
 int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context)
@@ -99,17 +99,17 @@ int cRosApisUnegisterService(CrosNode *node, int svcidx)
   return 0;
 }
 
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, SlaveStatusCallback slave_callback, void *context)
+int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context)
 {
   NodeContext *nodeContext = newProviderContext(topic_type, CROS_SUBSCRIBER);
   nodeContext->api_callback = callback;
-  nodeContext->slave_callback = slave_callback;
+  nodeContext->status_callback = status_callback;
   nodeContext->context = context;
 
   // NB: Pass the private NodeContext to the private api, not the user context
   int rc = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
                                   nodeContext->md5sum, cRosNodeSubscriberCallback,
-                                  slave_callback == NULL ? NULL : cRosNodeSlaveCallback, nodeContext);
+                                  status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
   return rc;
 }
 
@@ -124,7 +124,7 @@ int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
   return rc;
 }
 
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, SlaveStatusCallback slave_callback, void *context)
+int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context)
 {
   return 0;
 }
