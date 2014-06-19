@@ -405,13 +405,17 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
     int i = 0;
     for( i = 0 ; i < n->n_pubs; i++)
     {
-      if( strcmp( n->pubs[i].topic_name, dynStringGetData(&(server_proc->topic))) == 0 &&
-          strcmp( n->pubs[i].topic_type, dynStringGetData(&(server_proc->type))) == 0 &&
-          strcmp( n->pubs[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0 )
+      PublisherNode *pub = &n->pubs[i];
+      if (pub->topic_name == NULL)
+        continue;
+
+      if( strcmp(pub->topic_name, dynStringGetData(&(server_proc->topic))) == 0 &&
+          strcmp(pub->topic_type, dynStringGetData(&(server_proc->type))) == 0 &&
+          strcmp(pub->md5sum, dynStringGetData(&(server_proc->md5sum))) == 0)
       {
         topic_found = 1;
         server_proc->topic_idx = i;
-        n->pubs[i].client_tcpros_id = server_idx;
+        pub->client_tcpros_id = server_idx;
         break;
       }
     }
@@ -457,8 +461,12 @@ TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx
     int i = 0;
     for( i = 0 ; i < n->n_subs; i++)
     {
-      if( strcmp( n->subs[i].topic_type, dynStringGetData(&(client_proc->type))) == 0 &&
-          strcmp( n->subs[i].md5sum, dynStringGetData(&(client_proc->md5sum))) == 0 )
+      SubscriberNode *sub = &n->subs[i];
+      if (sub->topic_name == NULL)
+        continue;
+
+      if( strcmp(sub->topic_type, dynStringGetData(&(client_proc->type))) == 0 &&
+          strcmp(sub->md5sum, dynStringGetData(&(client_proc->md5sum))) == 0)
       {
         subscriber_found = 1;
         break;
@@ -501,24 +509,31 @@ TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_i
     int i = 0;
     for( i = 0 ; i < n->n_services; i++)
     {
-      if( strcmp( n->services[i].service_name, dynStringGetData(&(server_proc->service))) == 0 &&
-          strcmp( n->services[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0
-      		)
+      ServiceProviderNode *service = &n->services[i];
+      if (service->service_name == NULL)
+        continue;
+
+      if( strcmp(service->service_name, dynStringGetData(&(server_proc->service))) == 0 &&
+          strcmp(service->md5sum, dynStringGetData(&(server_proc->md5sum))) == 0)
       {
-      	service_found = 1;
+        service_found = 1;
         server_proc->service_idx = i;
         break;
       }
     }
   }
   else if( header_flags == ( header_flags & TCPROS_SERVICEPROBE_HEADER_FLAGS) )
-	{
+  {
     int i = 0;
     for( i = 0 ; i < n->n_services; i++)
     {
-      if( strcmp( n->services[i].service_name, dynStringGetData(&(server_proc->service))) == 0)
+      ServiceProviderNode *service = &n->services[i];
+      if (service->service_name == NULL)
+        continue;
+
+      if (strcmp(service->service_name, dynStringGetData(&(server_proc->service))) == 0)
       {
-      	service_found = 1;
+        service_found = 1;
         server_proc->service_idx = i;
         break;
       }

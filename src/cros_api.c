@@ -463,6 +463,9 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         int i = 0;
         for(i = 0 ; i < n->n_subs; i++)
         {
+          if (n->subs[i].topic_name == NULL)
+            continue;
+
           if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
           {
             topic_found = 1;
@@ -561,6 +564,9 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         for( i = 0 ; i < n->n_pubs; i++)
         {
           PublisherNode *pub = &n->pubs[i];
+          if (pub->topic_name == NULL)
+            continue;
+
           if( strcmp( xmlrpcParamGetString( topic_param ), pub->topic_name ) == 0)
           {
             topic_found = 1;

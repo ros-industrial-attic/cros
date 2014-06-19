@@ -23,7 +23,7 @@ static void releasePublisherNode(PublisherNode *node);
 static void releaseSubscriberNode(SubscriberNode *node);
 static void releaseServiceProviderNode(ServiceProviderNode *node);
 static int enqueueSubscriberAdvertise(CrosNode *node, int subidx);
-static int enqueuePubliserAdvertise(CrosNode *node, int pubidx);
+static int enqueuePublisherAdvertise(CrosNode *node, int pubidx);
 static int enqueueServiceAdvertise(CrosNode *node, int servivceidx);
 static void getIdleXmplrpcClients(CrosNode *node, int array[], size_t *count);
 static int enqueueSlaveApiCallInternal(CrosNode *node, RosApiCall *call);
@@ -1279,7 +1279,7 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
 
   node->n_pubs++;
 
-  int rc = enqueuePubliserAdvertise(node, pubidx);
+  int rc = enqueuePublisherAdvertise(node, pubidx);
   if (rc == -1)
     return -1;
 
@@ -1623,7 +1623,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   for( i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++ )
   {
     int server_fd = tcpIpSocketGetFD( &(n->xmlrpc_server_proc[i].socket) );
-    
+
     if( next_xmlrpc_server_i < 0 &&
         n->xmlrpc_server_proc[i].state == XMLRPC_PROCESS_STATE_IDLE )
     {
@@ -1637,13 +1637,12 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     }
     else if( n->xmlrpc_server_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
     {
-      
       FD_SET( server_fd, &w_fds);
       FD_SET( server_fd, &err_fds);
       if( server_fd > nfds ) nfds = server_fd;
     }
   }
-  
+
   /* If one XMLRPC server is active at least, add to the select() the listener socket */
   if( next_xmlrpc_server_i >= 0)
   {
@@ -1692,7 +1691,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
   {
     int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
-    
+
     if( next_tcpros_server_i < 0 &&
         n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_IDLE )
     {
@@ -1717,7 +1716,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       if( server_fd > nfds ) nfds = server_fd;
     }
   }
-  
+
   /* If one TCPROS server is available at least, add to the select() the listner socket */
   if( next_tcpros_server_i >= 0)
   {
@@ -1733,7 +1732,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     tmp_timeout = n->xmlrpc_client_proc[0].wake_up_time_ms - cur_time;
   else
     tmp_timeout = 0;
-  
+
   if( tmp_timeout < timeout )
     timeout = tmp_timeout;
 
@@ -1745,7 +1744,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
         tmp_timeout = n->tcpros_server_proc[i].wake_up_time_ms - cur_time;
       else
         tmp_timeout = 0;
-      
+
       if( tmp_timeout < timeout )
         timeout = tmp_timeout;
     }
@@ -1770,10 +1769,10 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     {
     	next_rpcros_server_i = i;
     }
-    else if( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
+    else if (n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
              n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER ||
              n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_SIZE ||
-    				 n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING)
+             n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING)
     {
       FD_SET( server_fd, &r_fds);
       FD_SET( server_fd, &err_fds);
@@ -1902,7 +1901,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
         doWithXmlrpcClientSocket( n, i );
       }
     }
-    
+
     if ( next_xmlrpc_server_i >= 0 )
     {
       if( FD_ISSET( xmlrpc_listner_fd, &err_fds) )
@@ -1920,7 +1919,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
           xmlrpcProcessChangeState( &(n->xmlrpc_server_proc[next_xmlrpc_server_i]), XMLRPC_PROCESS_STATE_READING );        
       }
     }
-    
+
     for( i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->xmlrpc_server_proc[i].socket) );
@@ -1958,7 +1957,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
         doWithTcprosClientSocket( n, i );
       }
     }
-    
+
     if ( next_tcpros_server_i >= 0 )
     {
       if( FD_ISSET( tcpros_listner_fd, &err_fds) )
@@ -1981,7 +1980,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
         }
       }
     }
-    
+
     for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
@@ -2072,7 +2071,7 @@ int enqueueSubscriberAdvertise(CrosNode *node, int subidx)
   return enqueueMasterApiCall(node, call);
 }
 
-int enqueuePubliserAdvertise(CrosNode *node, int pubidx)
+int enqueuePublisherAdvertise(CrosNode *node, int pubidx)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -2154,13 +2153,28 @@ void restartAdversing(CrosNode* n)
 {
   int it;
   for(it = 0; it < n->n_pubs; it++)
-    enqueuePubliserAdvertise(n, it);
+  {
+    if (n->pubs[it].topic_name == NULL)
+      continue;
+
+    enqueuePublisherAdvertise(n, it);
+  }
 
   for(it = 0; it < n->n_subs; it++)
+  {
+    if (n->subs[it].topic_name == NULL)
+      continue;
+
     enqueueSubscriberAdvertise(n, it);
+  }
 
   for(it = 0; it < n->n_services; it++)
+  {
+    if (n->subs[it].topic_name == NULL)
+      continue;
+
     enqueueServiceAdvertise(n, it);
+  }
 }
 
 void initPublisherNode(PublisherNode *node)
