@@ -10,7 +10,8 @@
  */
 
 typedef enum
-{ 
+{
+  XMLRPC_PARAM_UNKNOWN = 0,
   XMLRPC_PARAM_BOOL,
   XMLRPC_PARAM_INT,
   XMLRPC_PARAM_DOUBLE,
@@ -19,8 +20,6 @@ typedef enum
   XMLRPC_PARAM_DATETIME, /* WARNING: Currently unsupported */
   XMLRPC_PARAM_BINARY, /* WARNING: Currently unsupported */
   XMLRPC_PARAM_STRUCT, /* WARNING: Currently unsupported */
-
-  XMLRPC_PARAM_UNKNOWN
 }XmlrpcParamType;
  
 /*! \brief Struct used to store a input/oputput XMLRPC param.
@@ -204,6 +203,8 @@ void xmlrpcParamArrayPushBackStringN( XmlrpcParam *param, const char *val, int n
  *  \return A pointer to the new pushed array XMLRPC parameter, or NULL on failure
  */
 XmlrpcParam *xmlrpcParamArrayPushBackArray( XmlrpcParam *param );
+
+void xmlrpcParamInit( XmlrpcParam *param );
 
 /*! \brief Release internal data dynamically allocated (e.g., string and arrays)
  * 
