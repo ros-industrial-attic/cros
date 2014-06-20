@@ -3,6 +3,13 @@
 
 #include "cros_node.h"
 
+typedef enum CrosTransportDirection
+{
+  CROS_TRANSPORT_DIRECTION_IN,
+  CROS_TRANSPORT_DIRECTION_OUT,
+  CROS_TRANSPORT_DIRECTION_BOTH
+} CrosTransportDirection;
+
 typedef struct LookupNodeResult LookupNodeResult;
 typedef struct GetPublishedTopicsResult GetPublishedTopicsResult;
 typedef struct GetTopicTypesResult GetTopicTypesResult;
@@ -75,7 +82,7 @@ struct PubConnectionData;
 struct TopicPubStats
 {
   char *topic_name;
-  char *message_data_sent;
+  size_t message_data_sent;
   struct PubConnectionData *datas;
   size_t datas_count;
 };
@@ -98,8 +105,10 @@ struct ServiceStats
 
 struct BusStats
 {
-  struct TopicPubStats topic_pub_stats;
-  struct TopicSubStats topib_sub_stats;
+  struct TopicPubStats *pub_stats;
+  size_t pub_stats_count;
+  struct TopicSubStats *sub_stats;
+  size_t sub_stats_count;
   struct ServiceStats service_stats;
 };
 
@@ -110,10 +119,14 @@ struct GetBusStatsResult
   struct BusStats stats;
 };
 
+struct BusInfo;
+
 struct GetBusInfoResult
 {
   int code;
   char *status;
+  struct BusInfo *bus_infos;
+  size_t bus_infos_count;
 };
 
 struct GetMasterUriResult
@@ -123,7 +136,7 @@ struct GetMasterUriResult
   char *master_uri;
 };
 
-struct RequestShutdownResult
+struct ShutdownResult
 {
   int code;
   char *status;
@@ -179,6 +192,16 @@ struct SubConnectionData
   int connection_id;
   size_t bytes_received;
   int drop_estimate;
+  int connected;
+};
+
+struct BusInfo
+{
+  int connectionId;
+  int destinationId;
+  CrosTransportDirection direction;
+  CrosTransportType transport;
+  char *topic;
   int connected;
 };
 
