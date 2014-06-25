@@ -37,6 +37,7 @@ int xmlrpcParamVectorPushBackBool ( XmlrpcParamVector *p_vec, int val )
   PRINT_VDEBUG ( "xmlrpcParamVectorPushBackBool()\n" );
 
   XmlrpcParam param;
+  xmlrpcParamInit(&param);
   xmlrpcParamSetBool ( &param, val );
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }
@@ -46,6 +47,7 @@ int xmlrpcParamVectorPushBackInt ( XmlrpcParamVector *p_vec, int val )
   PRINT_VDEBUG ( "xmlrpcParamVectorPushBackInt()\n" );
 
   XmlrpcParam param;
+  xmlrpcParamInit(&param);
   xmlrpcParamSetInt ( &param, val );
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }
@@ -55,6 +57,7 @@ int xmlrpcParamVectorPushBackDouble ( XmlrpcParamVector *p_vec, double val )
   PRINT_VDEBUG ( "xmlrpcParamVectorPushBackDouble()\n" );
 
   XmlrpcParam param;
+  xmlrpcParamInit(&param);
   xmlrpcParamSetDouble ( &param, val );
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }
@@ -64,6 +67,7 @@ int xmlrpcParamVectorPushBackString ( XmlrpcParamVector *p_vec, const char *val 
   PRINT_VDEBUG ( "xmlrpcParamVectorPushBackString()\n" );
 
   XmlrpcParam param;
+  xmlrpcParamInit(&param);
   xmlrpcParamSetString ( &param, val );
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }
@@ -73,6 +77,7 @@ int xmlrpcParamVectorPushBackArray ( XmlrpcParamVector *p_vec )
   PRINT_VDEBUG ( "xmlrpcParamVectorPushBackArray()\n" );
 
   XmlrpcParam param;
+  xmlrpcParamInit(&param);
   xmlrpcParamSetArray ( &param );
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }

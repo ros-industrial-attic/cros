@@ -557,7 +557,9 @@ static XmlrpcParam *arrayAddElem ( XmlrpcParam *param )
     param->data.as_array = new_param;
   }
 
-  return & ( param->data.as_array[param->array_n_elem++] );
+  XmlrpcParam *ret = &param->data.as_array[param->array_n_elem++];
+  xmlrpcParamInit(ret);
+  return ret;
 }
 
 
@@ -751,6 +753,14 @@ XmlrpcParam *xmlrpcParamArrayPushBackArray ( XmlrpcParam *param )
 
   xmlrpcParamSetArray ( new_param );
   return new_param;
+}
+
+void xmlrpcParamInit( XmlrpcParam *param )
+{
+  param->type = XMLRPC_PARAM_UNKNOWN;
+  param->data.as_int = 0;
+  param->array_n_elem = -1;
+  param->array_max_elem = -1;
 }
 
 void xmlrpcParamReleaseData ( XmlrpcParam *param )

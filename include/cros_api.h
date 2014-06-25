@@ -26,7 +26,16 @@ typedef enum
   CROS_API_PARAM_UPDATE,
   CROS_API_PUBLISHER_UPDATE,
   CROS_API_REQUEST_TOPIC
-} CROS_API_METHOD;
+} CrosApiMethod;
+
+typedef enum CrosTransportType
+{
+  CROS_TRANSPORT_TCPROS,
+  CROS_TRANSPORT_UPDROS
+} CrosTransportType;
+
+#define CROS_TRANSPORT_TCPROS_STRING "TCPROS"
+#define CROS_TRANSPORT_UPDROS_STRING "UDPROS"
 
 /*! \defgroup cros_api cROS APIs
  * 
@@ -75,10 +84,10 @@ int cRosApiParseResponse(struct CrosNode *n, int client_idx  );
  */
 int cRosApiParseRequestPrepareResponse(struct CrosNode *n, int server_idx );
 
-const char * getMethodName(CROS_API_METHOD method);
-CROS_API_METHOD getMethodCode(const char *method);
-int isRosMasterApi(CROS_API_METHOD method);
-int isRosSlaveApi(CROS_API_METHOD method);
+const char * getMethodName(CrosApiMethod method);
+CrosApiMethod getMethodCode(const char *method);
+int isRosMasterApi(CrosApiMethod method);
+int isRosSlaveApi(CrosApiMethod method);
 
 /*! @}*/
 

@@ -70,6 +70,7 @@ static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int
           dynStringPushBackStrN ( &param_str, param_init, param_str_len );
 
           XmlrpcParam param;
+          xmlrpcParamInit(&param);
 
           if ( !xmlrpcParamFromXml ( &param_str, &param ) ||
                xmlrpcParamVectorPushBack ( params, &param ) < 0 )

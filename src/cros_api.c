@@ -133,7 +133,6 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
  *
  * statusCode (int): An integer indicating the completion condition of the method. Current values:
  *      -1: ERROR: Error on the part of the caller, e.g. an invalid parameter. In general, this means that the master/slave did not attempt to execute the action.
- *       1: FAILURE: Method failed to complete correctly. In general, this means that the master/slave attempted the action and failed, and there may have been side-effects as a result.
  *       0: SUCCESS: Method completed successfully.
  *       Individual methods may assign additional meaning/semantics to statusCode.
  *
@@ -148,8 +147,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   int ret = -1;
 
   assert(client_proc->current_call != NULL);
-
-  if(client_idx == 0) //xmlrpc client connected to roscore
+  RosApiCall *call = client_proc->current_call;
+  if(client_idx == 0 && call->user_call == 0) //xmlrpc client connected to roscore
   {
     if( client_proc->message_type != XMLRPC_MESSAGE_RESPONSE )
     {
@@ -157,7 +156,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       return ret;
     }
 
-    RosApiCall *call = client_proc->current_call;
     switch (call->method)
     {
       case CROS_API_REGISTER_PUBLISHER:
@@ -308,31 +306,15 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
         break;
       }
-      case CROS_API_GET_PUBLISHED_TOPICS:
-      {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
-
-        if( checkResponseValue( &client_proc->response ) )
-        {
-          ret = 0;
-          XmlrpcParam* status_msg = xmlrpcParamVectorAt( &client_proc->response, 1);
-          XmlrpcParam* topic_arr = xmlrpcParamVectorAt( &client_proc->response, 2); //[[topic_name, topic_type]*]
-        }
-
-        xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
-
-        break;
-      }
       default:
       {
         assert(0);
       }
     }
   }
-  else // client_idx > 0
+  else // client_idx > 0 || user_call = 1
   {
     void *result = NULL;
-    RosApiCall *call = client_proc->current_call;
     switch (call->method)
     {
       case CROS_API_LOOKUP_NODE:
@@ -423,7 +405,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   XmlrpcParamVector params;
   xmlrpcParamVectorInit(&params);
 
-  CROS_API_METHOD method = getMethodCode(dynStringGetData(&server_proc->method));
+  CrosApiMethod method = getMethodCode(dynStringGetData(&server_proc->method));
   switch (method)
   {
     case CROS_API_GET_PID:
@@ -437,7 +419,9 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       // TODO Store the subscribed node name
       XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
 
+#ifdef DEBUG
       xmlrpcParamVectorPrint( &server_proc->params );
+#endif
 
       caller_id_param = xmlrpcParamVectorAt(&server_proc->params, 0);
       topic_param = xmlrpcParamVectorAt( &server_proc->params, 1);
@@ -463,6 +447,9 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         int i = 0;
         for(i = 0 ; i < n->n_subs; i++)
         {
+          if (n->subs[i].topic_name == NULL)
+            continue;
+
           if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
           {
             topic_found = 1;
@@ -519,9 +506,11 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             enqueueRequestTopic(n, i);
           }
 
-          xmlrpcParamVectorPushBackInt( &params, 1 );
-          xmlrpcParamVectorPushBackString( &params, "" );
-          xmlrpcParamVectorPushBackInt( &params, 0 );
+          xmlrpcParamVectorPushBackArray(&params);
+          XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+          xmlrpcParamArrayPushBackInt(array, 1);
+          xmlrpcParamArrayPushBackString(array, "");
+          xmlrpcParamArrayPushBackInt(array, 0);
         }
         else
         {
@@ -561,15 +550,18 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         for( i = 0 ; i < n->n_pubs; i++)
         {
           PublisherNode *pub = &n->pubs[i];
+          if (pub->topic_name == NULL)
+            continue;
+
           if( strcmp( xmlrpcParamGetString( topic_param ), pub->topic_name ) == 0)
           {
             topic_found = 1;
-            if (pub->slave_callback != NULL && strlen(server_proc->host) != 0)
+            if (pub->status_callback != NULL && strlen(server_proc->host) != 0)
             {
-              CrosSlaveStatus status;
+              CrosNodeStatusUsr status;
               status.xmlrpc_host = server_proc->host;
               status.xmlrpc_port = server_proc->port;
-              pub->slave_callback(&status, pub->context);
+              pub->status_callback(&status, pub->context);
             }
 
             break;
@@ -583,7 +575,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           if( xmlrpcParamGetType( proto ) == XMLRPC_PARAM_ARRAY &&
               ( proto_name = xmlrpcParamArrayGetParamAt ( proto, 0 ) ) != NULL &&
               xmlrpcParamGetType( proto_name ) == XMLRPC_PARAM_STRING &&
-              strcmp( xmlrpcParamGetString( proto_name ), CROS_API_TCPROS_STRING) == 0 )
+              strcmp( xmlrpcParamGetString( proto_name ), CROS_TRANSPORT_TCPROS_STRING) == 0 )
           {
             protocol_found = 1;
             break;
@@ -593,14 +585,13 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         if( topic_found && protocol_found)
         {
           xmlrpcParamVectorPushBackArray(&params);
-          xmlrpcParamArrayPushBackInt(xmlrpcParamVectorAt(&params, 0), 1);
-          // TODO Add statusMessage here
-          xmlrpcParamArrayPushBackString(xmlrpcParamVectorAt(&params, 0), "");
-          xmlrpcParamArrayPushBackArray(xmlrpcParamVectorAt(&params, 0));
-          XmlrpcParam* array = xmlrpcParamArrayGetParamAt(xmlrpcParamVectorAt(&params, 0 ), 2);
-          xmlrpcParamArrayPushBackString( array, CROS_API_TCPROS_STRING );
-          xmlrpcParamArrayPushBackString( array, n->host );
-          xmlrpcParamArrayPushBackInt( array, n->tcpros_port );
+          XmlrpcParam *array1 = xmlrpcParamVectorAt(&params, 0);
+          xmlrpcParamArrayPushBackInt(array1, 1);
+          xmlrpcParamArrayPushBackString(array1, "");
+          XmlrpcParam* array2 = xmlrpcParamArrayPushBackArray(array1);
+          xmlrpcParamArrayPushBackString( array2, CROS_TRANSPORT_TCPROS_STRING );
+          xmlrpcParamArrayPushBackString( array2, n->host );
+          xmlrpcParamArrayPushBackInt( array2, n->tcpros_port );
         }
         else
         {
@@ -612,12 +603,56 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 
       break;
     }
+    case CROS_API_GET_BUS_STATS:
+    {
+      // CHECK-ME What to answer here?
+      xmlrpcParamVectorPushBackArray(&params);
+      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(array, 0);
+      xmlrpcParamArrayPushBackString(array, "");
+      break;
+    }
+    case CROS_API_GET_BUS_INFO:
+    {
+      // CHECK-ME What to answer here?
+      xmlrpcParamVectorPushBackArray(&params);
+      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(array, 0);
+      xmlrpcParamArrayPushBackString(array, "");
+      break;
+    }
+    case CROS_API_GET_MASTER_URI:
+    {
+      xmlrpcParamVectorPushBackArray(&params);
+      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(array, 1);
+      xmlrpcParamArrayPushBackString(array, "");
+      char node_uri[256];
+      snprintf(node_uri, 256, "http://%s:%d/", n->roscore_host, n->roscore_port);
+      xmlrpcParamArrayPushBackString(array, node_uri);
+      break;
+    }
+    case CROS_API_SHUTDOWN:
+    {
+      xmlrpcParamVectorPushBackArray(&params);
+      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(array, 1);
+      xmlrpcParamArrayPushBackString(array, "");
+      xmlrpcParamArrayPushBackInt(array, 1);
+      break;
+    }
+    case CROS_API_PARAM_UPDATE:
+    {
+      // TODO
+      break;
+    }
     case CROS_API_GET_SUBSCRIPTIONS:
     {
-      xmlrpcParamVectorPushBackInt( &params, 1 );
-      xmlrpcParamVectorPushBackString( &params, "" );
       xmlrpcParamVectorPushBackArray(&params);
-      XmlrpcParam* param_array = xmlrpcParamVectorAt(&params, 2);
+      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(array, 1);
+      xmlrpcParamArrayPushBackString(array, "");
+      XmlrpcParam* param_array = xmlrpcParamArrayPushBackArray(array);
 
       int i = 0;
       for(i = 0; i < n->n_subs; i++)
@@ -631,10 +666,11 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_GET_PUBLICATIONS:
     {
-      xmlrpcParamVectorPushBackInt( &params, 1 );
-      xmlrpcParamVectorPushBackString( &params, "" );
       xmlrpcParamVectorPushBackArray(&params);
-      XmlrpcParam* param_array = xmlrpcParamVectorAt(&params, 2);
+      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(array, 1);
+      xmlrpcParamArrayPushBackString(array, "");
+      XmlrpcParam* param_array = xmlrpcParamArrayPushBackArray(array);
 
       int i = 0;
       for(i = 0; i < n->n_pubs; i++)
@@ -644,26 +680,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         xmlrpcParamArrayPushBackString(sub_array, n->pubs[i].topic_type);
       }
 
-      break;
-    }
-    case CROS_API_GET_BUS_STATS:
-    {
-      break;
-    }
-    case CROS_API_GET_BUS_INFO:
-    {
-      break;
-    }
-    case CROS_API_GET_MASTER_URI:
-    {
-      break;
-    }
-    case CROS_API_SHUTDOWN:
-    {
-      break;
-    }
-    case CROS_API_PARAM_UPDATE:
-    {
       break;
     }
     default:
@@ -683,7 +699,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   return 0;
 }
 
-const char * getMethodName(CROS_API_METHOD method)
+const char * getMethodName(CrosApiMethod method)
 {
   switch (method)
   {
@@ -738,7 +754,7 @@ const char * getMethodName(CROS_API_METHOD method)
   }
 }
 
-CROS_API_METHOD getMethodCode(const char *method)
+CrosApiMethod getMethodCode(const char *method)
 {
   if (strcmp(method, "registerService") == 0)
     return CROS_API_REGISTER_SERVICE;
@@ -788,7 +804,7 @@ CROS_API_METHOD getMethodCode(const char *method)
     return CROS_API_NONE;
 }
 
-int isRosMasterApi(CROS_API_METHOD method)
+int isRosMasterApi(CrosApiMethod method)
 {
   switch (method)
   {
@@ -823,7 +839,7 @@ int isRosMasterApi(CROS_API_METHOD method)
   }
 }
 
-int isRosSlaveApi(CROS_API_METHOD method)
+int isRosSlaveApi(CrosApiMethod method)
 {
   switch (method)
   {

@@ -4,8 +4,6 @@
 #include "cros_api.h"
 #include "xmlrpc_params_vector.h"
 
-#define CROS_API_TCPROS_STRING "TCPROS"
-
 typedef void (*ResultCallback)(int callid, void *result, void *context);
 typedef void * (*FetchResultCallback)(XmlrpcParamVector *response);
 typedef void (*FreeResultCallback)(void *result);
@@ -17,7 +15,8 @@ typedef struct ApiCallQueue ApiCallQueue;
 struct RosApiCall
 {
   int id;                                     //! Progressive id of the call
-  CROS_API_METHOD method;                     //! ROS api method
+  int user_call;                              //! 1 = user api call, 0 = internal call
+  CrosApiMethod method;                       //! ROS api method
   XmlrpcParamVector params;                   //! Method arguments
   char *host;                                 //! Host to contact for the api
   int port;                                   //! Tcp port of the host to contact for the api

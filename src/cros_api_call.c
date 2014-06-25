@@ -9,6 +9,7 @@ RosApiCall * newRosApiCall()
 {
   RosApiCall *ret = (RosApiCall *)malloc(sizeof(RosApiCall));
   ret->id = -1;
+  ret->user_call = 0;
   ret->provider_idx = -1;
   ret->host = NULL;
   ret->port = -1;

@@ -3,6 +3,13 @@
 
 #include "cros_node.h"
 
+typedef enum CrosTransportDirection
+{
+  CROS_TRANSPORT_DIRECTION_IN,
+  CROS_TRANSPORT_DIRECTION_OUT,
+  CROS_TRANSPORT_DIRECTION_BOTH
+} CrosTransportDirection;
+
 typedef struct LookupNodeResult LookupNodeResult;
 typedef struct GetPublishedTopicsResult GetPublishedTopicsResult;
 typedef struct GetTopicTypesResult GetTopicTypesResult;
@@ -75,7 +82,7 @@ struct PubConnectionData;
 struct TopicPubStats
 {
   char *topic_name;
-  char *message_data_sent;
+  size_t message_data_sent;
   struct PubConnectionData *datas;
   size_t datas_count;
 };
@@ -98,8 +105,10 @@ struct ServiceStats
 
 struct BusStats
 {
-  struct TopicPubStats topic_pub_stats;
-  struct TopicSubStats topib_sub_stats;
+  struct TopicPubStats *pub_stats;
+  size_t pub_stats_count;
+  struct TopicSubStats *sub_stats;
+  size_t sub_stats_count;
   struct ServiceStats service_stats;
 };
 
@@ -110,10 +119,14 @@ struct GetBusStatsResult
   struct BusStats stats;
 };
 
+struct BusInfo;
+
 struct GetBusInfoResult
 {
   int code;
   char *status;
+  struct BusInfo *bus_infos;
+  size_t bus_infos_count;
 };
 
 struct GetMasterUriResult
@@ -123,7 +136,7 @@ struct GetMasterUriResult
   char *master_uri;
 };
 
-struct RequestShutdownResult
+struct ShutdownResult
 {
   int code;
   char *status;
@@ -182,6 +195,16 @@ struct SubConnectionData
   int connected;
 };
 
+struct BusInfo
+{
+  int connectionId;
+  int destinationId;
+  CrosTransportDirection direction;
+  CrosTransportType transport;
+  char *topic;
+  int connected;
+};
+
 typedef struct LookupNodeResult LookupNodeResult;
 typedef struct GetPublishedTopicsResult GetPublishedTopicsResult;
 typedef struct GetTopicTypesResult GetTopicTypesResult;
@@ -221,9 +244,9 @@ typedef CallbackResponse (*PublisherApiCallback)(CrosMessage *message, void* con
 // Master api: register/unregister methods
 int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context);
 int cRosApisUnegisterService(CrosNode *node, int svcidx);
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, SlaveStatusCallback slave_callback, void *context);
+int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context);
 int cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, SlaveStatusCallback slave_callback, void *context);
+int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context);
 int cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
 
 // Master api: name service and system state

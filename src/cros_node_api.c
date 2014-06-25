@@ -1,5 +1,7 @@
 #include <stdlib.h>
 
+#include <string.h>
+
 #include "cros_defs.h"
 #include "cros_node_api.h"
 #include "cros_node_internal.h"
@@ -46,7 +48,7 @@ typedef struct NodeContext
   CrosMessage incoming;
   CrosMessage outgoing;
   void *api_callback;
-  SlaveStatusCallback slave_callback;
+  NodeStatusCallback status_callback;
   void *context;
   char *message_definition;
   char *md5sum;
@@ -58,7 +60,7 @@ static NodeContext * newProviderContext(const char *provider_type, NodeType type
   // TODO inizializzare incoming e/o outgoing per consentire set/get in base al message/service type
   NodeContext *providerContext = (NodeContext *)malloc(sizeof(NodeContext));
   providerContext->api_callback = NULL;
-  providerContext->slave_callback = NULL;
+  providerContext->status_callback = NULL;
   return providerContext;
 }
 
@@ -75,6 +77,7 @@ static void deserializeRosMessage(CrosMessage *message, DynBuffer *buffer)
 
 static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* context_)
 {
+  // TODO
   NodeContext *context = (NodeContext *)context_;
   deserializeRosMessage(&context->incoming, buffer);
 
@@ -83,38 +86,43 @@ static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* cont
   return subscriberApiCallback(&context->incoming, context->context);
 }
 
-static void cRosNodeSlaveCallback(CrosSlaveStatus *status, void* context_)
+static void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
 {
+  // TODO
   NodeContext *context = (NodeContext *)context_;
-  context->slave_callback(status, context->context);
+  context->status_callback(status, context->context);
 }
 
 int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context)
 {
+  // TODO
   return 0;
 }
 
 int cRosApisUnegisterService(CrosNode *node, int svcidx)
 {
+  // TODO
   return 0;
 }
 
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, SlaveStatusCallback slave_callback, void *context)
+int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context)
 {
+  // TODO
   NodeContext *nodeContext = newProviderContext(topic_type, CROS_SUBSCRIBER);
   nodeContext->api_callback = callback;
-  nodeContext->slave_callback = slave_callback;
+  nodeContext->status_callback = status_callback;
   nodeContext->context = context;
 
   // NB: Pass the private NodeContext to the private api, not the user context
   int rc = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
                                   nodeContext->md5sum, cRosNodeSubscriberCallback,
-                                  slave_callback == NULL ? NULL : cRosNodeSlaveCallback, nodeContext);
+                                  status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
   return rc;
 }
 
 int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
 {
+  // TODO
   SubscriberNode *sub = &node->subs[subidx];
   NodeContext *context = (NodeContext *)sub->context;
   int rc = cRosNodeUnregisterSubscriber(node, subidx);
@@ -124,13 +132,15 @@ int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
   return rc;
 }
 
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, SlaveStatusCallback slave_callback, void *context)
+int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context)
 {
+  // TODO
   return 0;
 }
 
 int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
 {
+  // TODO
   return 0;
 }
 
@@ -171,7 +181,7 @@ int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublished
   call->free_result_callback = (FreeResultCallback)freeGetPublishedTopicsResult;
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
-  xmlrpcParamVectorPushBackString(&call->params, subgraph);
+  xmlrpcParamVectorPushBackString(&call->params, subgraph == NULL ? "" : subgraph);
 
   return enqueueMasterApiCall(node, call);
 }
@@ -337,7 +347,7 @@ int cRosApiShutdown(CrosNode *node, const char* host, int port, const char *msg,
   call->free_result_callback = (FreeResultCallback)freeShutdownResult;
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
-  xmlrpcParamVectorPushBackString(&call->params, msg);
+  xmlrpcParamVectorPushBackString(&call->params, msg == NULL ? "" : msg);
 
   return enqueueSlaveApiCall(node, call, host, port);
 }
@@ -407,138 +417,818 @@ int cRosApiGetPublications(CrosNode *node, const char* host, int port,
 
 LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)
 {
+  LookupNodeResult *ret = (LookupNodeResult *)calloc(1, sizeof(LookupNodeResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->uri = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->uri, uri->data.as_string);
+
+  return ret;
+
+clean:
+  freeLookupNodeResult(ret);
   return NULL;
 }
 
 GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *response)
 {
+  GetPublishedTopicsResult *ret = (GetPublishedTopicsResult *)calloc(1, sizeof(GetPublishedTopicsResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->topics = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
+  if (ret->topics == NULL)
+    goto clean;
+  ret->topic_count = topics->array_n_elem;
+
+  int it = 0;
+  for (; it < topics->array_n_elem; it++)
+  {
+    struct TopicTypePair *pair = &ret->topics[it];
+    XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
+    XmlrpcParam* topic = xmlrpcParamArrayGetParamAt(pair_xml, 0);
+    pair->topic = (char *)malloc(strlen(topic->data.as_string) + 1);
+    if (pair->topic == NULL)
+      goto clean;
+    strcpy(pair->topic, topic->data.as_string);
+
+    XmlrpcParam* type = xmlrpcParamArrayGetParamAt(pair_xml, 1);
+    pair->type = (char *)malloc(strlen(type->data.as_string) + 1);
+    if (pair->type == NULL)
+      goto clean;
+    strcpy(pair->type, type->data.as_string);
+  }
+
+  return ret;
+
+clean:
+  freeGetPublishedTopicsResult(ret);
   return NULL;
 }
 
 GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response)
 {
+  GetTopicTypesResult *ret = (GetTopicTypesResult *)calloc(1, sizeof(GetTopicTypesResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->topics = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
+  if (ret->topics == NULL)
+    goto clean;
+  ret->topic_count = topics->array_n_elem;
+
+  int it = 0;
+  for (; it < topics->array_n_elem; it++)
+  {
+    struct TopicTypePair *pair = &ret->topics[it];
+    XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
+    XmlrpcParam* topic = xmlrpcParamArrayGetParamAt(pair_xml, 0);
+    pair->topic = (char *)malloc(strlen(topic->data.as_string) + 1);
+    if (pair->topic == NULL)
+      goto clean;
+    strcpy(pair->topic, topic->data.as_string);
+
+    XmlrpcParam* type = xmlrpcParamArrayGetParamAt(pair_xml, 1);
+    pair->type = (char *)malloc(strlen(type->data.as_string) + 1);
+    if (pair->type == NULL)
+      goto clean;
+    strcpy(pair->type, type->data.as_string);
+  }
+
+  return ret;
+
+clean:
+  freeGetTopicTypesResult(ret);
   return NULL;
 }
 
 GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
 {
+  GetSystemStateResult *ret = (GetSystemStateResult *)calloc(1, sizeof(GetSystemStateResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  if (array->array_n_elem < 3)
+    return ret;
+
+  XmlrpcParam* publishers = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->publishers = (struct ProviderState *)calloc(publishers->array_n_elem, sizeof(struct ProviderState));
+  if (ret->publishers == NULL)
+    goto clean;
+  ret->pub_count = publishers->array_n_elem;
+
+  int it1;
+  for (it1 = 0; it1 < publishers->array_n_elem; it1++)
+  {
+    struct ProviderState *state = &ret->publishers[it1];
+    XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(publishers, it1);
+    XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
+    state->provider_name = (char *)malloc(strlen(name->data.as_string) + 1);
+    if (state->provider_name == NULL)
+      goto clean;
+    strcpy(state->provider_name, name->data.as_string);
+
+    XmlrpcParam* users_xml = xmlrpcParamArrayGetParamAt(state_xml, 1);
+    state->users = (char **)calloc(1, users_xml->array_n_elem * sizeof(char *));
+    if (state->users == NULL)
+      goto clean;
+
+    int it2 = 0;
+    for (; it2 < users_xml->array_n_elem; it2++)
+    {
+      char *user = state->users[it2];
+      XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
+      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      if (user == NULL)
+        goto clean;
+      strcpy(user, user_xml->data.as_string);
+    }
+  }
+
+  if (array->array_n_elem < 4)
+    return ret;
+
+  XmlrpcParam* subscribers = xmlrpcParamArrayGetParamAt(array, 3);
+  ret->subscribers = (struct ProviderState *)calloc(subscribers->array_n_elem, sizeof(struct ProviderState));
+  if (ret->subscribers == NULL)
+    goto clean;
+  ret->sub_count = subscribers->array_n_elem;
+
+  for (it1 = 0; it1 < subscribers->array_n_elem; it1++)
+  {
+    struct ProviderState *state = &ret->subscribers[it1];
+    XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(subscribers, it1);
+    XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
+    state->provider_name = (char *)malloc(strlen(name->data.as_string) + 1);
+    if (state->provider_name == NULL)
+      goto clean;
+    strcpy(state->provider_name, name->data.as_string);
+
+    XmlrpcParam* users_xml = xmlrpcParamArrayGetParamAt(state_xml, 1);
+    state->users = (char **)calloc(users_xml->array_n_elem, sizeof(char *));
+    if (state->users == NULL)
+      goto clean;
+
+    int it2 = 0;
+    for (; it2 < users_xml->array_n_elem; it2++)
+    {
+      char *user = state->users[it2];
+      XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
+      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      if (user == NULL)
+        goto clean;
+      strcpy(user, user_xml->data.as_string);
+    }
+  }
+
+  if (array->array_n_elem < 5)
+    return ret;
+
+  XmlrpcParam* services = xmlrpcParamArrayGetParamAt(array, 4);
+  ret->service_providers = (struct ProviderState *)calloc(services->array_n_elem, sizeof(struct ProviderState));
+  if (ret->service_providers == NULL)
+    goto clean;
+  ret->svc_count = services->array_n_elem;
+
+  for (it1 = 0; it1 < services->array_n_elem; it1++)
+  {
+    struct ProviderState *state = &ret->service_providers[it1];
+    XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(services, it1);
+    XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
+    state->provider_name = (char *)malloc(strlen(name->data.as_string) + 1);
+    if (state->provider_name == NULL)
+      goto clean;
+    strcpy(state->provider_name, name->data.as_string);
+
+    XmlrpcParam* users_xml = xmlrpcParamArrayGetParamAt(state_xml, 1);
+    state->users = (char **)calloc(users_xml->array_n_elem, sizeof(char *));
+    if (state->users == NULL)
+      goto clean;
+
+    int it2 = 0;
+    for (; it2 < users_xml->array_n_elem; it2++)
+    {
+      char *user = state->users[it2];
+      XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
+      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      if (user == NULL)
+        goto clean;
+      strcpy(user, user_xml->data.as_string);
+    }
+  }
+
+  return ret;
+
+clean:
+  freeGetSystemStateResult(ret);
   return NULL;
 }
 
 GetUriResult * fetchGetUriResult(XmlrpcParamVector *response)
 {
+  GetUriResult *ret = (GetUriResult *)calloc(1, sizeof(GetUriResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->master_uri = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->master_uri, uri->data.as_string);
+
+  return ret;
+
+clean:
+  freeGetUriResult(ret);
   return NULL;
 }
 
 LookupServiceResult * fetchLookupServiceResult(XmlrpcParamVector *response)
 {
+  LookupServiceResult *ret = (LookupServiceResult *)calloc(1, sizeof(LookupServiceResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* service = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->service_result = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->service_result, service->data.as_string);
+
+  return ret;
+
+clean:
+  freeLookupServiceResult(ret);
   return NULL;
 }
 
 GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
 {
+  GetBusStatsResult *ret = (GetBusStatsResult *)calloc(1, sizeof(GetBusStatsResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  if (array->array_n_elem < 3)
+    return ret;
+
+  XmlrpcParam* pubs_stats = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->stats.pub_stats = (struct TopicPubStats *)calloc(pubs_stats->array_n_elem, sizeof(struct TopicPubStats));
+  if (ret->stats.pub_stats == NULL)
+    goto clean;
+  ret->stats.pub_stats_count = pubs_stats->array_n_elem;
+
+  int it1;
+  for (it1 = 0; it1 < pubs_stats->array_n_elem; it1++)
+  {
+    struct TopicPubStats *pub_stats = &ret->stats.pub_stats[it1];
+    XmlrpcParam* pub_stats_xml = xmlrpcParamArrayGetParamAt(pubs_stats, it1);
+    XmlrpcParam* name_xml = xmlrpcParamArrayGetParamAt(pub_stats_xml, 0);
+    pub_stats->topic_name = (char *)malloc(strlen(name_xml->data.as_string) + 1);
+    if (pub_stats->topic_name == NULL)
+      goto clean;
+    strcpy(pub_stats->topic_name, name_xml->data.as_string);
+
+    XmlrpcParam* message_data_sent = xmlrpcParamArrayGetParamAt(pub_stats_xml, 1);
+    pub_stats->message_data_sent = (size_t)message_data_sent->data.as_int;
+
+    XmlrpcParam* pub_datas = xmlrpcParamArrayGetParamAt(pub_stats_xml, 2);
+    pub_stats->datas = (struct PubConnectionData *)calloc(pub_datas->array_n_elem, sizeof(struct PubConnectionData));
+    if (pub_stats->datas == NULL)
+      goto clean;
+    pub_stats->datas_count = pub_datas->array_n_elem;
+
+    int it2 = 0;
+    for (; it2 < pub_datas->array_n_elem; it2++)
+    {
+      struct PubConnectionData *pub_data = &pub_stats->datas[it2];
+      XmlrpcParam* pub_data_xml = xmlrpcParamArrayGetParamAt(pub_datas, it2);
+      XmlrpcParam* connection_id = xmlrpcParamArrayGetParamAt(pub_data_xml, 0);
+      XmlrpcParam* bytes_sent = xmlrpcParamArrayGetParamAt(pub_data_xml, 1);
+      XmlrpcParam* num_sent = xmlrpcParamArrayGetParamAt(pub_data_xml, 2);
+      XmlrpcParam* connected = xmlrpcParamArrayGetParamAt(pub_data_xml, 3);
+      pub_data->connection_id = connection_id->data.as_int;
+      pub_data->bytes_sent = (size_t)bytes_sent->data.as_int;
+      pub_data->num_sent = (size_t)num_sent->data.as_int;
+      pub_data->connected = connected->data.as_int;
+    }
+  }
+
+  if (array->array_n_elem < 4)
+    return ret;
+
+  XmlrpcParam* subs_stats = xmlrpcParamArrayGetParamAt(array, 3);
+  ret->stats.sub_stats = (struct TopicSubStats *)calloc(subs_stats->array_n_elem, sizeof(struct TopicSubStats));
+  if (ret->stats.sub_stats == NULL)
+    goto clean;
+  ret->stats.sub_stats_count = subs_stats->array_n_elem;
+
+  for (it1 = 0; it1 < subs_stats->array_n_elem; it1++)
+  {
+    struct TopicSubStats *sub_stats = &ret->stats.sub_stats[it1];
+    XmlrpcParam *sub_stats_xml = xmlrpcParamArrayGetParamAt(subs_stats, it1);
+    XmlrpcParam *name_xml = xmlrpcParamArrayGetParamAt(sub_stats_xml, 0);
+    sub_stats->topic_name = (char *)malloc(strlen(name_xml->data.as_string) + 1);
+    if (sub_stats->topic_name == NULL)
+      goto clean;
+    strcpy(sub_stats->topic_name, name_xml->data.as_string);
+
+    XmlrpcParam* sub_datas = xmlrpcParamArrayGetParamAt(sub_stats_xml, 1);
+    sub_stats->datas = (struct SubConnectionData *)calloc(sub_datas->array_n_elem, sizeof(struct SubConnectionData));
+    if (sub_stats->datas == NULL)
+      goto clean;
+    sub_stats->datas_count = sub_datas->array_n_elem;
+
+    int it2 = 0;
+    for (; it2 < sub_datas->array_n_elem; it2++)
+    {
+      struct SubConnectionData *sub_data = &sub_stats->datas[it2];
+      XmlrpcParam *sub_data_xml = xmlrpcParamArrayGetParamAt(sub_datas, it2);
+      XmlrpcParam *connection_id = xmlrpcParamArrayGetParamAt(sub_data_xml, 0);
+      XmlrpcParam *bytes_received = xmlrpcParamArrayGetParamAt(sub_data_xml, 1);
+      XmlrpcParam *drop_estimate = xmlrpcParamArrayGetParamAt(sub_data_xml, 2);
+      XmlrpcParam *connected = xmlrpcParamArrayGetParamAt(sub_data_xml, 3);
+      sub_data->connection_id = connection_id->data.as_int;
+      sub_data->bytes_received = (size_t)bytes_received->data.as_int;
+      sub_data->drop_estimate = drop_estimate->data.as_int;
+      sub_data->connected = connected->data.as_int;
+    }
+  }
+
+  if (array->array_n_elem < 5)
+    return ret;
+
+  XmlrpcParam *services_stats = xmlrpcParamArrayGetParamAt(array, 4);
+  XmlrpcParam *numRequests = xmlrpcParamArrayGetParamAt(services_stats, 0);
+  XmlrpcParam *bytesReceived = xmlrpcParamArrayGetParamAt(services_stats, 1);
+  XmlrpcParam *bytesSent = xmlrpcParamArrayGetParamAt(services_stats, 2);
+
+  ret->stats.service_stats.num_requests = (size_t)numRequests->data.as_int;
+  ret->stats.service_stats.bytes_received = (size_t)bytesReceived->data.as_int;
+  ret->stats.service_stats.bytes_sent = (size_t)bytesSent->data.as_int;
+
+  return ret;
+
+clean:
+  freeGetBusStatsResult(ret);
   return NULL;
 }
 
 GetBusInfoResult * fetchGetBusInfoResult(XmlrpcParamVector *response)
 {
+  GetBusInfoResult *ret = (GetBusInfoResult *)calloc(1, sizeof(GetBusInfoResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  if (array->array_n_elem < 3)
+    return ret;
+
+  XmlrpcParam* businfos = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->bus_infos = (struct BusInfo *)calloc(businfos->array_n_elem, sizeof(struct BusInfo));
+  if (ret->bus_infos == NULL)
+    goto clean;
+  ret->bus_infos_count = businfos->array_n_elem;
+
+  int it = 0;
+  for (; it < businfos->array_n_elem; it++)
+  {
+    struct BusInfo *businfo = &ret->bus_infos[it];
+    XmlrpcParam *businfo_xml = xmlrpcParamArrayGetParamAt(businfos, it);
+
+    XmlrpcParam *connectionId = xmlrpcParamArrayGetParamAt(businfo_xml, 0);
+    XmlrpcParam *destinationId = xmlrpcParamArrayGetParamAt(businfo_xml, 1);
+    XmlrpcParam *direction = xmlrpcParamArrayGetParamAt(businfo_xml, 2);
+    XmlrpcParam *transport = xmlrpcParamArrayGetParamAt(businfo_xml, 3);
+    XmlrpcParam *topic = xmlrpcParamArrayGetParamAt(businfo_xml, 4);
+    XmlrpcParam *connected = xmlrpcParamArrayGetParamAt(businfo_xml, 5);
+
+    businfo->topic = (char *)malloc(strlen(topic->data.as_string) + 1);
+    if (businfo->topic == NULL)
+      goto clean;
+    strcpy(businfo->topic, topic->data.as_string);
+    businfo->connectionId = connectionId->data.as_int;
+    businfo->destinationId = connectionId->data.as_int;
+    switch (connectionId->data.as_string[0])
+    {
+      case 'i':
+        businfo->direction = CROS_TRANSPORT_DIRECTION_IN;
+        break;
+      case 'o':
+        businfo->direction = CROS_TRANSPORT_DIRECTION_OUT;
+        break;
+      case 'b':
+        businfo->direction = CROS_TRANSPORT_DIRECTION_BOTH;
+        break;
+      default:
+        goto clean;
+    }
+    businfo->transport = (CrosTransportType)connectionId->data.as_int;
+    businfo->connected = connectionId->data.as_int;
+  }
+
+  return ret;
+
+clean:
+  freeGetBusInfoResult(ret);
   return NULL;
 }
 
 GetMasterUriResult * fetchGetMasterUriResult(XmlrpcParamVector *response)
 {
+  GetMasterUriResult *ret = (GetMasterUriResult *)calloc(1, sizeof(GetMasterUriResult));
+  if (ret == NULL)
+    return ret;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->master_uri = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->master_uri, uri->data.as_string);
+
+  return ret;
+
+clean:
+  freeGetMasterUriResult(ret);
   return NULL;
 }
 
 ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response)
 {
+  ShutdownResult *ret = (ShutdownResult *)calloc(1, sizeof(ShutdownResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->ignore = ignore->data.as_int;
+
+  return ret;
+
+clean:
+  freeShutdownResult(ret);
   return NULL;
 }
 
 GetPidResult * fetchGetPidResult(XmlrpcParamVector *response)
 {
-  GetPidResult *result = (GetPidResult *)malloc(sizeof(GetPidResult));
-  if (result == NULL)
+  GetPidResult *ret = (GetPidResult *)calloc(1, sizeof(GetPidResult));
+  if (ret == NULL)
     return NULL;
 
-  XmlrpcParam* roscore_pid_param =
-    xmlrpcParamArrayGetParamAt(xmlrpcParamVectorAt(response,0),2);
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
 
-  result->code = roscore_pid_param->data.as_int;
-  return result;
+  XmlrpcParam* roscore_pid_param = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->server_process_pid = roscore_pid_param->data.as_int;
+  return ret;
+
+clean:
+  freeGetPidResult(ret);
+  return NULL;
 }
 
 GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response)
 {
+  GetSubscriptionsResult *ret = (GetSubscriptionsResult *)calloc(1, sizeof(GetSubscriptionsResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->topic_list = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
+  if (ret->topic_list == NULL)
+    goto clean;
+  ret->topic_count = topics->array_n_elem;
+
+  int it = 0;
+  for (; it < topics->array_n_elem; it++)
+  {
+    struct TopicTypePair *pair = &ret->topic_list[it];
+    XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
+    XmlrpcParam* topic = xmlrpcParamArrayGetParamAt(pair_xml, 0);
+    pair->topic = (char *)malloc(strlen(topic->data.as_string) + 1);
+    if (pair->topic == NULL)
+      goto clean;
+    strcpy(pair->topic, topic->data.as_string);
+
+    XmlrpcParam* type = xmlrpcParamArrayGetParamAt(pair_xml, 1);
+    pair->type = (char *)malloc(strlen(type->data.as_string) + 1);
+    if (pair->type == NULL)
+      goto clean;
+    strcpy(pair->type, type->data.as_string);
+  }
+
+  return ret;
+
+clean:
+  freeGetSubscriptionsResult(ret);
   return NULL;
 }
 
 GetPublicationsResult * fetchGetPublicationsResult(XmlrpcParamVector *response)
 {
+  GetPublicationsResult *ret = (GetPublicationsResult *)calloc(1, sizeof(GetPublicationsResult));
+  if (ret == NULL)
+    return NULL;
+
+  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
+  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
+  ret->code  = code->data.as_int;
+  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
+  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
+  if (ret == NULL)
+    goto clean;
+  strcpy(ret->status, status->data.as_string);
+
+  XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->topic_list = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
+  if (ret->topic_list == NULL)
+    goto clean;
+  ret->topic_count = topics->array_n_elem;
+
+  int it = 0;
+  for (; it < topics->array_n_elem; it++)
+  {
+    struct TopicTypePair *pair = &ret->topic_list[it];
+    XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
+    XmlrpcParam* topic = xmlrpcParamArrayGetParamAt(pair_xml, 0);
+    pair->topic = (char *)malloc(strlen(topic->data.as_string) + 1);
+    if (pair->topic == NULL)
+      goto clean;
+    strcpy(pair->topic, topic->data.as_string);
+
+    XmlrpcParam* type = xmlrpcParamArrayGetParamAt(pair_xml, 1);
+    pair->type = (char *)malloc(strlen(type->data.as_string) + 1);
+    if (pair->type == NULL)
+      goto clean;
+    strcpy(pair->type, type->data.as_string);
+  }
+
+  return ret;
+
+clean:
+  freeGetPublicationsResult(ret);
   return NULL;
 }
 
 void freeLookupNodeResult(LookupNodeResult *result)
 {
-
+  free(result->status);
+  free(result->uri);
+  free(result);
 }
 
 void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result)
 {
-
+  free(result->status);
+  int it = 0;
+  for (; it < result->topic_count; it++)
+  {
+    free(result->topics[it].topic);
+    free(result->topics[it].type);
+  }
+  free(result->topics);
+  free(result);
 }
 
 void freeGetTopicTypesResult(GetTopicTypesResult *result)
 {
-
+  free(result->status);
+  int it = 0;
+  for (; it < result->topic_count; it++)
+  {
+    free(result->topics[it].topic);
+    free(result->topics[it].type);
+  }
+  free(result->topics);
+  free(result);
 }
 
 void freeGetSystemStateResult(GetSystemStateResult *result)
 {
+  free(result->status);
+  int it1 = 0;
+  for (; it1 < result->sub_count; it1++)
+  {
+    free(result->publishers[it1].provider_name);
+    int it2 = 0;
+    for (; it2 < result->publishers[it1].user_count; it2)
+      free(result->publishers[it1].users[it2]);
+    free(result->publishers[it1].users);
+  }
+  free(result->publishers);
 
+  for (; it1 < result->sub_count; it1++)
+  {
+    free(result->subscribers[it1].provider_name);
+    int it2 = 0;
+    for (; it2 < result->subscribers[it1].user_count; it2)
+      free(result->subscribers[it1].users[it2]);
+    free(result->subscribers[it1].users);
+  }
+  free(result->subscribers);
+
+  for (; it1 < result->svc_count; it1++)
+  {
+    free(result->service_providers[it1].provider_name);
+    int it2 = 0;
+    for (; it2 < result->service_providers[it1].user_count; it2)
+      free(result->service_providers[it1].users[it2]);
+    free(result->service_providers[it1].users);
+  }
+  free(result->service_providers);
+
+  free(result);
 }
 
 void freeGetUriResult(GetUriResult *result)
 {
-
+  free(result->status);
+  free(result->master_uri);
+  free(result);
 }
 
 void freeLookupServiceResult(LookupServiceResult *result)
 {
-
+  free(result->status);
+  free(result->service_result);
+  free(result);
 }
 
 void freeGetBusStatsResult(GetBusStatsResult *result)
 {
+  free(result->status);
+  int it1 = 0;
+  for (; it1 < result->stats.pub_stats_count; it1++)
+    free(result->stats.pub_stats[it1].topic_name);
+  free(result->stats.pub_stats);
 
+  for (; it1 < result->stats.sub_stats_count; it1++)
+    free(result->stats.pub_stats[it1].topic_name);
+  free(result->stats.sub_stats);
+
+  free(result);
 }
 
 void freeGetBusInfoResult(GetBusInfoResult *result)
 {
-
+  free(result->status);
+  int it = 0;
+  for (; it < result->bus_infos_count; it++)
+    free(result->bus_infos[it].topic);
+  free(result->bus_infos);
+  free(result);
 }
 
 void freeGetMasterUriResult(GetMasterUriResult *result)
 {
-
+  free(result->status);
+  free(result->master_uri);
+  free(result);
 }
 
 void freeShutdownResult(ShutdownResult *result)
 {
-
+  free(result->status);
+  free(result);
 }
 
 void freeGetPidResult(GetPidResult *result)
 {
-
+  free(result->status);
+  free(result);
 }
 
 void freeGetSubscriptionsResult(GetSubscriptionsResult *result)
 {
-
+  free(result->status);
+  int it = 0;
+  for (; it < result->topic_count; it++)
+  {
+    free(result->topic_list[it].topic);
+    free(result->topic_list[it].type);
+  }
+  free(result->topic_list);
+  free(result);
 }
 
 void freeGetPublicationsResult(GetPublicationsResult *result)
 {
-
+  free(result->status);
+  int it = 0;
+  for (; it < result->topic_count; it++)
+  {
+    free(result->topic_list[it].topic);
+    free(result->topic_list[it].type);
+  }
+  free(result->topic_list);
+  free(result);
 }
