@@ -2,6 +2,7 @@
 #define _CROS_NODE_API_H_
 
 #include "cros_node.h"
+#include "cros_message.h"
 
 typedef enum CrosTransportDirection
 {
@@ -233,13 +234,9 @@ typedef void (*GetPidCallback)(int callid, GetPidResult *result, void *context);
 typedef void (*GetSubscriptionsCallback)(int callid, GetSubscriptionsResult *result, void *context);
 typedef void (*GetPublicationsCallback)(int callid, GetPublicationsResult *result, void *context);
 
-typedef struct CrosMessage
-{
-} CrosMessage;
-
-typedef CallbackResponse (*ServiceProviderApiCallback)(CrosMessage *messageRequest, CrosMessage *messageResponse, void* context);
-typedef CallbackResponse (*SubscriberApiCallback)(CrosMessage *message,  void* context);
-typedef CallbackResponse (*PublisherApiCallback)(CrosMessage *message, void* context);
+typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *messageRequest, cRosMessage *messageResponse, void* context);
+typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void* context);
+typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void* context);
 
 // Master api: register/unregister methods
 int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context);

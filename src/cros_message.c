@@ -6,6 +6,339 @@
 #include "cros_message.h"
 #include "tcpros_tags.h"
 #include "cros_defs.h"
+#include "md5.h"
+
+
+char* base_msg_type(char* type)
+{
+    //  """
+    //  Compute the base data type, e.g. for arrays, get the underlying array item type
+    //  @param type_: ROS msg type (e.g. 'std_msgs/String')
+    //  @type  type_: str
+    //  @return: base type
+    //  @rtype: str
+    //  """
+    char* base = NULL;
+    int char_count = 0;
+    char* iterator = type;
+
+    while( *iterator != '\0' && *iterator != '[')
+    {
+        char_count++;
+        iterator++;
+    }
+
+    base = malloc(char_count + 1);
+    memcpy(base, type, char_count);
+    base[char_count] = '\0';
+
+    return base;
+}
+
+int is_builtin_type(char* type)
+{
+    int n_elements = sizeof(PRIMITIVE_TYPES)/sizeof(char*);
+    int i;
+    for(i = 0; i < n_elements; i++)
+    {
+        if(strcmp(type,PRIMITIVE_TYPES[i]) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+int is_header_type(char* type)
+{
+    return (strcmp(type, "std_msgs/Header") == 0) ||
+            (strcmp(type, "Header") == 0) ||
+            (strcmp(type, "roslib/Header") == 0);
+}
+
+int is_valid_msg_type(char* type_statement)
+{
+    //@return: True if the name is a syntatically legal message type name
+    //    @rtype: bool
+  //if not x or len(x) != len(x.strip()):
+  //    return False
+    char* iterator = type_statement;
+    while(*iterator != '\0')
+    {
+        if(*iterator == ' ')
+        {
+            return 0;
+        }
+        iterator ++;
+    }
+
+//  base = base_msg_type(x)
+    char* base = base_msg_type(type_statement);
+    //  if not roslib.names.is_legal_resource_name(base):
+    //          return False
+    int slash_found = 0;
+    char* base_itr = base;
+
+    while(*base_itr != '\0')
+    {
+        if((*base_itr == ']') ||
+            (*base_itr == '/' && slash_found))
+        {
+            free(base);
+            return 0;
+        }
+        if(*base_itr == '/')
+            slash_found = 1;
+        base_itr++;
+    }
+
+    // TODO Check that the array index is a number
+
+    free(base);
+    return 1;
+}
+
+int is_array_type(char* type_statement, int* size)
+{
+    //@return: True if the name is a syntatically legal message type name
+    //    @rtype: bool
+  //if not x or len(x) != len(x.strip()):
+  //    return False
+  char* type_it = type_statement;
+  char* array_size = "-1";
+  char* num_start;
+  int count = 0;
+  int start_count = 0;
+
+  while(*type_it != '\0' && *type_it != ']' && *type_it!= ' ')
+  {
+    if(start_count)
+    {
+      count++;
+    }
+
+    if(*type_it == '[' )
+    {
+      start_count = 1;
+      num_start = type_it;
+    }
+
+    type_it++;
+  }
+
+  if(count == 0)
+    return 0;
+
+  array_size = calloc(count + 1, sizeof(char));
+  memcpy(array_size,num_start + 1,count);
+  *size = atoi(array_size);
+  return 1;
+}
+
+int containsDep(msgDep* iterator, char* depName)
+{
+    char* dep = (char*) malloc(strlen(depName)+1);
+    memcpy(dep,depName, strlen(depName)+1);
+    char* pack = dep;
+    char* name = dep;
+    while(*name != '/') name++;
+    *(name++) = '\0';
+
+    int found = 0;
+    //rollback
+    while((iterator)->prev != NULL) iterator = iterator->prev;
+    while(iterator->next != NULL && iterator->msg != NULL)
+    {
+        if(strcmp(iterator->msg->package, pack) == 0 &&
+             strcmp(iterator->msg->name, name) == 0)
+        {
+            found = 1;
+            break;
+        }
+        iterator = iterator->next;
+    }
+
+    free(dep);
+    return found;
+}
+
+//Add the list of message types that spec depends on to depends.
+int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
+{
+    //move on until you reach the head
+    while(msgDeps->next != NULL) msgDeps = msgDeps->next;
+    msgDep* currentDep = msgDeps ;
+
+    msgFieldDef* fields = msg->first_field;
+
+    while(fields->next != NULL)
+    {
+        msgFieldDef* currentField = fields;
+        char* type = base_msg_type(currentField->type);
+
+        if(!is_builtin_type(type))
+        {
+            if(containsDep(msgDeps,type))
+            {
+                fields = fields->next;
+                continue;
+            }
+
+            currentDep->msg = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+            // special mapping for header
+            if(is_header_type(type))
+            {
+                //have to re-names Header
+                currentDep->msg->package = (char*) malloc(strlen(HEADER_DEFAULT_PACK) + 1);
+                currentDep->msg->package[0] = '\0';
+                strcpy(currentDep->msg->package,HEADER_DEFAULT_PACK);
+                currentDep->msg->name = (char*) malloc(strlen(HEADER_DEFAULT_NAME) + 1);
+                currentDep->msg->name[0] = '\0';
+                strcpy(currentDep->msg->name,HEADER_DEFAULT_NAME);
+
+                currentDep->msg->plain_text = (char*) malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+                memcpy(currentDep->msg->plain_text,"\0",1);
+                strcpy(currentDep->msg->plain_text, HEADER_DEFAULT_TYPEDEF);
+                msgDep* next = malloc(sizeof(msgDep));
+                next->msg = NULL;
+                next->prev = currentDep;
+                currentDep->next = next;
+                currentDep = next;
+            }
+            else
+            {
+
+                if(strstr(type,"/") == NULL)
+                {
+                    char* trail = msg->package;
+                    currentDep->msg->name = (char*) malloc(strlen(trail) + strlen(type) + 1 + 1);
+                    memcpy(currentDep->msg->name, trail, strlen(trail) + 1);
+                    strcat(currentDep->msg->name, "/");
+                    strcat(currentDep->msg->name, type);
+                }
+                else
+                {
+
+                    char* dep = (char*) malloc(strlen(type)+1);
+                    memcpy(dep,type, strlen(type)+1);
+                    char* pack = dep;
+                    char* name = dep;
+                    while(*name != '/') name++;
+                    *(name++) = '\0';
+                    currentDep->msg->name = name;
+                    currentDep->msg->package = pack;
+                }
+
+                currentDep->msg->fields = (msgFieldDef*) malloc(sizeof(msgFieldDef));
+                currentDep->msg->first_field = currentDep->msg->fields;
+                currentDep->msg->constants = (msgConst*) malloc(sizeof(msgConst));
+                currentDep->msg->first_const = currentDep->msg->constants;
+
+                char* path = (char*) malloc(
+                                            strlen(msg->root_dir) + 1 +
+                                            strlen(currentDep->msg->package) + 1 +
+                                            strlen(currentDep->msg->name) + 4 + 1);
+                memcpy(path, msg->root_dir, strlen(msg->root_dir) + 1);
+                strcat(path, "/");
+                strcat(path, currentDep->msg->package);
+                strcat(path, "/");
+                strcat(path,currentDep->msg->name);
+                strcat(path,".msg");
+
+                loadFromFileMsg(path,currentDep->msg);
+                msgDep* next = malloc(sizeof(msgDep));
+                next->msg = NULL;
+                next->prev = currentDep;
+                currentDep->next = next;
+                currentDep = next;
+                getDependenciesMsg(currentDep->prev->msg, currentDep);
+            }
+        }
+        fields = fields->next;
+    }
+    return EXIT_SUCCESS;
+}
+
+//  Compute dependencies of the specified message file
+int getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps)
+{
+    loadFromFileMsg(filename, msg);
+    getDependenciesMsg(msg,deps);
+    return EXIT_SUCCESS;
+}
+
+//  Compute full text of message, including text of embedded
+//  types.  The text of the main msg is listed first. Embedded
+//  msg files are denoted first by an 80-character '=' separator,
+//  followed by a type declaration line,'MSG: pkg/type', followed by
+//  the text of the embedded type.
+char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps)
+{
+    char* full_text = NULL;
+    char* msg_tag = "MSG: ";
+    int full_size = 0;
+    char separator[81]; separator[80] = '\0';
+    int i;
+    for(i = 0; i < 80; i++)
+    {
+        separator[i] = '=';
+    }
+
+    full_size += strlen(msg->plain_text);
+
+    while(deps->next != NULL)
+    {
+        //printf("%s\nMSG: %s\n", separator, deps->msg->name);
+        full_size = strlen(deps->msg->plain_text) + strlen(separator) + strlen(msg_tag) + 3/*New lines*/;
+        deps = deps->next;
+    }
+
+    //rollback
+    while(deps->prev != NULL) deps = deps->prev;
+    full_text = (char*) malloc(full_size + 1);
+    memcpy(full_text,msg->plain_text,strlen(msg->plain_text) + 1);
+    while(deps->next != NULL)
+    {
+        //printf("%s\nMSG: %s\n", separator, deps->msg->name);
+        strcat(full_text, "\n");
+        strcat(full_text, separator);
+        strcat(full_text, "\n");
+        strcat(full_text, msg_tag);
+        strcat(full_text, deps->msg->package);
+        strcat(full_text, "/");
+        strcat(full_text, deps->msg->name);
+        strcat(full_text, "\n");
+        strcat(full_text, deps->msg->plain_text);
+        deps = deps->next;
+    }
+    return full_text;
+}
+
+void initCrosMsg(cRosMessageDef* msg)
+{
+    msg->constants = (msgConst*) malloc(sizeof(msgConst));
+    msg->constants->type = NULL;
+    msg->constants->name = NULL;
+    msg->constants->value = NULL;
+    msg->constants->prev = NULL;
+    msg->constants->next = NULL;
+    msg->first_const = msg->constants;
+    msg->fields = (msgFieldDef*) malloc(sizeof(msgFieldDef));
+    msg->fields->type = NULL;
+    msg->fields->name = NULL;
+    msg->fields->prev = NULL;
+    msg->fields->next = NULL;
+    msg->first_field = msg->fields;
+    msg->name = NULL;
+    msg->package = NULL;
+    msg->plain_text = NULL;
+    msg->root_dir = NULL;
+}
+
+void initCrosDep(msgDep* dep)
+{
+    dep->msg = NULL;
+    dep->prev = NULL;
+    dep->next = NULL;
+}
 
 static uint32_t getLen( DynBuffer *pkt )
 {
@@ -73,6 +406,969 @@ static void printPacket( DynBuffer *pkt, int print_data )
   
   /* Restore position indicator */
   dynBufferSetPoseIndicator ( pkt, initial_pos_idx );         
+}
+
+unsigned char* getMD5Msg(cRosMessageDef* msg)
+{
+    DynString buffer;
+    unsigned char* result = (unsigned char*) malloc(16);
+    int i;
+
+    dynStringInit(&buffer);
+    msgConst* const_it = msg->first_const;
+
+    while(const_it->next != NULL)
+    {
+        dynStringPushBackStr(&buffer,const_it->type);
+        dynStringPushBackStr(&buffer," ");
+        dynStringPushBackStr(&buffer,const_it->name);
+        dynStringPushBackStr(&buffer,"=");
+        dynStringPushBackStr(&buffer,const_it->value);
+        dynStringPushBackStr(&buffer,"\n");
+        const_it = const_it->next;
+    }
+
+    msgFieldDef* fields_it = msg->first_field;
+
+    while(fields_it->next != NULL)
+    {
+        char* type = base_msg_type(fields_it->type);
+
+        if(is_builtin_type(type))
+        {
+            dynStringPushBackStr(&buffer,fields_it->type);
+            dynStringPushBackStr(&buffer," ");
+            dynStringPushBackStr(&buffer,fields_it->name);
+            dynStringPushBackStr(&buffer,"\n");
+        }
+        else if(is_header_type(type))
+        {
+            cRosMessageDef* msg = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+            initCrosMsg(msg);
+            char* header_text = malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+            memcpy(header_text,HEADER_DEFAULT_TYPEDEF,strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+            loadFromStringMsg(header_text, msg);
+            unsigned char* res =  getMD5Msg(msg);
+            cRosMD5Readable(res, &buffer);
+            dynStringPushBackStr(&buffer," ");
+            dynStringPushBackStr(&buffer,fields_it->name);
+            dynStringPushBackStr(&buffer,"\n");
+        }
+        else
+        {
+            DynString filename_dep;
+            dynStringInit(&filename_dep);
+            dynStringPushBackStr(&filename_dep,msg->root_dir);
+            dynStringPushBackStr(&filename_dep,"/");
+            dynStringPushBackStr(&filename_dep,base_msg_type(fields_it->type));
+            dynStringPushBackStr(&filename_dep,".msg");
+
+            cRosMessage msg;
+            cRosMessageInit(&msg);
+            cRosMessageBuild(&msg,filename_dep.data);
+            char *md5sum = calloc(strlen(msg.md5sum)+1,sizeof(char));
+            strcpy(md5sum,msg.md5sum);
+            cRosMessageFree(&msg);
+
+            dynStringPushBackStr(&buffer, md5sum);
+            dynStringPushBackStr(&buffer," ");
+            dynStringPushBackStr(&buffer,fields_it->name);
+            dynStringPushBackStr(&buffer,"\n");
+        }
+        free(type);
+        fields_it = fields_it->next;
+    }
+
+    if(buffer.len == 0)
+        return NULL;
+
+    MD5_CTX md5_t;
+    MD5_Init(&md5_t);
+    MD5_Update(&md5_t,buffer.data,buffer.len - 1);
+    MD5_Final(result, &md5_t);
+
+    return result;
+}
+
+void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
+{
+    int i;
+
+    dynStringInit(buffer);
+    msgConst* const_it = msg->first_const;
+
+    while(const_it->next != NULL)
+    {
+        dynStringPushBackStr(buffer,const_it->type);
+        dynStringPushBackStr(buffer," ");
+        dynStringPushBackStr(buffer,const_it->name);
+        dynStringPushBackStr(buffer,"=");
+        dynStringPushBackStr(buffer,const_it->value);
+        dynStringPushBackStr(buffer,"\n");
+        const_it = const_it->next;
+    }
+
+    msgFieldDef* fields_it = msg->first_field;
+
+    while(fields_it->next != NULL)
+    {
+        if(is_builtin_type(fields_it->type))
+        {
+            dynStringPushBackStr(buffer,fields_it->type);
+            dynStringPushBackStr(buffer," ");
+            dynStringPushBackStr(buffer,fields_it->name);
+            dynStringPushBackStr(buffer,"\n");
+        }
+        else if(is_header_type(fields_it->type))
+        {
+            cRosMessageDef* msg = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+            initCrosMsg(msg);
+            char* header_text = malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+            memcpy(header_text,HEADER_DEFAULT_TYPEDEF,strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+            loadFromStringMsg(header_text, msg);
+            unsigned char* res =  getMD5Msg(msg);
+            cRosMD5Readable(res, buffer);
+            dynStringPushBackStr(buffer," ");
+            dynStringPushBackStr(buffer,fields_it->name);
+            dynStringPushBackStr(buffer,"\n");
+        }
+        else
+        {
+            DynString filename_dep;
+            dynStringInit(&filename_dep);
+            dynStringPushBackStr(&filename_dep,msg->root_dir);
+            dynStringPushBackStr(&filename_dep,"/");
+            dynStringPushBackStr(&filename_dep,base_msg_type(fields_it->type));
+            dynStringPushBackStr(&filename_dep,".msg");
+
+            cRosMessage msg;
+            cRosMessageInit(&msg);
+            cRosMessageBuild(&msg,filename_dep.data);
+            char *md5sum = calloc(strlen(msg.md5sum)+1,sizeof(char));
+            strcpy(md5sum,msg.md5sum);
+            cRosMessageFree(&msg);
+
+            dynStringPushBackStr(buffer, md5sum);
+            dynStringPushBackStr(buffer," ");
+            dynStringPushBackStr(buffer,fields_it->name);
+            dynStringPushBackStr(buffer,"\n");
+        }
+        fields_it = fields_it->next;
+    }
+}
+
+void cRosMD5Readable(unsigned char* data, DynString* output)
+{
+    char val[5];
+    int i;
+    for(i = 0; i < 16; i++)
+    {
+      snprintf(val, 4, "%02x", (unsigned char) data[i]);
+        dynStringPushBackStr(output,val);
+    }
+}
+
+void cRosMessageInit(cRosMessage *message)
+{
+    message->fields = NULL;
+    message->n_fields = 0;
+    message->msgDef = NULL;
+    message->md5sum = (char*) malloc(33);// 32 chars + '\0';
+    *(message->md5sum) = '\0';
+}
+
+void cRosMessageFieldInit(cRosMessageField *field)
+{
+  field->is_array = 0;
+  field->is_const = 0;
+  field->name = NULL;
+  field->type = NULL;
+  field->built_in = 0;
+}
+
+int loadFromStringMsg(char* text, cRosMessageDef* msg)
+{
+//  Load message specification from a string:
+//  types, names, constants
+
+        char* new_line = NULL;
+        char* new_line_saveptr = NULL;
+        const char* delimiter = "\n";
+
+        int txt_len = strlen(text);
+        msg->plain_text = (char*) malloc(strlen(text)+1);
+        memcpy(msg->plain_text,"\0",1);
+        strcpy(msg->plain_text,text);
+        int plain_txt_len = strlen(msg->plain_text);
+
+        new_line = strtok_r(text, delimiter, &new_line_saveptr);
+        while(new_line != NULL)
+        {
+            //printf("%s\n", new_line);
+            char* iterator = new_line;
+            int char_found = 0;
+            int char_count = 0;
+
+            //strip comments
+            while(((char)*iterator) != '\0')
+            {
+                if(((char)*iterator) == *CHAR_COMMENT)
+                {
+                    char_found = 1;
+                    break;
+                }
+                iterator++;
+                char_count++;
+            }
+
+            // ignore empty lines
+            if(char_found && char_count == 0)
+            {
+                new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
+                continue;
+            }
+
+            char* msg_entry = (char*) malloc(char_count + 1); // type/name
+            char* entry_type = NULL;
+            char* entry_name = NULL;
+            char* entry_const_val = NULL;
+            memcpy(msg_entry, new_line, char_count);
+            msg_entry[char_count] = '\0';
+
+            char* msg_entry_itr = msg_entry;
+            entry_type = msg_entry_itr;
+
+            while(*(msg_entry_itr++) != ' ');
+            *(msg_entry_itr - 1) = '\0';
+
+            entry_name = msg_entry_itr;
+            entry_type = base_msg_type(entry_type);
+
+            char* filled_count = msg_entry_itr;
+
+            while(*filled_count != '\0')
+            {
+                if(*filled_count == ' ')
+                {
+                    msg_entry_itr = filled_count + 1;
+                    while(*msg_entry_itr != '\0' &&  *msg_entry_itr == ' ' )
+                        msg_entry_itr++;
+                    *filled_count = *msg_entry_itr;
+                    if(*msg_entry_itr != '\0')
+                        *msg_entry_itr = ' ';
+                }
+                else
+                {
+                    filled_count ++;
+                }
+            }
+
+            if(!is_valid_msg_type(entry_type))
+                return 0;
+
+            char* const_char_ptr = strpbrk(entry_name, CHAR_CONST);
+
+            if( const_char_ptr != NULL)
+            {
+                if(strcmp(entry_type, "string") == 0)
+                {
+                    //  String constants
+                    //  Strings contain anything to the right of the equals sign,
+                    //  there are no comments allowed
+
+                    char* entry_name_saveptr = NULL;
+                    strtok_r(entry_name,CHAR_CONST,&entry_name_saveptr);
+                    entry_const_val = strtok_r(NULL,CHAR_CONST,&entry_name_saveptr);
+                }
+                else
+                {
+                    //Number constants
+                    char* entry_name_saveptr = NULL;
+                    strtok_r(entry_name,CHAR_CONST,&entry_name_saveptr);
+                    entry_const_val = strtok_r(NULL,CHAR_CONST,&entry_name_saveptr);
+                }
+
+                // TODO: try to cast number values
+
+                msgConst* current = msg->constants;
+
+                current->name = entry_name;
+                current->type = entry_type;
+                current->value = entry_const_val;
+                current->next = (msgConst*)malloc(sizeof(msgConst));
+                msgConst* next = current->next;
+                next->name = NULL;
+                next->type = NULL;
+                next->value = NULL;
+                next->prev = current;
+                next->next = NULL;
+                msg->constants = next;
+            }
+            else
+            {
+                msgFieldDef* current = msg->fields;
+
+                current->name = entry_name;
+                if(is_header_type(entry_type))
+                {
+                    current->type = (char*) malloc(strlen(HEADER_DEFAULT_TYPE)+1);
+                    memcpy(current->type,HEADER_DEFAULT_TYPE,strlen(HEADER_DEFAULT_TYPE)+1);
+                }
+                else if(strstr(entry_type,"/") == NULL && !is_builtin_type(entry_type))
+                {
+                    current->type = (char*) malloc(strlen(msg->package)+ 1 + strlen(entry_type) + 1);
+                    memcpy(current->type, msg->package, strlen(msg->package)+ 1);
+                    strcat(current->type,"/");
+                    strcat(current->type,entry_type);
+                }
+                else
+                {
+                    current->type = entry_type;
+                }
+                int array_size = -1;
+                if(is_array_type(msg_entry, &array_size))
+                {
+                  current->is_array = 1;
+                  current->array_size = array_size;
+                }
+
+                current->next = (msgFieldDef*)malloc(sizeof(msgFieldDef));
+                msgFieldDef* next = current->next;
+                next->name = NULL;
+                next->type = NULL;
+                next->prev = current;
+                next->next = NULL;
+                msg->fields = next;
+            }
+
+            //TODO: mem leak!!!
+            //free(msg_entry);
+            new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
+        }
+
+        return EXIT_SUCCESS;
+}
+
+int loadFromFileMsg(char* filename, cRosMessageDef* msg)
+{
+    char* file_tokenized = (char*) malloc(strlen(filename)+1);
+    file_tokenized[0] = '\0';
+    strcpy(file_tokenized, filename);
+    char* token_pack;
+    char* token_root = NULL;
+    char* token_name = NULL;
+
+    FILE *f = fopen(filename, "rb");
+
+    if(f != NULL)
+    {
+        fseek(f, 0, SEEK_END);
+        long fsize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char *msg_text = malloc(fsize + 1);
+        fread(msg_text, fsize, 1, f);
+        fclose(f);
+
+        msg_text[fsize] = '\0';
+        char* tok = strtok(file_tokenized,"/.");
+
+        while(tok != NULL)
+        {
+            if(strcmp(tok, "msg") != 0)
+            {
+                token_root = token_pack;
+                token_pack = token_name;
+                token_name = tok ;
+            }
+            tok = strtok(NULL,"/.");
+        }
+
+        //build up the root path
+        char* it = file_tokenized;
+        while(it != token_root)
+        {
+            if(*it == '\0')
+                *it='/';
+            it++;
+        }
+
+        msg->root_dir = (char*) malloc (strlen(file_tokenized)+1); msg->root_dir[0] = '\0';
+        strcpy(msg->root_dir,file_tokenized);
+
+        msg->package = (char*) malloc (strlen(token_pack)+1); msg->package[0] = '\0';
+        strcpy(msg->package,token_pack);
+
+        msg->name = (char*) malloc (strlen(token_name)+1); msg->name[0] = '\0';
+        strcpy(msg->name,token_name);
+
+        loadFromStringMsg(msg_text, msg);
+        free(msg_text);
+    }
+
+    free(file_tokenized);
+    return EXIT_SUCCESS;
+}
+
+void build_time_field(cRosMessageField* field)
+{
+  cRosMessage* time = calloc(1, sizeof(cRosMessage));
+  cRosMessageInit(time);
+  time->fields = (cRosMessageField**) calloc(2,sizeof(cRosMessageField*));
+  time->n_fields = 2;
+  cRosMessageField** fields_it = time->fields;
+
+  //int32 sec
+  cRosMessageField* sec = calloc(1, sizeof(cRosMessageField));
+  cRosMessageFieldInit(sec);
+
+  sec->built_in = 1;
+  sec->name = "sec";
+  sec->type = "int32";
+  sec->size = 4;
+
+  *fields_it = sec;
+  fields_it++;
+
+  //int32 nsec
+  cRosMessageField* nsec = calloc(1, sizeof(cRosMessageField));
+  cRosMessageFieldInit(nsec);
+
+  nsec->built_in = 1;
+  nsec->name = "nsec";
+  nsec->type = "int32";
+  nsec->size = 4;
+
+  *fields_it = nsec;
+
+  field->size = 8;
+  field->data = time;
+}
+
+void build_header_field(cRosMessageField* field)
+{
+  cRosMessage* header = calloc(1, sizeof(cRosMessage));
+  cRosMessageInit(header);
+  header->fields = (cRosMessageField**) calloc(3,sizeof(cRosMessageField*));
+  header->n_fields = 3;
+  cRosMessageField** fields_it = header->fields;
+
+  //uint32 seq
+  cRosMessageField* sequence_id = calloc(1, sizeof(cRosMessageField));
+  cRosMessageFieldInit(sequence_id);
+
+  sequence_id->name = "seq";
+  sequence_id->type = "uint32";
+  sequence_id->built_in = 1;
+  sequence_id->size = 4;
+
+  *fields_it = sequence_id;
+  fields_it++;
+
+  // time stamp
+  // Two-integer timestamp that is expressed as:
+  // * stamp.secs: seconds (stamp_secs) since epoch
+  // * stamp.nsecs: nanoseconds since stamp_secs
+  cRosMessageField* time_stamp = calloc(1, sizeof(cRosMessageField));
+  cRosMessageFieldInit(time_stamp);
+  time_stamp->type = "time";
+  time_stamp->built_in = 1;
+  build_time_field(time_stamp);
+
+  *fields_it = time_stamp;
+  fields_it++;
+
+  //string frame_id
+  cRosMessageField* frame_id = calloc(1, sizeof(cRosMessageField));
+  cRosMessageFieldInit(frame_id);
+  frame_id->built_in = 1;
+  frame_id->name = "frame_id";
+  frame_id->type = "string";
+
+  *fields_it = frame_id;
+
+  field->data = header;
+}
+
+void cRosMessageBuild(cRosMessage* message, const char* message_path)
+{
+  DynString output;
+  dynStringInit(&output);
+
+  cRosMessageDef* msg_def = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+  initCrosMsg(msg_def);
+  char* message_path_cpy = calloc(strlen(message_path) + 1, sizeof(char));
+  strcpy(message_path_cpy,message_path);
+  loadFromFileMsg(message_path_cpy,msg_def);
+  unsigned char* res = getMD5Msg(msg_def);
+  cRosMD5Readable(res, &output);
+  strcpy(message->md5sum,output.data);
+  dynStringRelease(&output);
+
+  msgFieldDef* field_def_itr =  msg_def->first_field;
+  while(field_def_itr->next != NULL)
+  {
+    message->n_fields++;
+    field_def_itr = field_def_itr->next;
+  }
+
+  message->fields = (cRosMessageField**) calloc(message->n_fields, sizeof(cRosMessageField*));
+
+  field_def_itr =  msg_def->first_field;
+  cRosMessageField** msg_field_itr = message->fields;
+
+  while(field_def_itr->next != NULL)
+  {
+    *msg_field_itr = (cRosMessageField*) malloc(sizeof(cRosMessageField));
+    cRosMessageField* field = *msg_field_itr;
+    cRosMessageFieldInit(field);
+
+    // TODO: add header flag
+    field->built_in = is_builtin_type(field_def_itr->type);// || is_header_type(field_def_itr->type);
+    field->name = (char*) calloc(strlen(field_def_itr->name)+1,sizeof(char));
+    strcpy(field->name, field_def_itr->name);
+    field->type = (char*) calloc(strlen(field_def_itr->type)+1,sizeof(char));
+    strcpy(field->type, field_def_itr->type);
+
+    if(field->built_in)
+    {
+      if(strcmp(field->type, "int8")==0 || strcmp(field->type, "uint8")==0 )
+        field->size = sizeof(int8_t);
+      else if(strcmp(field->type, "int16")==0 || strcmp(field->type, "uint16")==0 )
+        field->size = sizeof(int16_t);
+      else if(strcmp(field->type, "int32")==0 || strcmp(field->type, "uint32")==0 )
+        field->size = sizeof(int32_t);
+      else if(strcmp(field->type, "int64")==0 || strcmp(field->type, "uint64")==0 )
+        field->size = sizeof(int64_t);
+      else if(strcmp(field->type, "float32")==0)
+        field->size = sizeof(float);
+      else if(strcmp(field->type, "float64")==0)
+        field->size = sizeof(double);
+      else if(strcmp(field->type, "bool")==0)
+        field->size = sizeof(unsigned char);
+      else if(strcmp(field->type, "time")==0)
+        field->size = 1; //TODO: missing
+      else if(strcmp(field->type, "duration")==0)
+        field->size = 1; //TODO: missing
+      else if(strcmp(field->type, "string")==0)
+        field->size = 1; //TODO: missing
+    }
+    else if(is_header_type(field->type))
+    {
+      build_header_field(field);
+    }
+    else if(strcmp(field->type,"time") == 0)
+    {
+      build_time_field(field);
+    }
+    else
+    {
+      field->data = malloc(sizeof(cRosMessage));
+      cRosMessageInit((cRosMessage*)field->data);
+      char* path = calloc(strlen(msg_def->root_dir) +
+                          strlen("/") +
+                          strlen(field_def_itr->type) +
+                          strlen(".msg") + 1, // '\0'
+                          sizeof(char));
+      strcat(path, msg_def->root_dir);
+      strcat(path, "/");
+      strcat(path, field_def_itr->type);
+      strcat(path, ".msg");
+      cRosMessageBuild((cRosMessage*) field->data, path);
+    }
+
+    if(field_def_itr->is_array)
+    {
+      field->is_array = field_def_itr->is_array;
+      field->vector_max_size = field_def_itr->array_size;
+    }
+
+    msg_field_itr++;
+    field_def_itr = field_def_itr->next;
+  }
+
+}
+
+void cRosMessageFree(cRosMessage *message)
+{
+    free(message->fields);
+    message->fields = NULL;
+    message->n_fields = 0;
+    free(message->msgDef);
+    message->msgDef = NULL;
+}
+
+/*
+void addFieldCrosMessage(cRosMessage *message, cRosMessageField *field, unsigned int type)
+{
+
+}
+*/
+
+cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field_name)
+{
+  cRosMessageField* matching_field = NULL;
+  cRosMessageField** fields_itr = message->fields;
+
+  while(fields_itr != NULL && matching_field == NULL)
+  {
+    cRosMessageField* curr_field = *fields_itr;
+    if(strcmp(curr_field->name, field_name) == 0)
+    {
+      matching_field = curr_field;
+    }
+    fields_itr++;
+  }
+
+  return matching_field;
+}
+
+int cRosMessageSetFieldValueBool(cRosMessageField* field, unsigned char value)
+{
+  if(strcmp(field->type, "bool") != 0)
+    return 0;
+
+  field->as_bool = value;
+
+  return 1;
+}
+
+int cRosMessageSetFieldValueInt(cRosMessageField* field, int value)
+{
+  if(strcmp(field->type, "int8") != 0 && strcmp(field->type, "uint8") != 0 &&
+     strcmp(field->type, "int16") != 0 && strcmp(field->type, "uint16") != 0 &&
+     strcmp(field->type, "int32") != 0 && strcmp(field->type, "uint32") != 0 &&
+     strcmp(field->type, "int64") != 0 && strcmp(field->type, "uint64") != 0 )
+    return 0;
+
+  field->as_int = value;
+
+  return 1;
+}
+
+int cRosMessageSetFieldValueDouble(cRosMessageField* field, double value)
+{
+  if(strcmp(field->type, "float32") != 0 && strcmp(field->type, "float64") != 0)
+    return 0;
+
+  field->as_double = value;
+
+  return 1;
+}
+
+int cRosMessageSetFieldValueString(cRosMessageField* field, const char* value)
+{
+  if(strcmp(field->type, "string") != 0)
+    return 0;
+
+  free(field->as_string);
+  field->as_string = calloc(strlen(value) + 1, sizeof(char));
+  strcpy(field->as_string,value);
+  return 1;
+}
+
+int cRosMessageSetFieldValueMsg(cRosMessageField* field, cRosMessage* value)
+{
+  if(field->built_in)
+    return 0;
+
+  field->data = value;
+
+  return 1;
+}
+
+int arrayFieldValuePushBack(cRosMessageField *field, void* data, int element_size)
+{
+
+  if(field->vector_size == field->vector_max_size)
+  {
+    return 0;
+  }
+
+  if(field->vector_capacity == field->vector_size)
+  {
+    void* new_location;
+    new_location = realloc(field->vector_data, 2 * field->vector_capacity * element_size);
+    if(new_location != NULL)
+    {
+      field->vector_data = new_location;
+      field->vector_capacity *= 2;
+    }
+    else
+    {
+      return 0;
+    }
+  }
+  unsigned char* vector = field->vector_data;
+  memcpy(vector + field->vector_size * element_size, data, element_size);
+  field->vector_size ++;
+  return 1;
+
+}
+
+int arrayFieldValueAt(cRosMessageField *field, int position, int element_size, void* data)
+{
+  memcpy( data, field->vector_data + position * element_size, element_size);
+  return 1;
+}
+
+int cRosMessageFieldArrayPushBackInt8(cRosMessageField *field, int8_t val)
+{
+  if(strcmp(field->type, "int8") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(int8_t));
+}
+
+int cRosMessageFieldArrayPushBackInt16(cRosMessageField *field, int16_t val)
+{
+  if(strcmp(field->type, "int16") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(int16_t));
+}
+
+int cRosMessageFieldArrayPushBackInt32(cRosMessageField *field, int32_t val)
+{
+  if(strcmp(field->type, "int32") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(int32_t));
+}
+
+int cRosMessageFieldArrayPushBackInt64(cRosMessageField *field, int64_t val)
+{
+  if(strcmp(field->type, "int64") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(int64_t));
+
+}
+
+int cRosMessageFieldArrayPushBackUint8(cRosMessageField *field, uint8_t val)
+{
+  if(strcmp(field->type, "uint8") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(uint8_t));
+
+}
+
+int cRosMessageFieldArrayPushBackUint16(cRosMessageField *field, uint16_t val)
+{
+  if(strcmp(field->type, "uint16") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(uint16_t));
+
+}
+
+int cRosMessageFieldArrayPushBackUint32(cRosMessageField *field, uint32_t val)
+{
+  if(strcmp(field->type, "uint32") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(uint32_t));
+}
+
+int cRosMessageFieldArrayPushBackUint64(cRosMessageField *field, uint64_t val)
+{
+  if(strcmp(field->type, "uint64") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(uint64_t));
+}
+
+int ccRosMessageFieldArrayPushBackSingle(cRosMessageField *field, float val)
+{
+  if(strcmp(field->type, "float32") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(float));
+}
+
+int cRosMessageFieldArrayPushBackDouble(cRosMessageField *field, double val)
+{
+  if(strcmp(field->type, "float64") != 0)
+    return 0;
+
+  return arrayFieldValuePushBack(field, &val, sizeof(double));
+}
+
+int cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position, int8_t* val)
+{
+  if(strcmp(field->type, "int8") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(int8_t), val);
+}
+
+int cRosMessageFieldArrayAtInt16(cRosMessageField *field, int position, int16_t* val)
+{
+  if(strcmp(field->type, "int16") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(int16_t), val);
+}
+
+int cRosMessageFieldArrayAtInt32(cRosMessageField *field, int position, int32_t* val)
+{
+  if(strcmp(field->type, "int32") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(int32_t), val);
+}
+
+int cRosMessageFieldArrayAtInt64(cRosMessageField *field, int position, int64_t* val)
+{
+  if(strcmp(field->type, "int64") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(int64_t), val);
+
+}
+
+int cRosMessageFieldArrayAtUint8(cRosMessageField *field, int position, uint8_t* val)
+{
+  if(strcmp(field->type, "uint8") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(uint8_t), val);
+
+}
+
+int cRosMessageFieldArrayAtUint16(cRosMessageField *field, int position, uint16_t* val)
+{
+  if(strcmp(field->type, "uint16") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(uint16_t), val);
+
+}
+
+int cRosMessageFieldArrayAtUint32(cRosMessageField *field, int position, uint32_t* val)
+{
+  if(strcmp(field->type, "uint32") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(uint32_t), val);
+}
+
+int cRosMessageFieldArrayAtUint64(cRosMessageField *field, int position, uint64_t* val)
+{
+  if(strcmp(field->type, "uint64") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(uint64_t), val);
+}
+
+int cRosMessageFieldArrayAtSingle(cRosMessageField *field, int position, float* val)
+{
+  if(strcmp(field->type, "float32") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(float), &val);
+}
+
+int cRosMessageFieldArrayAtDouble(cRosMessageField *field, int position, double* val)
+{
+  if(strcmp(field->type, "float64") != 0)
+    return 0;
+
+  return arrayFieldValueAt(field, position, sizeof(double), &val);
+}
+
+size_t cRosMessageFieldSize(cRosMessageField* field)
+{
+  size_t single_size = 0;
+
+  if(field->built_in)
+  {
+    if(strcmp(field->type, "string") == 0)
+    {
+      if(field->as_string != NULL)
+      {
+        single_size = strlen(field->as_string);
+      }
+    }
+    else
+    {
+      single_size = field->size;
+    }
+  }
+  else
+  {
+    single_size = cRosMessageSize((cRosMessage*)field->data);
+  }
+
+  size_t ret = 0;
+  if(field->is_array)
+  {
+    ret = single_size * field->is_array * field->vector_size;
+  }
+  else
+  {
+    ret = single_size;
+  }
+  return ret;
+}
+
+size_t cRosMessageSize(cRosMessage* message)
+{
+     size_t ret = 0;
+    cRosMessageField** fields_it = message->fields;
+    int i;
+    for( i = 0; i < message->n_fields; i++)
+    {
+      cRosMessageField* field = *fields_it;
+      ret += cRosMessageFieldSize(field);
+      fields_it++;
+    }
+
+    return ret + sizeof(uint32_t);
+}
+
+void serializeCrosMessage(cRosMessage *message, uint8_t **buffer, size_t *bufsize)
+{
+  /*
+    *bufsize = sizeCrosMessage(message);
+    *buffer = malloc(*bufsize);
+    if (*buffer == NULL)
+    {
+        *bufsize = -1;
+        return;
+    }
+
+    for (size_t it = 0; it < message->n_fields; it++)
+    {
+        cRosMessageField *field = message->fields[it];
+
+        switch (field->type)
+        {
+        case CROS_MSG_NESTED:
+            break;
+        default:
+            break;
+        }
+    }
+    */
+}
+
+void deserializeCrosMessage(cRosMessage *message, uint8_t *buffer)
+{
+  /*
+    for (size_t it = 0; it < message->n_fields; it++)
+    {
+        cRosMessageField *field = message->fields[it];
+
+        switch (field->type)
+        {
+        case CROS_MSG_NESTED:
+            break;
+        default:
+            break;
+        }
+    }
+    */
 }
 
 static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flags )
@@ -280,104 +1576,6 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
   return TCPROS_PARSER_DONE;
 }
 
-static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flags )
-{
-  PRINT_VDEBUG("readServiceCallHeader()\n");
-  DynBuffer *packet = &(p->packet);
-  size_t bytes_to_read = dynBufferGetSize( packet );
-
-  *flags = 0x0;
-
-  PRINT_DEBUG("readServiceCallHeader() : Header len=%d\n",bytes_to_read);
-
-  while ( bytes_to_read > 0)
-  {
-    uint32_t field_len = getLen( packet );
-
-    PRINT_DEBUG("readServiceCallHeader() : Field len=%d\n",field_len);
-
-    const char *field = (const char *)dynBufferGetCurrentData( packet );
-
-    if( field_len )
-    {
-      if ( field_len > (uint32_t)TCPROS_CALLERID_TAG.dim &&
-          strncmp ( field, TCPROS_CALLERID_TAG.str, TCPROS_CALLERID_TAG.dim ) == 0 )
-      {
-        field += TCPROS_CALLERID_TAG.dim;
-
-        dynStringPushBackStrN( &(p->caller_id), field,
-                               field_len - TCPROS_CALLERID_TAG.dim );
-        *flags |= TCPROS_CALLER_ID_FLAG;
-        dynBufferMovePoseIndicator( packet, field_len );
-      }
-      else if ( field_len > (uint32_t)TCPROS_TYPE_TAG.dim &&
-          strncmp ( field, TCPROS_TYPE_TAG.str, TCPROS_TYPE_TAG.dim ) == 0 )
-      {
-        field += TCPROS_TYPE_TAG.dim;
-
-        dynStringPushBackStrN( &(p->type), field,
-                               field_len - TCPROS_TYPE_TAG.dim );
-        *flags |= TCPROS_TYPE_FLAG;
-        dynBufferMovePoseIndicator( packet, field_len );
-      }
-      else if ( field_len > (uint32_t)TCPROS_MD5SUM_TAG.dim &&
-          strncmp ( field, TCPROS_MD5SUM_TAG.str, TCPROS_MD5SUM_TAG.dim ) == 0 )
-      {
-        field += TCPROS_MD5SUM_TAG.dim;
-
-        dynStringPushBackStrN( &(p->md5sum), field,
-                               field_len - TCPROS_MD5SUM_TAG.dim );
-        *flags |= TCPROS_MD5SUM_FLAG;
-        dynBufferMovePoseIndicator( packet, field_len );
-      }
-      else if ( field_len > (uint32_t)TCPROS_SERVICE_TAG.dim &&
-          strncmp ( field, TCPROS_SERVICE_TAG.str, TCPROS_SERVICE_TAG.dim ) == 0 )
-      {
-        field += TCPROS_SERVICE_TAG.dim;
-
-        dynStringPushBackStrN( &(p->service), field,
-                               field_len - TCPROS_SERVICE_TAG.dim );
-        *flags |= TCPROS_SERVICE_FLAG;
-        dynBufferMovePoseIndicator( packet, field_len );
-      }
-      else if ( field_len > (uint32_t)TCPROS_PERSISTENT_TAG.dim &&
-          strncmp ( field, TCPROS_PERSISTENT_TAG.str, TCPROS_PERSISTENT_TAG.dim ) == 0 )
-      {
-        PRINT_INFO("readPublicationHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
-        field += TCPROS_PERSISTENT_TAG.dim;
-        p->persistent = (*field == '1')?1:0;
-        *flags |= TCPROS_PERSISTENT_FLAG;
-        dynBufferMovePoseIndicator( packet, field_len );
-      }
-      else if ( field_len > (uint32_t)TCPROS_PROBE_TAG.dim &&
-          strncmp ( field, TCPROS_PROBE_TAG.str, TCPROS_PROBE_TAG.dim ) == 0 )
-      {
-        //PRINT_INFO("readServiceCallHeader() WARNING : TCPROS_PROBE_TAG implemented only\n");
-        field += TCPROS_PROBE_TAG.dim;
-        p->probe = (*field == '1')?1:0;
-        *flags |= TCPROS_PROBE_FLAG;
-        dynBufferMovePoseIndicator( packet, field_len );
-      }
-      else if ( field_len > (uint32_t)TCPROS_ERROR_TAG.dim &&
-          strncmp ( field, TCPROS_ERROR_TAG.str, TCPROS_ERROR_TAG.dim ) == 0 )
-      {
-        PRINT_INFO("readServiceCallHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
-        *flags |= TCPROS_ERROR_FLAG;
-        dynBufferMovePoseIndicator( packet, field_len );
-      }
-      else
-      {
-        PRINT_ERROR("readServiceCallHeader() : unknown field\n");
-        *flags = 0x0;
-        break;
-      }
-    }
-    bytes_to_read -= ( sizeof(uint32_t) + field_len );
-  }
-
-  return TCPROS_PARSER_DONE;
-}
-
 TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx )
 {
   PRINT_VDEBUG("cRosMessageParseSubcriptionHeader()\n");
@@ -486,78 +1684,6 @@ TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx
   return ret;
 }
 
-TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_idx)
-{
-  PRINT_VDEBUG("cRosMessageParseServiceCallerHeader()\n");
-
-  TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
-  DynBuffer *packet = &(server_proc->packet);
-
-  /* Save position indicator: it will be restored */
-  int initial_pos_idx = dynBufferGetPoseIndicatorOffset ( packet );
-  dynBufferRewindPoseIndicator ( packet );
-
-  uint32_t header_flags;
-  TcprosParserState ret = readServiceCallHeader( server_proc, &header_flags );
-  if( ret != TCPROS_PARSER_DONE )
-    return ret;
-
-  int service_found = 0;
-
-  if( header_flags == ( header_flags & TCPROS_SERVICECALL_HEADER_FLAGS) )
-  {
-    int i = 0;
-    for( i = 0 ; i < n->n_services; i++)
-    {
-      ServiceProviderNode *service = &n->services[i];
-      if (service->service_name == NULL)
-        continue;
-
-      if( strcmp(service->service_name, dynStringGetData(&(server_proc->service))) == 0 &&
-          strcmp(service->md5sum, dynStringGetData(&(server_proc->md5sum))) == 0)
-      {
-        service_found = 1;
-        server_proc->service_idx = i;
-        break;
-      }
-    }
-  }
-  else if( header_flags == ( header_flags & TCPROS_SERVICEPROBE_HEADER_FLAGS) )
-  {
-    int i = 0;
-    for( i = 0 ; i < n->n_services; i++)
-    {
-      ServiceProviderNode *service = &n->services[i];
-      if (service->service_name == NULL)
-        continue;
-
-      if (strcmp(service->service_name, dynStringGetData(&(server_proc->service))) == 0)
-      {
-        service_found = 1;
-        server_proc->service_idx = i;
-        break;
-      }
-    }
-	}
-  else
-	{
-		PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Missing fields\n");
-		ret = TCPROS_PARSER_ERROR;
-	}
-
-  if( ! service_found )
-  {
-    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Wrong service, type or md5sum\n");
-    server_proc->service_idx = -1;
-    ret = TCPROS_PARSER_ERROR;
-  }
-
-  /* Restore position indicator */
-  dynBufferSetPoseIndicator ( packet, initial_pos_idx );
-
-  return ret;
-}
-
 void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx )
 {
   PRINT_VDEBUG("cRosMessagePrepareSubcriptionHeader()\n");
@@ -626,59 +1752,4 @@ void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
 
   uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
   memcpy(packet->data, &size, sizeof(uint32_t));
-}
-
-void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
-{
-  PRINT_VDEBUG("cRosMessagePreparePublicationHeader()\n");
-
-  TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
-  int srv_idx = server_proc->service_idx;
-  DynBuffer *packet = &(server_proc->packet);
-  uint32_t header_len = 0, header_out_len = 0;
-  dynBufferPushBackUint32( packet, header_out_len );
-
-  // http://wiki.ros.org/ROS/TCPROS doesn't mention to send message_definition and topic_name
-  // but they are sent anyway in ros groovy
-  header_len += pushBackField( packet, &TCPROS_CALLERID_TAG, n->name );
-  header_len += pushBackField( packet, &TCPROS_MD5SUM_TAG, n->services[srv_idx].md5sum );
-
-  //if(server_proc->probe)
-  //{
-		header_len += pushBackField( packet, &TCPROS_SERVICE_REQUESTTYPE_TAG, n->services[srv_idx].servicerequest_type );
-		header_len += pushBackField( packet, &TCPROS_SERVICE_RESPONSETYPE_TAG, n->services[srv_idx].serviceresponse_type );
-		header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->services[srv_idx].service_type );
-  //}
-
-  HOST_TO_ROS_UINT32( header_len, header_out_len );
-  uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
-  *header_len_p = header_out_len;
-}
-
-void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx)
-{
-  PRINT_VDEBUG("cRosMessageParseServiceArgumentsPacket()\n");
-  TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
-  DynBuffer *packet = &(server_proc->packet);
-  int srv_idx = server_proc->service_idx;
-  void* service_context = n->services[srv_idx].context;
-  DynBuffer service_response;
-  dynBufferInit(&service_response);
-
-  CallbackResponse callback_response = n->services[srv_idx].callback(packet, &service_response, service_context);
-
-  //clear packet buffer
-  dynBufferClear(packet);
-
-  //OK field (byte size)
-  unsigned char ok = 1;
-  dynBufferPushBackBuf( packet, &ok, 1 );
-
-  //Size data field
-  dynBufferPushBackUint32( packet, service_response.size);
-
-  //Response data
-  dynBufferPushBackBuf( packet, service_response.data, service_response.size);
-
-  dynBufferRelease(&service_response);
 }

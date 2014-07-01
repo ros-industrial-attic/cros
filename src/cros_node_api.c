@@ -5,6 +5,7 @@
 #include "cros_defs.h"
 #include "cros_node_api.h"
 #include "cros_node_internal.h"
+#include "cros_message.h"
 #include "xmlrpc_process.h"
 
 static LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response);
@@ -45,8 +46,8 @@ typedef enum NodeType
 typedef struct NodeContext
 {
   NodeType type;
-  CrosMessage incoming;
-  CrosMessage outgoing;
+  cRosMessage incoming;
+  cRosMessage outgoing;
   void *api_callback;
   NodeStatusCallback status_callback;
   void *context;
@@ -70,7 +71,7 @@ static void freeProviderContext(NodeContext *context)
   free(context);
 }
 
-static void deserializeRosMessage(CrosMessage *message, DynBuffer *buffer)
+static void deserializeRosMessage(cRosMessage *message, DynBuffer *buffer)
 {
   // TODO
 }
