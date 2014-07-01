@@ -227,7 +227,8 @@ int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                     currentDep->msg->package = pack;
                 }
 
-                currentDep->msg->fields = (msgFieldDef*) malloc(sizeof(msgFieldDef));
+                currentDep->msg->fields = (msgFieldDef*) calloc(1, sizeof(msgFieldDef));
+                initFieldDef(currentDep->msg->fields);
                 currentDep->msg->first_field = currentDep->msg->fields;
                 currentDep->msg->constants = (msgConst*) malloc(sizeof(msgConst));
                 currentDep->msg->first_const = currentDep->msg->constants;
@@ -321,7 +322,8 @@ void initCrosMsg(cRosMessageDef* msg)
     msg->constants->prev = NULL;
     msg->constants->next = NULL;
     msg->first_const = msg->constants;
-    msg->fields = (msgFieldDef*) malloc(sizeof(msgFieldDef));
+    msg->fields = (msgFieldDef*) calloc(1, sizeof(msgFieldDef));
+    initFieldDef(msg->fields);
     msg->fields->type = NULL;
     msg->fields->name = NULL;
     msg->fields->prev = NULL;
@@ -338,6 +340,16 @@ void initCrosDep(msgDep* dep)
     dep->msg = NULL;
     dep->prev = NULL;
     dep->next = NULL;
+}
+
+void initFieldDef(msgFieldDef* field)
+{
+  field->array_size = 0;
+  field->is_array = 0;
+  field->name = NULL;
+  field->type = NULL;
+  field->next = NULL;
+  field->prev = NULL;
 }
 
 static uint32_t getLen( DynBuffer *pkt )
@@ -436,10 +448,26 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
 
         if(is_builtin_type(type))
         {
+          if(fields_it->is_array)
+          {
             dynStringPushBackStr(&buffer,fields_it->type);
-            dynStringPushBackStr(&buffer," ");
-            dynStringPushBackStr(&buffer,fields_it->name);
-            dynStringPushBackStr(&buffer,"\n");
+            dynStringPushBackStr(&buffer,"[");
+            if(fields_it->array_size)
+            {
+              char num[15];
+              sprintf(num, "%d",fields_it->array_size);
+              dynStringPushBackStr(&buffer,num);
+            }
+            dynStringPushBackStr(&buffer,"]");
+          }
+          else
+          {
+            dynStringPushBackStr(&buffer,fields_it->type);
+          }
+
+          dynStringPushBackStr(&buffer," ");
+          dynStringPushBackStr(&buffer,fields_it->name);
+          dynStringPushBackStr(&buffer,"\n");
         }
         else if(is_header_type(type))
         {
@@ -733,6 +761,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
                 }
 
                 current->next = (msgFieldDef*)malloc(sizeof(msgFieldDef));
+                initFieldDef(current->next);
                 msgFieldDef* next = current->next;
                 next->name = NULL;
                 next->type = NULL;
@@ -996,13 +1025,6 @@ void cRosMessageFree(cRosMessage *message)
     free(message->msgDef);
     message->msgDef = NULL;
 }
-
-/*
-void addFieldCrosMessage(cRosMessage *message, cRosMessageField *field, unsigned int type)
-{
-
-}
-*/
 
 cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field_name)
 {
@@ -1314,7 +1336,7 @@ size_t cRosMessageFieldSize(cRosMessageField* field)
 
 size_t cRosMessageSize(cRosMessage* message)
 {
-     size_t ret = 0;
+    size_t ret = 0;
     cRosMessageField** fields_it = message->fields;
     int i;
     for( i = 0; i < message->n_fields; i++)
@@ -1324,10 +1346,10 @@ size_t cRosMessageSize(cRosMessage* message)
       fields_it++;
     }
 
-    return ret + sizeof(uint32_t);
+    return ret;// + sizeof(uint32_t);
 }
 
-void serializeCrosMessage(cRosMessage *message, uint8_t **buffer, size_t *bufsize)
+void cRosMessageSerialize(cRosMessage *message, uint8_t **buffer, size_t *bufsize)
 {
   /*
     *bufsize = sizeCrosMessage(message);
@@ -1353,7 +1375,7 @@ void serializeCrosMessage(cRosMessage *message, uint8_t **buffer, size_t *bufsiz
     */
 }
 
-void deserializeCrosMessage(cRosMessage *message, uint8_t *buffer)
+void cRosMessageDeserialize(cRosMessage *message, uint8_t *buffer)
 {
   /*
     for (size_t it = 0; it < message->n_fields; it++)

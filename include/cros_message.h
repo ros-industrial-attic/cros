@@ -157,6 +157,8 @@ void initCrosMsg(cRosMessageDef* msg);
 
 void initCrosDep(msgDep* dep);
 
+void initFieldDef(msgFieldDef* field);
+
 int loadFromStringMsg(char* text, cRosMessageDef* msg);
 
 int loadFromFileMsg(char* filename, cRosMessageDef* msg);
@@ -166,8 +168,6 @@ void cRosMessageInit(cRosMessage *message);
 void cRosMessageBuild(cRosMessage* message, const char* message_path);
 
 void cRosMessageFree(cRosMessage *message);
-
-void addFieldCrosMessage(cRosMessage *message, char *field, unsigned int type);
 
 cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field);
 
@@ -223,9 +223,9 @@ int cRosMessageFieldArrayAtDouble(cRosMessageField *field, int position, double*
 
 size_t cRosMessageSize(cRosMessage *message);
 
-void serializeCrosMessage(cRosMessage *message, uint8_t **buffer, size_t *bufsize);
+void cRosMessageSerialize(cRosMessage *message, uint8_t **buffer, size_t *bufsize);
 
-void deserializeCrosMessage(cRosMessage *message, uint8_t *buffer);
+void cRosMessageDeserialize(cRosMessage *message, uint8_t *buffer);
 
 /*! \brief Parse a TCPROS header sent initially from a subscriber
  * 
