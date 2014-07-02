@@ -112,11 +112,12 @@ struct cRosMessageField
     char *name;
     unsigned char as_bool;
     int as_int;
+    int64_t as_int64;
     double as_double;
     char* as_string;
     void *data;
     size_t size;
-    int built_in;
+    int is_builtin;
     int vector_max_size;
     int vector_size;
     int vector_capacity;
@@ -168,6 +169,8 @@ void cRosMessageInit(cRosMessage *message);
 void cRosMessageBuild(cRosMessage* message, const char* message_path);
 
 void cRosMessageFree(cRosMessage *message);
+
+void cRosMessageFieldInit(cRosMessageField *field);
 
 cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field);
 
@@ -223,9 +226,9 @@ int cRosMessageFieldArrayAtDouble(cRosMessageField *field, int position, double*
 
 size_t cRosMessageSize(cRosMessage *message);
 
-void cRosMessageSerialize(cRosMessage *message, uint8_t **buffer, size_t *bufsize);
+void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer);
 
-void cRosMessageDeserialize(cRosMessage *message, uint8_t *buffer);
+void cRosMessageDeserialize(cRosMessage *message, DynBuffer *buffer);
 
 /*! \brief Parse a TCPROS header sent initially from a subscriber
  * 

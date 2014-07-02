@@ -124,7 +124,7 @@ int is_array_type(char* type_statement, int* size)
     type_it++;
   }
 
-  if(count == 0)
+  if(count == 0 && start_count == 0)
     return 0;
 
   array_size = calloc(count + 1, sizeof(char));
@@ -611,7 +611,11 @@ void cRosMessageFieldInit(cRosMessageField *field)
   field->is_const = 0;
   field->name = NULL;
   field->type = NULL;
-  field->built_in = 0;
+  field->is_builtin = 0;
+  field->vector_capacity = 0;
+  field->vector_max_size = 0;
+  field->vector_size = 0;
+  field->vector_data = NULL;
 }
 
 int loadFromStringMsg(char* text, cRosMessageDef* msg)
@@ -780,8 +784,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
 
 int loadFromFileMsg(char* filename, cRosMessageDef* msg)
 {
-    char* file_tokenized = (char*) malloc(strlen(filename)+1);
-    file_tokenized[0] = '\0';
+    char* file_tokenized = (char*) calloc(strlen(filename)+1, sizeof(char));
     strcpy(file_tokenized, filename);
     char* token_pack;
     char* token_root = NULL;
@@ -850,7 +853,7 @@ void build_time_field(cRosMessageField* field)
   cRosMessageField* sec = calloc(1, sizeof(cRosMessageField));
   cRosMessageFieldInit(sec);
 
-  sec->built_in = 1;
+  sec->is_builtin = 1;
   sec->name = "sec";
   sec->type = "int32";
   sec->size = 4;
@@ -862,7 +865,7 @@ void build_time_field(cRosMessageField* field)
   cRosMessageField* nsec = calloc(1, sizeof(cRosMessageField));
   cRosMessageFieldInit(nsec);
 
-  nsec->built_in = 1;
+  nsec->is_builtin = 1;
   nsec->name = "nsec";
   nsec->type = "int32";
   nsec->size = 4;
@@ -887,7 +890,7 @@ void build_header_field(cRosMessageField* field)
 
   sequence_id->name = "seq";
   sequence_id->type = "uint32";
-  sequence_id->built_in = 1;
+  sequence_id->is_builtin = 1;
   sequence_id->size = 4;
 
   *fields_it = sequence_id;
@@ -900,7 +903,7 @@ void build_header_field(cRosMessageField* field)
   cRosMessageField* time_stamp = calloc(1, sizeof(cRosMessageField));
   cRosMessageFieldInit(time_stamp);
   time_stamp->type = "time";
-  time_stamp->built_in = 1;
+  time_stamp->is_builtin = 1;
   build_time_field(time_stamp);
 
   *fields_it = time_stamp;
@@ -909,7 +912,7 @@ void build_header_field(cRosMessageField* field)
   //string frame_id
   cRosMessageField* frame_id = calloc(1, sizeof(cRosMessageField));
   cRosMessageFieldInit(frame_id);
-  frame_id->built_in = 1;
+  frame_id->is_builtin = 1;
   frame_id->name = "frame_id";
   frame_id->type = "string";
 
@@ -928,6 +931,7 @@ void cRosMessageBuild(cRosMessage* message, const char* message_path)
   char* message_path_cpy = calloc(strlen(message_path) + 1, sizeof(char));
   strcpy(message_path_cpy,message_path);
   loadFromFileMsg(message_path_cpy,msg_def);
+  message->msgDef = msg_def;
   unsigned char* res = getMD5Msg(msg_def);
   cRosMD5Readable(res, &output);
   strcpy(message->md5sum,output.data);
@@ -952,13 +956,13 @@ void cRosMessageBuild(cRosMessage* message, const char* message_path)
     cRosMessageFieldInit(field);
 
     // TODO: add header flag
-    field->built_in = is_builtin_type(field_def_itr->type);// || is_header_type(field_def_itr->type);
+    field->is_builtin = is_builtin_type(field_def_itr->type);// || is_header_type(field_def_itr->type);
     field->name = (char*) calloc(strlen(field_def_itr->name)+1,sizeof(char));
     strcpy(field->name, field_def_itr->name);
     field->type = (char*) calloc(strlen(field_def_itr->type)+1,sizeof(char));
     strcpy(field->type, field_def_itr->type);
 
-    if(field->built_in)
+    if(field->is_builtin)
     {
       if(strcmp(field->type, "int8")==0 || strcmp(field->type, "uint8")==0 )
         field->size = sizeof(int8_t);
@@ -974,12 +978,10 @@ void cRosMessageBuild(cRosMessage* message, const char* message_path)
         field->size = sizeof(double);
       else if(strcmp(field->type, "bool")==0)
         field->size = sizeof(unsigned char);
-      else if(strcmp(field->type, "time")==0)
-        field->size = 1; //TODO: missing
       else if(strcmp(field->type, "duration")==0)
         field->size = 1; //TODO: missing
       else if(strcmp(field->type, "string")==0)
-        field->size = 1; //TODO: missing
+        field->size = 0;
     }
     else if(is_header_type(field->type))
     {
@@ -1009,6 +1011,8 @@ void cRosMessageBuild(cRosMessage* message, const char* message_path)
     {
       field->is_array = field_def_itr->is_array;
       field->vector_max_size = field_def_itr->array_size;
+      field->vector_capacity = 1;
+      field->vector_data = calloc(1,field->size);
     }
 
     msg_field_itr++;
@@ -1090,7 +1094,7 @@ int cRosMessageSetFieldValueString(cRosMessageField* field, const char* value)
 
 int cRosMessageSetFieldValueMsg(cRosMessageField* field, cRosMessage* value)
 {
-  if(field->built_in)
+  if(field->is_builtin)
     return 0;
 
   field->data = value;
@@ -1181,7 +1185,6 @@ int cRosMessageFieldArrayPushBackUint16(cRosMessageField *field, uint16_t val)
     return 0;
 
   return arrayFieldValuePushBack(field, &val, sizeof(uint16_t));
-
 }
 
 int cRosMessageFieldArrayPushBackUint32(cRosMessageField *field, uint32_t val)
@@ -1303,7 +1306,7 @@ size_t cRosMessageFieldSize(cRosMessageField* field)
 {
   size_t single_size = 0;
 
-  if(field->built_in)
+  if(field->is_builtin)
   {
     if(strcmp(field->type, "string") == 0)
     {
@@ -1349,48 +1352,161 @@ size_t cRosMessageSize(cRosMessage* message)
     return ret;// + sizeof(uint32_t);
 }
 
-void cRosMessageSerialize(cRosMessage *message, uint8_t **buffer, size_t *bufsize)
+void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
 {
-  /*
-    *bufsize = sizeCrosMessage(message);
-    *buffer = malloc(*bufsize);
-    if (*buffer == NULL)
-    {
-        *bufsize = -1;
-        return;
-    }
+  dynBufferPushBackInt32(buffer, cRosMessageSize(message));
+  size_t it;
+  for (it = 0; it < message->n_fields; it++)
+  {
+      cRosMessageField *field = message->fields[it];
+      dynBufferPushBackInt32(buffer,field->size);
 
-    for (size_t it = 0; it < message->n_fields; it++)
-    {
-        cRosMessageField *field = message->fields[it];
+      if(field->is_array)
+      {
 
-        switch (field->type)
-        {
-        case CROS_MSG_NESTED:
-            break;
-        default:
-            break;
-        }
-    }
-    */
+      }
+      else if(field->is_builtin)
+      {
+        if(strcmp(field->type, "int8")==0 || strcmp(field->type, "uint8")==0 )
+          dynBufferPushBackInt8(buffer,field->as_int);
+        else if(strcmp(field->type, "int16")==0 || strcmp(field->type, "uint16")==0 )
+          dynBufferPushBackInt16(buffer,field->as_int);
+        else if(strcmp(field->type, "int32")==0 || strcmp(field->type, "uint32")==0 )
+          dynBufferPushBackInt32(buffer,field->as_int);
+        else if(strcmp(field->type, "int64")==0 || strcmp(field->type, "uint64")==0 )
+          dynBufferPushBackInt64(buffer,field->as_int64);
+        else if(strcmp(field->type, "float32")==0)
+          dynBufferPushBackSingle(buffer,field->as_double);
+        else if(strcmp(field->type, "float64")==0)
+          dynBufferPushBackDouble(buffer,field->as_double);
+        else if(strcmp(field->type, "bool")==0)
+          dynBufferPushBackInt8(buffer,field->as_bool);
+        else if(strcmp(field->type, "string")==0)
+          dynBufferPushBackBuf(buffer,(unsigned char*)field->as_string,field->size);
+        //else if(strcmp(field->type, "duration")==0)
+           //TODO: missing
+      }
+  }
 }
 
-void cRosMessageDeserialize(cRosMessage *message, uint8_t *buffer)
+void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
 {
-  /*
-    for (size_t it = 0; it < message->n_fields; it++)
-    {
-        cRosMessageField *field = message->fields[it];
+  unsigned const char* data_buffer = dynBufferGetData(buffer);
 
-        switch (field->type)
+  size_t it;
+
+  for (it = 0; it < message->n_fields; it++)
+  {
+    cRosMessageField *field = message->fields[it];
+
+    if(field->is_builtin)
+    {
+      if(strcmp(field->type, "int8")==0)
+      {
+        if(field->is_array)
         {
-        case CROS_MSG_NESTED:
-            break;
-        default:
-            break;
+          size_t curr_data_size = field->vector_max_size;
+
+          if(curr_data_size != 0)
+          {
+
+          }
+          else
+          {
+            size_t field_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+            int i;
+            for(i = 0; i < field_size; i++)
+            {
+              cRosMessageFieldArrayPushBackInt8(field,*((int8_t*)data_buffer));
+              data_buffer++;
+            }
+          }
         }
+        else
+        {
+          field->as_int = *((int8_t*)data_buffer);
+          data_buffer++;
+        }
+      }
+      else if(strcmp(field->type, "uint8")==0 || strcmp(field->type, "bool")==0)
+      {
+        field->as_int = *((uint8_t*)data_buffer);
+        data_buffer++;
+      }
+      else if(strcmp(field->type, "int16")==0)
+      {
+        field->as_int = *((int16_t*)data_buffer);
+        data_buffer+=2;
+      }
+      else if(strcmp(field->type, "uint16")==0 )
+      {
+        field->as_int = *((uint16_t*)data_buffer);
+        data_buffer+=2;
+      }
+      else if(strcmp(field->type, "int32")==0)
+      {
+        field->as_int = *((int32_t*)data_buffer);
+        data_buffer+=4;
+      }
+      else if(strcmp(field->type, "uint32")==0 )
+      {
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->vector_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackUint32(field,*((uint32_t*)data_buffer));
+            data_buffer+=4;
+          }
+
+        }
+        else
+        {
+          field->as_int = *((uint32_t*)data_buffer);
+          data_buffer+=4;
+        }
+      }
+      else if(strcmp(field->type, "int64")==0)
+      {
+        field->as_int64 = *((int64_t*)data_buffer);
+        data_buffer+=8;
+      }
+      else if(strcmp(field->type, "uint64")==0 )
+      {
+        field->as_int64 = *((uint64_t*)data_buffer);
+        data_buffer+=8;
+      }
+      else if(strcmp(field->type, "float32")==0)
+      {
+        field->as_double = *((float*)data_buffer);
+        data_buffer+=4;
+      }
+      else if(strcmp(field->type, "float64")==0)
+      {
+        field->as_double = *((double*)data_buffer);
+        data_buffer+=8;
+      }
+      else if(strcmp(field->type, "string")==0)
+      {
+        size_t curr_data_size = *((uint32_t*)data_buffer);
+        data_buffer += 4;
+        field->as_string = (char*) calloc(curr_data_size + 1,sizeof(char));
+        memcpy(field->as_string,data_buffer,curr_data_size);
+        data_buffer += curr_data_size;
+      }
+      //else if(strcmp(field->type, "duration")==0)
+         //TODO: missing
     }
-    */
+  }
 }
 
 static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flags )
