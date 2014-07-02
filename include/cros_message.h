@@ -113,14 +113,15 @@ struct cRosMessageField
     unsigned char as_bool;
     int as_int;
     int64_t as_int64;
+    float as_float;
     double as_double;
     char* as_string;
     void *data;
     size_t size;
     int is_builtin;
-    int vector_max_size;
-    int vector_size;
-    int vector_capacity;
+    int array_max_size;
+    int array_size;
+    int array_capacity;
     void* vector_data;
     unsigned char is_const;
     unsigned char is_array;

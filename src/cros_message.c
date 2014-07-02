@@ -612,9 +612,9 @@ void cRosMessageFieldInit(cRosMessageField *field)
   field->name = NULL;
   field->type = NULL;
   field->is_builtin = 0;
-  field->vector_capacity = 0;
-  field->vector_max_size = 0;
-  field->vector_size = 0;
+  field->array_capacity = 0;
+  field->array_max_size = 0;
+  field->array_size = 0;
   field->vector_data = NULL;
 }
 
@@ -1010,8 +1010,8 @@ void cRosMessageBuild(cRosMessage* message, const char* message_path)
     if(field_def_itr->is_array)
     {
       field->is_array = field_def_itr->is_array;
-      field->vector_max_size = field_def_itr->array_size;
-      field->vector_capacity = 1;
+      field->array_max_size = field_def_itr->array_size;
+      field->array_capacity = 1;
       field->vector_data = calloc(1,field->size);
     }
 
@@ -1105,19 +1105,19 @@ int cRosMessageSetFieldValueMsg(cRosMessageField* field, cRosMessage* value)
 int arrayFieldValuePushBack(cRosMessageField *field, void* data, int element_size)
 {
 
-  if(field->vector_size == field->vector_max_size)
+  if(field->array_size == field->array_max_size)
   {
     return 0;
   }
 
-  if(field->vector_capacity == field->vector_size)
+  if(field->array_capacity == field->array_size)
   {
     void* new_location;
-    new_location = realloc(field->vector_data, 2 * field->vector_capacity * element_size);
+    new_location = realloc(field->vector_data, 2 * field->array_capacity * element_size);
     if(new_location != NULL)
     {
       field->vector_data = new_location;
-      field->vector_capacity *= 2;
+      field->array_capacity *= 2;
     }
     else
     {
@@ -1125,8 +1125,8 @@ int arrayFieldValuePushBack(cRosMessageField *field, void* data, int element_siz
     }
   }
   unsigned char* vector = field->vector_data;
-  memcpy(vector + field->vector_size * element_size, data, element_size);
-  field->vector_size ++;
+  memcpy(vector + field->array_size * element_size, data, element_size);
+  field->array_size ++;
   return 1;
 
 }
@@ -1203,7 +1203,7 @@ int cRosMessageFieldArrayPushBackUint64(cRosMessageField *field, uint64_t val)
   return arrayFieldValuePushBack(field, &val, sizeof(uint64_t));
 }
 
-int ccRosMessageFieldArrayPushBackSingle(cRosMessageField *field, float val)
+int cRosMessageFieldArrayPushBackSingle(cRosMessageField *field, float val)
 {
   if(strcmp(field->type, "float32") != 0)
     return 0;
@@ -1328,7 +1328,7 @@ size_t cRosMessageFieldSize(cRosMessageField* field)
   size_t ret = 0;
   if(field->is_array)
   {
-    ret = single_size * field->is_array * field->vector_size;
+    ret = single_size * field->is_array * field->array_size;
   }
   else
   {
@@ -1405,7 +1405,7 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       {
         if(field->is_array)
         {
-          size_t curr_data_size = field->vector_max_size;
+          size_t curr_data_size = field->array_max_size;
 
           if(curr_data_size != 0)
           {
@@ -1431,29 +1431,119 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       }
       else if(strcmp(field->type, "uint8")==0 || strcmp(field->type, "bool")==0)
       {
-        field->as_int = *((uint8_t*)data_buffer);
-        data_buffer++;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackInt8(field,*((int8_t*)data_buffer));
+            data_buffer++;
+          }
+        }
+        else
+        {
+          if(strcmp(field->type, "uint8")==0)
+          {
+            field->as_int = *((int8_t*)data_buffer);
+          }
+          else
+          {
+            field->as_bool = *((int8_t*)data_buffer);
+          }
+          data_buffer++;
+        }
+
       }
       else if(strcmp(field->type, "int16")==0)
       {
-        field->as_int = *((int16_t*)data_buffer);
-        data_buffer+=2;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackInt16(field,*((int16_t*)data_buffer));
+            data_buffer+=2;
+          }
+
+        }
+        else
+        {
+          field->as_int = *((int16_t*)data_buffer);
+          data_buffer+=2;
+        }
       }
       else if(strcmp(field->type, "uint16")==0 )
       {
-        field->as_int = *((uint16_t*)data_buffer);
-        data_buffer+=2;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackUint16(field,*((uint16_t*)data_buffer));
+            data_buffer+=2;
+          }
+
+        }
+        else
+        {
+          field->as_int = *((uint16_t*)data_buffer);
+          data_buffer+=2;
+        }
       }
       else if(strcmp(field->type, "int32")==0)
       {
-        field->as_int = *((int32_t*)data_buffer);
-        data_buffer+=4;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackInt32(field,*((int32_t*)data_buffer));
+            data_buffer+=4;
+          }
+
+        }
+        else
+        {
+          field->as_int = *((int32_t*)data_buffer);
+          data_buffer+=4;
+        }
       }
       else if(strcmp(field->type, "uint32")==0 )
       {
         if(field->is_array)
         {
-          size_t curr_data_size = field->vector_max_size;
+          size_t curr_data_size = field->array_max_size;
 
           if(curr_data_size == 0)
           {
@@ -1477,23 +1567,105 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       }
       else if(strcmp(field->type, "int64")==0)
       {
-        field->as_int64 = *((int64_t*)data_buffer);
-        data_buffer+=8;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackInt64(field,*((int64_t*)data_buffer));
+            data_buffer+=8;
+          }
+
+        }
+        else
+        {
+          field->as_int64 = *((int64_t*)data_buffer);
+          data_buffer+=8;
+        }
       }
       else if(strcmp(field->type, "uint64")==0 )
       {
-        field->as_int64 = *((uint64_t*)data_buffer);
-        data_buffer+=8;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackUint64(field,*((uint64_t*)data_buffer));
+            data_buffer+=8;
+          }
+        }
+        else
+        {
+          field->as_int64 = *((uint64_t*)data_buffer);
+          data_buffer+=8;
+        }
       }
       else if(strcmp(field->type, "float32")==0)
       {
-        field->as_double = *((float*)data_buffer);
-        data_buffer+=4;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((float*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackSingle(field,*((float*)data_buffer));
+            data_buffer+=4;
+          }
+
+        }
+        else
+        {
+          field->as_float = *((float*)data_buffer);
+          data_buffer+=4;
+        }
       }
       else if(strcmp(field->type, "float64")==0)
       {
-        field->as_double = *((double*)data_buffer);
-        data_buffer+=8;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((float*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            cRosMessageFieldArrayPushBackDouble(field,*((double*)data_buffer));
+            data_buffer+=8;
+          }
+        }
+        else
+        {
+          field->as_float = *((float*)data_buffer);
+          data_buffer+=8;
+        }
       }
       else if(strcmp(field->type, "string")==0)
       {
