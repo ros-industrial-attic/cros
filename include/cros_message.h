@@ -122,7 +122,7 @@ struct cRosMessageField
     int array_max_size;
     int array_size;
     int array_capacity;
-    void* vector_data;
+    void* array_data;
     unsigned char is_const;
     unsigned char is_array;
     char *type;

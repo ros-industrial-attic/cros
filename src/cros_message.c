@@ -615,7 +615,7 @@ void cRosMessageFieldInit(cRosMessageField *field)
   field->array_capacity = 0;
   field->array_max_size = 0;
   field->array_size = 0;
-  field->vector_data = NULL;
+  field->array_data = NULL;
 }
 
 int loadFromStringMsg(char* text, cRosMessageDef* msg)
@@ -1012,7 +1012,7 @@ void cRosMessageBuild(cRosMessage* message, const char* message_path)
       field->is_array = field_def_itr->is_array;
       field->array_max_size = field_def_itr->array_size;
       field->array_capacity = 1;
-      field->vector_data = calloc(1,field->size);
+      field->array_data = calloc(1,field->size);
     }
 
     msg_field_itr++;
@@ -1104,7 +1104,6 @@ int cRosMessageSetFieldValueMsg(cRosMessageField* field, cRosMessage* value)
 
 int arrayFieldValuePushBack(cRosMessageField *field, void* data, int element_size)
 {
-
   if(field->array_size == field->array_max_size)
   {
     return 0;
@@ -1113,10 +1112,10 @@ int arrayFieldValuePushBack(cRosMessageField *field, void* data, int element_siz
   if(field->array_capacity == field->array_size)
   {
     void* new_location;
-    new_location = realloc(field->vector_data, 2 * field->array_capacity * element_size);
+    new_location = realloc(field->array_data, 2 * field->array_capacity * element_size);
     if(new_location != NULL)
     {
-      field->vector_data = new_location;
+      field->array_data = new_location;
       field->array_capacity *= 2;
     }
     else
@@ -1124,16 +1123,15 @@ int arrayFieldValuePushBack(cRosMessageField *field, void* data, int element_siz
       return 0;
     }
   }
-  unsigned char* vector = field->vector_data;
+  unsigned char* vector = field->array_data;
   memcpy(vector + field->array_size * element_size, data, element_size);
   field->array_size ++;
   return 1;
-
 }
 
 int arrayFieldValueAt(cRosMessageField *field, int position, int element_size, void* data)
 {
-  memcpy( data, field->vector_data + position * element_size, element_size);
+  memcpy( data, field->array_data + position * element_size, element_size);
   return 1;
 }
 
@@ -1219,6 +1217,38 @@ int cRosMessageFieldArrayPushBackDouble(cRosMessageField *field, double val)
   return arrayFieldValuePushBack(field, &val, sizeof(double));
 }
 
+int cRosMessageFieldArrayPushBackString(cRosMessageField *field, char* val)
+{
+  if(strcmp(field->type, "string") != 0)
+    return 0;
+
+  if(field->array_size == field->array_max_size)
+  {
+    return 0;
+  }
+
+  if(field->array_capacity == field->array_size)
+  {
+    void* new_location;
+    new_location = realloc(field->array_data, 2 * field->array_capacity * sizeof(char*));
+    if(new_location != NULL)
+    {
+      field->array_data = new_location;
+      field->array_capacity *= 2;
+    }
+    else
+    {
+      return 0;
+    }
+  }
+  unsigned char* vector = field->array_data;
+  char* string_val = (char*) calloc(strlen(val) + 1, sizeof(char));
+  strcpy(string_val, val);
+  memcpy(vector + field->array_size * sizeof(char*), string_val, sizeof(char*));
+  field->array_size ++;
+  return 1;
+}
+
 int cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position, int8_t* val)
 {
   if(strcmp(field->type, "int8") != 0)
@@ -1302,6 +1332,25 @@ int cRosMessageFieldArrayAtDouble(cRosMessageField *field, int position, double*
   return arrayFieldValueAt(field, position, sizeof(double), &val);
 }
 
+int cRosMessageFieldArrayAtString(cRosMessageField *field, int position, char** val_ptr)
+{
+  if(strcmp(field->type, "string") != 0)
+    return 0;
+
+  int i;
+  char* data_it = field->array_data;
+
+  for(i = 0; i < position; i++)
+  {
+    while(*(data_it++) == '\0');
+  }
+
+  *val_ptr = (char*)calloc(strlen(data_it) + 1, sizeof(char));
+  strcpy(*val_ptr,data_it);
+
+  return 1;
+}
+
 size_t cRosMessageFieldSize(cRosMessageField* field)
 {
   size_t single_size = 0;
@@ -1356,35 +1405,132 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
 {
   dynBufferPushBackInt32(buffer, cRosMessageSize(message));
   size_t it;
+
   for (it = 0; it < message->n_fields; it++)
   {
       cRosMessageField *field = message->fields[it];
       dynBufferPushBackInt32(buffer,field->size);
 
-      if(field->is_array)
+      if(field->is_builtin)
       {
+        if(field->is_array)
+        {
+          if(field->array_max_size == 0)
+          {
+            dynBufferPushBackInt32(buffer,field->array_size);
+          }
 
-      }
-      else if(field->is_builtin)
-      {
-        if(strcmp(field->type, "int8")==0 || strcmp(field->type, "uint8")==0 )
-          dynBufferPushBackInt8(buffer,field->as_int);
-        else if(strcmp(field->type, "int16")==0 || strcmp(field->type, "uint16")==0 )
-          dynBufferPushBackInt16(buffer,field->as_int);
-        else if(strcmp(field->type, "int32")==0 || strcmp(field->type, "uint32")==0 )
-          dynBufferPushBackInt32(buffer,field->as_int);
-        else if(strcmp(field->type, "int64")==0 || strcmp(field->type, "uint64")==0 )
-          dynBufferPushBackInt64(buffer,field->as_int64);
-        else if(strcmp(field->type, "float32")==0)
-          dynBufferPushBackSingle(buffer,field->as_double);
-        else if(strcmp(field->type, "float64")==0)
-          dynBufferPushBackDouble(buffer,field->as_double);
-        else if(strcmp(field->type, "bool")==0)
-          dynBufferPushBackInt8(buffer,field->as_bool);
-        else if(strcmp(field->type, "string")==0)
-          dynBufferPushBackBuf(buffer,(unsigned char*)field->as_string,field->size);
-        //else if(strcmp(field->type, "duration")==0)
-           //TODO: missing
+          if(strcmp(field->type, "int8")==0 ||
+             strcmp(field->type, "uint8")==0 ||
+             strcmp(field->type, "bool")==0  )
+          {
+            int i;
+            for( i = 0; i < field->array_size; i++)
+            {
+              int8_t val;
+              cRosMessageFieldArrayAtInt8(field,i,&val);
+              dynBufferPushBackInt8(buffer,val);
+            }
+          }
+          else if(strcmp(field->type, "int16")==0 || strcmp(field->type, "uint16")==0 )
+          {
+            int i;
+            for( i = 0; i < field->array_size; i++)
+            {
+              int16_t val;
+              cRosMessageFieldArrayAtInt16(field,i,&val);
+              dynBufferPushBackInt16(buffer,val);
+            }
+          }
+          else if(strcmp(field->type, "int32")==0 || strcmp(field->type, "uint32")==0 )
+          {
+            int i;
+            for( i = 0; i < field->array_size; i++)
+            {
+              int32_t val;
+              cRosMessageFieldArrayAtInt32(field,i,&val);
+              dynBufferPushBackInt32(buffer,val);
+            }
+          }
+          else if(strcmp(field->type, "int64")==0 || strcmp(field->type, "uint64")==0 )
+          {
+            int i;
+            for( i = 0; i < field->array_size; i++)
+            {
+              int64_t val;
+              cRosMessageFieldArrayAtInt64(field,i,&val);
+              dynBufferPushBackInt64(buffer,val);
+            }
+          }
+          else if(strcmp(field->type, "float32")==0)
+          {
+            int i;
+            for( i = 0; i < field->array_size; i++)
+            {
+              float val;
+              cRosMessageFieldArrayAtSingle(field,i,&val);
+              dynBufferPushBackSingle(buffer,val);
+            }
+          }
+          else if(strcmp(field->type, "float64")==0)
+          {
+            int i;
+            for( i = 0; i < field->array_size; i++)
+            {
+              double val;
+              cRosMessageFieldArrayAtDouble(field,i,&val);
+              dynBufferPushBackSingle(buffer,val);
+            }
+          }
+          else if(strcmp(field->type, "string")==0)
+          {
+            int i;
+            for( i = 0; i < field->array_size; i++)
+            {
+              char* val = NULL;
+              cRosMessageFieldArrayAtString(field, i, &val);
+              dynBufferPushBackBuf(buffer, (const unsigned char*) val,strlen(val));
+              free(val);
+            }
+          }
+          //else if(strcmp(field->type, "duration")==0)
+             //TODO: missing
+        }
+        else
+        {
+          if(strcmp(field->type, "int8")==0 || strcmp(field->type, "uint8")==0 )
+          {
+            dynBufferPushBackInt8(buffer,field->as_int);
+          }
+          else if(strcmp(field->type, "int16")==0 || strcmp(field->type, "uint16")==0 )
+          {
+            dynBufferPushBackInt16(buffer,field->as_int);
+          }
+          else if(strcmp(field->type, "int32")==0 || strcmp(field->type, "uint32")==0 )
+          {
+            dynBufferPushBackInt32(buffer,field->as_int);
+          }
+          else if(strcmp(field->type, "int64")==0 || strcmp(field->type, "uint64")==0 )
+          {
+            dynBufferPushBackInt64(buffer,field->as_int64);
+          }
+          else if(strcmp(field->type, "float32")==0)
+          {
+            dynBufferPushBackSingle(buffer,field->as_double);
+          }
+          else if(strcmp(field->type, "float64")==0)
+          {
+            dynBufferPushBackDouble(buffer,field->as_double);
+          }
+          else if(strcmp(field->type, "bool")==0)
+          {
+            dynBufferPushBackInt8(buffer,field->as_bool);
+          }
+          else if(strcmp(field->type, "string")==0)
+          {
+            dynBufferPushBackBuf(buffer,(unsigned char*)field->as_string,field->size);
+          }
+        }
       }
   }
 }
@@ -1669,11 +1815,36 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       }
       else if(strcmp(field->type, "string")==0)
       {
-        size_t curr_data_size = *((uint32_t*)data_buffer);
-        data_buffer += 4;
-        field->as_string = (char*) calloc(curr_data_size + 1,sizeof(char));
-        memcpy(field->as_string,data_buffer,curr_data_size);
-        data_buffer += curr_data_size;
+        if(field->is_array)
+        {
+          size_t curr_data_size = field->array_max_size;
+
+          if(curr_data_size == 0)
+          {
+            curr_data_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+          }
+
+          int i;
+          for(i = 0; i < curr_data_size; i++)
+          {
+            size_t element_size = *((uint32_t*)data_buffer);
+            data_buffer += 4;
+            char* element_val = (char*) calloc(element_size + 1,sizeof(char));
+            memcpy(element_val,data_buffer,element_size);
+            data_buffer += element_size;
+            cRosMessageFieldArrayPushBackString(field, element_val);
+            free(element_val);
+          }
+        }
+        else
+        {
+          size_t curr_data_size = *((uint32_t*)data_buffer);
+          data_buffer += 4;
+          field->as_string = (char*) calloc(curr_data_size + 1,sizeof(char));
+          memcpy(field->as_string,data_buffer,curr_data_size);
+          data_buffer += curr_data_size;
+        }
       }
       //else if(strcmp(field->type, "duration")==0)
          //TODO: missing
