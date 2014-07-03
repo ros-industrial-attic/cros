@@ -226,6 +226,7 @@ static uint32_t pushBackField( DynBuffer *pkt, TcprosTagStrDim *tag, const char 
   return field_len + sizeof( uint32_t );
 }
 //
+
 //static void printPacket( DynBuffer *pkt, int print_data )
 //{
 //  /* Save position indicator: it will be restored */
@@ -573,105 +574,6 @@ static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flag
 
   return TCPROS_PARSER_DONE;
 }
-//
-//TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx )
-//{
-//  PRINT_VDEBUG("cRosMessageParseSubcriptionHeader()\n");
-//
-//  TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
-//  DynBuffer *packet = &(server_proc->packet);
-//
-//  /* Save position indicator: it will be restored */
-//  int initial_pos_idx = dynBufferGetPoseIndicatorOffset ( packet );
-//  dynBufferRewindPoseIndicator ( packet );
-//
-//  uint32_t header_flags;
-//  TcprosParserState ret = readSubcriptionHeader( server_proc, &header_flags );
-//  if( ret != TCPROS_PARSER_DONE )
-//    return ret;
-//
-//  if( TCPROS_SUBCRIPTION_HEADER_FLAGS != ( header_flags&TCPROS_SUBCRIPTION_HEADER_FLAGS) )
-//  {
-//    PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Missing fields\n");
-//    ret = TCPROS_PARSER_ERROR;
-//  }
-//  else
-//  {
-//    int topic_found = 0;
-//    int i = 0;
-//    for( i = 0 ; i < n->n_pubs; i++)
-//    {
-//      if( strcmp( n->pubs[i].topic_name, dynStringGetData(&(server_proc->topic))) == 0 &&
-//          strcmp( n->pubs[i].topic_type, dynStringGetData(&(server_proc->type))) == 0 &&
-//          strcmp( n->pubs[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0 )
-//      {
-//      	topic_found = 1;
-//        server_proc->topic_idx = i;
-//        break;
-//      }
-//    }
-//
-//    if( ! topic_found )
-//    {
-//      PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Wrong service, type or md5sum\n");
-//      server_proc->topic_idx = -1;
-//      ret = TCPROS_PARSER_ERROR;
-//    }
-//  }
-//
-//  /* Restore position indicator */
-//  dynBufferSetPoseIndicator ( packet, initial_pos_idx );
-//
-//  return ret;
-//}
-//
-//TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx )
-//{
-//  PRINT_VDEBUG("cRosMessageParsePublicationHeader()\n");
-//
-//  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
-//  DynBuffer *packet = &(client_proc->packet);
-//
-//  /* Save position indicator: it will be restored */
-//  int initial_pos_idx = dynBufferGetPoseIndicatorOffset ( packet );
-//  dynBufferRewindPoseIndicator ( packet );
-//
-//  uint32_t header_flags;
-//  TcprosParserState ret = readPublicationHeader( client_proc, &header_flags );
-//  if( ret != TCPROS_PARSER_DONE )
-//    return ret;
-//
-//  if( TCPROS_PUBLICATION_HEADER_FLAGS != ( header_flags&TCPROS_PUBLICATION_HEADER_FLAGS) )
-//  {
-//    PRINT_ERROR("cRosMessageParsePublicationHeader() : Missing fields\n");
-//    ret = TCPROS_PARSER_ERROR;
-//  }
-//  else
-//  {
-//    int subscriber_found = 0;
-//    int i = 0;
-//    for( i = 0 ; i < n->n_subs; i++)
-//    {
-//      if( strcmp( n->subs[i].topic_type, dynStringGetData(&(client_proc->type))) == 0 &&
-//          strcmp( n->subs[i].md5sum, dynStringGetData(&(client_proc->md5sum))) == 0 )
-//      {
-//        subscriber_found = 1;
-//        break;
-//      }
-//    }
-//
-//    if( ! subscriber_found )
-//    {
-//      PRINT_ERROR("cRosMessageParsePublicationHeader() : Wrong topic, type or md5sum\n");
-//      ret = TCPROS_PARSER_ERROR;
-//    }
-//  }
-//
-//  /* Restore position indicator */
-//  dynBufferSetPoseIndicator ( packet, initial_pos_idx );
-//
-//  return ret;
-//}
 
 TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_idx)
 {
@@ -738,77 +640,6 @@ TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_i
   return ret;
 }
 
-//
-//void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx )
-//{
-//  PRINT_VDEBUG("cRosMessagePrepareSubcriptionHeader()\n");
-//
-//  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
-//  int sub_idx = client_proc->topic_idx;
-//  DynBuffer *packet = &(client_proc->packet);
-//  uint32_t header_len = 0, header_out_len = 0;
-//  dynBufferPushBackUint32( packet, header_out_len );
-//
-//  header_len += pushBackField( packet, &TCPROS_MESSAGE_DEFINITION_TAG, n->subs[sub_idx].message_definition );
-//  header_len += pushBackField( packet, &TCPROS_CALLERID_TAG, n->name );
-//  header_len += pushBackField( packet, &TCPROS_TOPIC_TAG, n->subs[sub_idx].topic_name );
-//  header_len += pushBackField( packet, &TCPROS_MD5SUM_TAG, n->subs[sub_idx].md5sum );
-//  header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->subs[sub_idx].topic_type );
-//
-//  HOST_TO_ROS_UINT32( header_len, header_out_len );
-//  uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
-//  *header_len_p = header_out_len;
-//}
-//
-//void cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
-//{
-//  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
-//  DynBuffer *packet = &(client_proc->packet);
-//  int sub_idx = client_proc->topic_idx;
-//  void* data_context = n->subs[sub_idx].context;
-//  n->subs[sub_idx].callback(packet,data_context);
-//}
-//
-//void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
-//{
-//  PRINT_VDEBUG("cRosMessagePreparePublicationHeader()\n");
-//
-//  TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
-//  int pub_idx = server_proc->topic_idx;
-//  DynBuffer *packet = &(server_proc->packet);
-//  uint32_t header_len = 0, header_out_len = 0;
-//  dynBufferPushBackUint32( packet, header_out_len );
-//
-//  // http://wiki.ros.org/ROS/TCPROS doesn't mention to send message_definition and topic_name
-//  // but they are sent anyway in ros groovy
-//  header_len += pushBackField( packet, &TCPROS_MESSAGE_DEFINITION_TAG, n->pubs[pub_idx].message_definition );
-//  header_len += pushBackField( packet, &TCPROS_CALLERID_TAG, n->name );
-//  header_len += pushBackField( packet, &TCPROS_LATCHING_TAG, "1" );
-//  header_len += pushBackField( packet, &TCPROS_MD5SUM_TAG, n->pubs[pub_idx].md5sum );
-//  header_len += pushBackField( packet, &TCPROS_TOPIC_TAG, n->pubs[pub_idx].topic_name );
-//  header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->pubs[pub_idx].topic_type );
-//
-//  HOST_TO_ROS_UINT32( header_len, header_out_len );
-//  uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
-//  *header_len_p = header_out_len;
-//}
-//
-//void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
-//{
-//  PRINT_VDEBUG("cRosMessagePreparePublicationPacket()\n");
-//  //cRosMessagePreparePublicationHeader( n, server_idx );
-//  TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
-//  int pub_idx = server_proc->topic_idx;
-//  DynBuffer *packet = &(server_proc->packet);
-//  dynBufferPushBackUint32( packet, 0 ); // Placehoder for packet size
-//
-//  void* data_context = n->pubs[pub_idx].context;
-//  n->pubs[pub_idx].callback( packet, data_context);
-//
-//  uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
-//  memcpy(packet->data, &size, sizeof(uint32_t));
-//}
-//
 void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
 {
   PRINT_VDEBUG("cRosMessagePreparePublicationHeader()\n");

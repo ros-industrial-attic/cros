@@ -116,7 +116,7 @@ struct cRosMessageField
     float as_float;
     double as_double;
     char* as_string;
-    void *data;
+    void* as_msg;
     size_t size;
     int is_builtin;
     int array_max_size;
@@ -205,6 +205,8 @@ int cRosMessageFieldArrayPushBackSingle(cRosMessageField *field, float val);
 
 int cRosMessageFieldArrayPushBackDouble(cRosMessageField *field, double val);
 
+int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg);
+
 int cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position, int8_t* val);
 
 int cRosMessageFieldArrayAtInt16(cRosMessageField *field, int position, int16_t* val);
@@ -224,6 +226,8 @@ int cRosMessageFieldArrayAtUint64(cRosMessageField *field, int position, uint64_
 int cRosMessageFieldArrayAtSingle(cRosMessageField *field, int position, float* val);
 
 int cRosMessageFieldArrayAtDouble(cRosMessageField *field, int position, double* val);
+
+int cRosMessageFieldArrayAtMsg(cRosMessageField *field, int position, cRosMessage** val);
 
 size_t cRosMessageSize(cRosMessage *message);
 
