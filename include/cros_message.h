@@ -110,19 +110,23 @@ static const char* PRIMITIVE_TYPES[] = {
 struct cRosMessageField
 {
     char *name;
-    unsigned char as_bool;
-    int as_int;
-    int64_t as_int64;
-    float as_float;
-    double as_double;
-    char* as_string;
-    void* as_msg;
+
+    union data
+    {
+      unsigned char as_bool;
+      int as_int;
+      int64_t as_int64;
+      float as_float;
+      double as_double;
+      char* as_string;
+      void* as_msg;
+      void* as_array;
+    } data;
     size_t size;
     int is_builtin;
     int array_max_size;
     int array_size;
     int array_capacity;
-    void* array_data;
     unsigned char is_const;
     unsigned char is_array;
     char *type;
@@ -169,6 +173,8 @@ void cRosMessageInit(cRosMessage *message);
 
 void cRosMessageBuild(cRosMessage* message, const char* message_path);
 
+void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
+
 void cRosMessageFree(cRosMessage *message);
 
 void cRosMessageFieldInit(cRosMessageField *field);
@@ -205,6 +211,8 @@ int cRosMessageFieldArrayPushBackSingle(cRosMessageField *field, float val);
 
 int cRosMessageFieldArrayPushBackDouble(cRosMessageField *field, double val);
 
+int cRosMessageFieldArrayPushBackString(cRosMessageField *field, char* val);
+
 int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg);
 
 int cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position, int8_t* val);
@@ -226,6 +234,8 @@ int cRosMessageFieldArrayAtUint64(cRosMessageField *field, int position, uint64_
 int cRosMessageFieldArrayAtSingle(cRosMessageField *field, int position, float* val);
 
 int cRosMessageFieldArrayAtDouble(cRosMessageField *field, int position, double* val);
+
+int cRosMessageFieldArrayAtString(cRosMessageField *field, int position, char** val_ptr);
 
 int cRosMessageFieldArrayAtMsg(cRosMessageField *field, int position, cRosMessage** val);
 

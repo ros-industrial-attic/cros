@@ -196,6 +196,12 @@ void cRosServiceBuild(cRosService* service, const char* filepath)
   dynStringInit(&output);
   cRosMD5Readable(result,&output);
   strcpy(service->md5sum, output.data);
+  service->request = calloc(1,sizeof(cRosMessage));
+  cRosMessageInit(service->request);
+  service->response = calloc(1,sizeof(cRosMessage));
+  cRosMessageInit(service->response);
+  cRosMessageBuildFromDef(service->request, srv->request);
+  cRosMessageBuildFromDef(service->response, srv->response);
 }
 
 void cRosServiceFree(cRosService* service)
