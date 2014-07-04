@@ -496,7 +496,7 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
             cRosMessageBuild(&msg,filename_dep.data);
             char *md5sum = calloc(strlen(msg.md5sum)+1,sizeof(char));
             strcpy(md5sum,msg.md5sum);
-            cRosMessageFree(&msg);
+            cRosMessageRelease(&msg);
 
             dynStringPushBackStr(&buffer, md5sum);
             dynStringPushBackStr(&buffer," ");
@@ -574,7 +574,7 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
             cRosMessageBuild(&msg,filename_dep.data);
             char *md5sum = calloc(strlen(msg.md5sum)+1,sizeof(char));
             strcpy(md5sum,msg.md5sum);
-            cRosMessageFree(&msg);
+            cRosMessageRelease(&msg);
 
             dynStringPushBackStr(buffer, md5sum);
             dynStringPushBackStr(buffer," ");
@@ -603,6 +603,22 @@ void cRosMessageInit(cRosMessage *message)
     message->msgDef = NULL;
     message->md5sum = (char*) malloc(33);// 32 chars + '\0';
     *(message->md5sum) = '\0';
+}
+
+cRosMessage * cRosMessageNew()
+{
+  cRosMessage *ret = (cRosMessage *)calloc(1, sizeof(cRosMessage));
+  if (ret == NULL)
+    return NULL;
+
+  ret->md5sum = (char*) calloc(1, 33); // 32 chars + '\0';
+  if (ret->md5sum == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+
+  return ret;
 }
 
 void cRosMessageFieldInit(cRosMessageField *field)
@@ -1130,13 +1146,22 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
   }
 }
 
-void cRosMessageFree(cRosMessage *message)
+void cRosMessageRelease(cRosMessage *message)
 {
     free(message->fields);
     message->fields = NULL;
     message->n_fields = 0;
     free(message->msgDef);
     message->msgDef = NULL;
+}
+
+void cRosMessageFree(cRosMessage *message)
+{
+  if (message == NULL)
+    return;
+
+  cRosMessageRelease(message);
+  free(message);
 }
 
 cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field_name)

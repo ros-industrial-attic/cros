@@ -17,7 +17,8 @@ static const char* FILEEXT_SRV = "srv";
 // string that denotes the separation between request/response service parts
 static const char* SRV_DELIMITER = "---";
 
-struct t_srvDef{
+struct t_srvDef
+{
     char* name;
     char* package;
     char* root_dir;
@@ -28,20 +29,23 @@ struct t_srvDef{
 
 typedef struct t_srvDef cRosSrvDef;
 
-typedef struct cRosService
+struct cRosService
 {
-  cRosMessage* request;
-  cRosMessage* response;
+  cRosMessage request;
+  cRosMessage response;
   char* md5sum;
-} CrosService;
+};
 
 typedef struct cRosService cRosService;
 
-void initCrosSrv(cRosSrvDef* srv);
-
+cRosService * cRosServiceNew();
 void cRosServiceInit(cRosService* service);
 void cRosServiceBuild(cRosService* service, const char* filepath);
+void cRosServiceRelease(cRosService* service);
 void cRosServiceFree(cRosService* service);
+
+void cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5sum, const char* filepath);
+void initCrosSrv(cRosSrvDef* srv);
 
 int getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);
 

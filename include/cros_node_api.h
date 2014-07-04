@@ -234,16 +234,16 @@ typedef void (*GetPidCallback)(int callid, GetPidResult *result, void *context);
 typedef void (*GetSubscriptionsCallback)(int callid, GetSubscriptionsResult *result, void *context);
 typedef void (*GetPublicationsCallback)(int callid, GetPublicationsResult *result, void *context);
 
-typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *messageRequest, cRosMessage *messageResponse, void* context);
-typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void* context);
-typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void* context);
+typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *request, cRosMessage *response, void *context);
+typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void *context);
+typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void *context);
 
 // Master api: register/unregister methods
-int cRosApiRegisterService(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, void *context);
-int cRosApisUnegisterService(CrosNode *node, int svcidx);
+int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context);
+int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx);
 int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context);
 int cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context);
+int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context);
 int cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
 
 // Master api: name service and system state

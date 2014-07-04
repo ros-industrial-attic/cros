@@ -20,15 +20,6 @@ void initCrosSrv(cRosSrvDef* srv)
     srv->root_dir = NULL;
 }
 
-void cRosServiceInit(cRosService* service)
-{
-
-  service->request = NULL;
-  service->response = NULL;
-  service->md5sum = (char*) malloc(33);// 32 chars + '\0';
-  *(service->md5sum) = '\0';
-}
-
 int loadFromFileSrv(char* filename, cRosSrvDef* srv)
 {
     char* file_tokenized = (char*) malloc(strlen(filename)+1);
@@ -162,7 +153,26 @@ char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps)
     return full_text;
 }
 
+cRosService * cRosServiceNew()
+{
+  cRosService *ret = (cRosService *)calloc(1, sizeof(cRosService));
+  cRosServiceInit(ret);
+  return ret;
+}
+
+void cRosServiceInit(cRosService* service)
+{
+  cRosMessageInit(&service->request);
+  cRosMessageInit(&service->response);
+  service->md5sum = (char*) malloc(33);// 32 chars + '\0';
+}
+
 void cRosServiceBuild(cRosService* service, const char* filepath)
+{
+  cRosServiceBuildInner(&service->request, &service->response, service->md5sum, filepath);
+}
+
+void cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5sum, const char* filepath)
 {
   cRosSrvDef* srv = (cRosSrvDef*) malloc(sizeof(cRosSrvDef));
   initCrosSrv(srv);
@@ -195,18 +205,24 @@ void cRosServiceBuild(cRosService* service, const char* filepath)
   DynString output;
   dynStringInit(&output);
   cRosMD5Readable(result,&output);
-  strcpy(service->md5sum, output.data);
-  service->request = calloc(1,sizeof(cRosMessage));
-  cRosMessageInit(service->request);
-  service->response = calloc(1,sizeof(cRosMessage));
-  cRosMessageInit(service->response);
-  cRosMessageBuildFromDef(service->request, srv->request);
-  cRosMessageBuildFromDef(service->response, srv->response);
+
+  strcpy(md5sum, output.data);
+  cRosMessageBuildFromDef(request, srv->request);
+  cRosMessageBuildFromDef(response, srv->response);
 }
 
 void cRosServiceFree(cRosService* service)
 {
+  cRosServiceRelease(service);
+  free(service);
+}
 
+void cRosServiceRelease(cRosService* service)
+{
+  cRosMessageRelease(&service->request);
+  cRosMessageRelease(&service->response);
+  free(service->md5sum);
+  service->md5sum = NULL;
 }
 
 static uint32_t getLen( DynBuffer *pkt )

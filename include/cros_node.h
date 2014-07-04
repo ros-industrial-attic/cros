@@ -144,6 +144,8 @@ struct CrosNode
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
   unsigned short roscore_port;  //! The roscore port
 
+  char *message_root_path;      //! Directory with the message register
+
   unsigned int next_call_id;
   ApiCallQueue master_api_queue;
   ApiCallQueue slave_api_queue;
@@ -187,8 +189,8 @@ struct CrosNode
  * 
  *  \return A pointer to the new CrosNode on success, NULL on failure
  */
-CrosNode *cRosNodeCreate( char* node_name, char *node_host, char *roscore_host,
-                          unsigned short roscore_port, uint64_t const *select_timeout_ms );
+CrosNode *cRosNodeCreate(char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
+                         char *message_root_path, uint64_t const *select_timeout_ms );
 
 /*! \brief Release all the internal allocated memory for a CrosNode object previously crated with
  *         cRosNodeCreate()

@@ -115,6 +115,8 @@ struct cRosMessageField
     {
       unsigned char as_bool;
       int as_int;
+      int64_t as_uint32;
+      int64_t as_uint64;
       int64_t as_int64;
       float as_float;
       double as_double;
@@ -169,6 +171,8 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg);
 
 int loadFromFileMsg(char* filename, cRosMessageDef* msg);
 
+cRosMessage * cRosMessageNew();
+
 void cRosMessageInit(cRosMessage *message);
 
 void cRosMessageBuild(cRosMessage* message, const char* message_path);
@@ -176,6 +180,8 @@ void cRosMessageBuild(cRosMessage* message, const char* message_path);
 void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
 
 void cRosMessageFree(cRosMessage *message);
+
+void cRosMessageRelease(cRosMessage *message);
 
 void cRosMessageFieldInit(cRosMessageField *field);
 

@@ -60,4 +60,7 @@ int enqueueRequestTopic(CrosNode *node, int subidx);
 int enqueueMasterApiCall(CrosNode *node, RosApiCall *call);
 int enqueueSlaveApiCall(CrosNode *node, RosApiCall *call, const char *host, int port);
 
+void getMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *topic_type);
+void getSrvFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *service_type);
+
 #endif // _CROS_NODE_INTERNAL_H_
