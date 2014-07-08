@@ -49,16 +49,33 @@ time stamp\n\
 string frame_id\n\
 ";
 
-typedef enum
+typedef enum CrosMessageType
 {
-  TCPROS_PARSER_ERROR = 0,
-  TCPROS_PARSER_HEADER_INCOMPLETE,
-  TCPROS_PARSER_DATA_INCOMPLETE,
-  TCPROS_PARSER_DONE
-}TcprosParserState;
+  CROS_CUSTOM_TYPE = 0,
+  CROS_STD_MSGS_INT8,
+  CROS_STD_MSGS_UINT8,
+  CROS_STD_MSGS_INT16,
+  CROS_STD_MSGS_UINT16,
+  CROS_STD_MSGS_INT32,
+  CROS_STD_MSGS_UINT32,
+  CROS_STD_MSGS_INT64,
+  CROS_STD_MSGS_UINT64,
+  CROS_STD_MSGS_FLOAT32,
+  CROS_STD_MSGS_FLOAT64,
+  CROS_STD_MSGS_STRING,
+  CROS_STD_MSGS_BOOL,
+  CROS_STD_MSGS_TIME,
+  CROS_STD_MSGS_DURATION,
+  CROS_STD_MSGS_HEADER,
+  // deprecated
+  CROS_STD_MSGS_CHAR,
+  CROS_STD_MSGS_BYTE
+} CrosMessageType;
 
-struct t_msgFieldDef{
-    char* type;
+struct t_msgFieldDef
+{
+    CrosMessageType type;
+    char* type_s;
     char* name;
     int is_array;
     int array_size;
@@ -68,8 +85,10 @@ struct t_msgFieldDef{
 
 typedef struct t_msgFieldDef msgFieldDef;
 
-struct t_msgConst{
-    char* type;
+struct t_msgConst
+{
+    CrosMessageType type;
+    char* type_s;
     char* name;
     char* value;
     struct t_msgConst* prev;
@@ -78,7 +97,8 @@ struct t_msgConst{
 
 typedef struct t_msgConst msgConst;
 
-struct t_msgDef{
+struct t_msgDef
+{
     char* name;
     char* package;
     char* root_dir;
@@ -91,7 +111,8 @@ struct t_msgDef{
 
 typedef struct t_msgDef cRosMessageDef;
 
-struct t_msgDep{
+struct t_msgDep
+{
     cRosMessageDef* msg;
     struct t_msgDep* prev;
     struct t_msgDep* next;
@@ -99,13 +120,8 @@ struct t_msgDep{
 
 typedef struct t_msgDep msgDep;
 
-static const char* PRIMITIVE_TYPES[] = {
-        "int8","uint8","int16","uint16","int32","uint32","int64","uint64","float32","float64",
-    "string", "bool",
-    //deprecated:
-    "char","byte",
-        //time and duration
-    "time","duration"};
+typedef struct cRosMessageField cRosMessageField;
+typedef struct cRosMessage cRosMessage;
 
 struct cRosMessageField
 {
@@ -113,36 +129,49 @@ struct cRosMessageField
 
     union data
     {
-      unsigned char as_bool;
-      int as_int;
+      int8_t as_int8;
+      uint8_t as_uint8;
+      int16_t as_int16;
+      uint16_t as_uint16;
+      int32_t as_int32;
+      uint32_t as_uint32;
       int64_t as_int64;
-      float as_float;
-      double as_double;
-      char* as_string;
-      void* as_msg;
-      void* as_array;
+      uint64_t as_uint64;
+      float as_float32;
+      double as_float64;
+      char *as_string;
+      cRosMessage *as_msg;
+      int8_t *as_int8_array;
+      uint8_t *as_uint8_array;
+      int16_t *as_int16_array;
+      uint16_t *as_uint16_array;
+      int32_t *as_int32_array;
+      uint32_t *as_uint32_array;
+      int64_t *as_int64_array;
+      uint64_t *as_uint64_array;
+      float *as_float32_array;
+      double *as_float64_array;
+      char **as_string_array;
+      cRosMessage **as_msg_array;
+      void *opaque;
     } data;
-    size_t size;
-    int is_builtin;
-    int array_max_size;
+    int size;
+    int is_const;
+    int is_array;
+    int is_fixed_array;
     int array_size;
     int array_capacity;
-    unsigned char is_const;
-    unsigned char is_array;
-    char *type;
+    CrosMessageType type;
+    char *type_s;
 };
-
-typedef struct cRosMessageField cRosMessageField;
 
 struct cRosMessage
 {
     cRosMessageField **fields;
     cRosMessageDef* msgDef;
     char* md5sum;
-    size_t n_fields;
+    int n_fields;
 };
-
-typedef struct cRosMessage cRosMessage;
 
 int getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps);
 
@@ -161,6 +190,8 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer);
 
 void initCrosMsg(cRosMessageDef* msg);
 
+void initMsgConst(msgConst *msg);
+
 void initCrosDep(msgDep* dep);
 
 void initFieldDef(msgFieldDef* field);
@@ -168,6 +199,8 @@ void initFieldDef(msgFieldDef* field);
 int loadFromStringMsg(char* text, cRosMessageDef* msg);
 
 int loadFromFileMsg(char* filename, cRosMessageDef* msg);
+
+cRosMessage * cRosMessageNew();
 
 void cRosMessageInit(cRosMessage *message);
 
@@ -177,19 +210,13 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
 
 void cRosMessageFree(cRosMessage *message);
 
+void cRosMessageRelease(cRosMessage *message);
+
 void cRosMessageFieldInit(cRosMessageField *field);
 
 cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field);
 
-int cRosMessageSetFieldValueBool(cRosMessageField* field, unsigned char value);
-
-int cRosMessageSetFieldValueInt(cRosMessageField* field, int value);
-
-int cRosMessageSetFieldValueDouble(cRosMessageField* field, double value);
-
 int cRosMessageSetFieldValueString(cRosMessageField* field, const char* value);
-
-int cRosMessageSetFieldValueMsg(cRosMessageField* field, cRosMessage* value);
 
 int cRosMessageFieldArrayPushBackInt8(cRosMessageField *field, int8_t val);
 
@@ -199,19 +226,19 @@ int cRosMessageFieldArrayPushBackInt32(cRosMessageField *field, int32_t val);
 
 int cRosMessageFieldArrayPushBackInt64(cRosMessageField *field, int64_t val);
 
-int cRosMessageFieldArrayPushBackUint8(cRosMessageField *field, uint8_t val);
+int cRosMessageFieldArrayPushBackUInt8(cRosMessageField *field, uint8_t val);
 
-int cRosMessageFieldArrayPushBackUint16(cRosMessageField *field, uint16_t val);
+int cRosMessageFieldArrayPushBackUInt16(cRosMessageField *field, uint16_t val);
 
-int cRosMessageFieldArrayPushBackUint32(cRosMessageField *field, uint32_t val);
+int cRosMessageFieldArrayPushBackUInt32(cRosMessageField *field, uint32_t val);
 
-int cRosMessageFieldArrayPushBackUint64(cRosMessageField *field, uint64_t val);
+int cRosMessageFieldArrayPushBackUInt64(cRosMessageField *field, uint64_t val);
 
-int cRosMessageFieldArrayPushBackSingle(cRosMessageField *field, float val);
+int cRosMessageFieldArrayPushBackFloat32(cRosMessageField *field, float val);
 
-int cRosMessageFieldArrayPushBackDouble(cRosMessageField *field, double val);
+int cRosMessageFieldArrayPushBackFloat64(cRosMessageField *field, double val);
 
-int cRosMessageFieldArrayPushBackString(cRosMessageField *field, char* val);
+int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val);
 
 int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg);
 
@@ -223,19 +250,19 @@ int cRosMessageFieldArrayAtInt32(cRosMessageField *field, int position, int32_t*
 
 int cRosMessageFieldArrayAtInt64(cRosMessageField *field, int position, int64_t* val);
 
-int cRosMessageFieldArrayAtUint8(cRosMessageField *field, int position, uint8_t* val);
+int cRosMessageFieldArrayAtUInt8(cRosMessageField *field, int position, uint8_t* val);
 
-int cRosMessageFieldArrayAtUint16(cRosMessageField *field, int position, uint16_t* val);
+int cRosMessageFieldArrayAtUInt16(cRosMessageField *field, int position, uint16_t* val);
 
-int cRosMessageFieldArrayAtUint32(cRosMessageField *field, int position, uint32_t* val);
+int cRosMessageFieldArrayAtUInt32(cRosMessageField *field, int position, uint32_t* val);
 
-int cRosMessageFieldArrayAtUint64(cRosMessageField *field, int position, uint64_t* val);
+int cRosMessageFieldArrayAtUInt64(cRosMessageField *field, int position, uint64_t* val);
 
-int cRosMessageFieldArrayAtSingle(cRosMessageField *field, int position, float* val);
+int cRosMessageFieldArrayAtFloat32(cRosMessageField *field, int position, float* val);
 
-int cRosMessageFieldArrayAtDouble(cRosMessageField *field, int position, double* val);
+int cRosMessageFieldArrayAtFloat64(cRosMessageField *field, int position, double* val);
 
-int cRosMessageFieldArrayAtString(cRosMessageField *field, int position, char** val_ptr);
+int cRosMessageFieldArrayAtString(cRosMessageField *field, int position, const char** val_ptr);
 
 int cRosMessageFieldArrayAtMsg(cRosMessageField *field, int position, cRosMessage** val);
 
@@ -244,6 +271,24 @@ size_t cRosMessageSize(cRosMessage *message);
 void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer);
 
 void cRosMessageDeserialize(cRosMessage *message, DynBuffer *buffer);
+
+CrosMessageType getMessageType(const char* type);
+
+const char * getMessageTypeString(CrosMessageType type);
+
+const char * getMessageTypeDeclaration(CrosMessageType type);
+
+size_t getMessageTypeSizeOf(CrosMessageType type);
+
+int is_builtin_type(CrosMessageType type);
+
+typedef enum
+{
+  TCPROS_PARSER_ERROR = 0,
+  TCPROS_PARSER_HEADER_INCOMPLETE,
+  TCPROS_PARSER_DATA_INCOMPLETE,
+  TCPROS_PARSER_DONE
+} TcprosParserState;
 
 /*! \brief Parse a TCPROS header sent initially from a subscriber
  * 

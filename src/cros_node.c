@@ -1073,8 +1073,8 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
   }
 }
 
-CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
-                           unsigned short roscore_port, uint64_t const *select_timeout_ms )
+CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
+                          char *message_root_path, uint64_t const *select_timeout_ms)
 {
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
 
@@ -1099,8 +1099,10 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
   new_n->name = ( char * ) malloc ( ( strlen ( node_name ) + 1 ) *sizeof ( char ) );
   new_n->host = ( char * ) malloc ( ( strlen ( node_host ) + 1 ) *sizeof ( char ) );
   new_n->roscore_host = ( char * ) malloc ( ( strlen ( roscore_host ) + 1 ) *sizeof ( char ) );
+  new_n->message_root_path = ( char * ) malloc ( ( strlen ( message_root_path ) + 1 ) *sizeof ( char ) );
 
-  if ( new_n->name == NULL || new_n->host == NULL || new_n->roscore_host == NULL )
+  if (new_n->name == NULL || new_n->host == NULL
+      || new_n->roscore_host == NULL || new_n->message_root_path == NULL )
   {
     PRINT_ERROR ( "cRosNodeCreate() : Can't allocate memory\n" );
     cRosNodeDestroy ( new_n );
@@ -1110,6 +1112,7 @@ CrosNode *cRosNodeCreate ( char* node_name, char *node_host, char *roscore_host,
   strcpy ( new_n->name, node_name );
   strcpy ( new_n->host, node_host );
   strcpy ( new_n->roscore_host, roscore_host );
+  strcpy ( new_n->message_root_path, message_root_path );
 
   new_n->xmlrpc_port = 0;
   new_n->tcpros_port = 0;
@@ -2312,4 +2315,14 @@ int enqueueSlaveApiCallInternal(CrosNode *node, RosApiCall *call)
 
   node->next_call_id++;
   return callid;
+}
+
+void getMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *topic_type)
+{
+  snprintf(buffer, bufsize, "%s/%s.msg", node->message_root_path, topic_type);
+}
+
+void getSrvFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *service_type)
+{
+  snprintf(buffer, bufsize, "%s/%s.srv", node->message_root_path, service_type);
 }
