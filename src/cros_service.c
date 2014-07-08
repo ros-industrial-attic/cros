@@ -58,12 +58,16 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
         //splitting msg_text into the request response parts
         srv_res = strstr(srv_text, SRV_DELIMITER);
 
-        //split before the first delim char
-        *(srv_res - 1) = '\0';
+        //if the srv has some request parameters
+        if(srv_res != srv_text)
+        {
+          //split before the first delim char
+          *(srv_res - 1) = '\0';
+          srv_req = srv_text;
+        }
 
         //move over the delimiter and the new line char
         srv_res += strlen(SRV_DELIMITER) + 1;
-        srv_req = srv_text;
 
         char* tok = strtok(file_tokenized,"/.");
 
@@ -96,12 +100,17 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
         srv->name = (char*) malloc (strlen(token_name)+1); srv->name[0] = '\0';
         strcpy(srv->name,token_name);
 
-        srv->request->package = srv->package;
-        srv->request->root_dir = srv->root_dir;
+        if(srv_req != NULL)
+        {
+          srv->request->package = srv->package;
+          srv->request->root_dir = srv->root_dir;
+          loadFromStringMsg(srv_req, srv->request);
+        }
+
         srv->response->package = srv->package;
         srv->response->root_dir = srv->root_dir;
-        loadFromStringMsg(srv_req, srv->request);
         loadFromStringMsg(srv_res, srv->response);
+
         free(srv_text);
     }
 
@@ -179,7 +188,10 @@ void cRosServiceBuild(cRosService* service, const char* filepath)
   MD5_CTX md5_t;
   MD5_Init(&md5_t);
 
-  getMD5Txt(srv->request, &buffer);
+  if(srv->request->plain_text != NULL)
+  {
+    getMD5Txt(srv->request, &buffer);
+  }
 
   if(buffer.len != 0)
   {
