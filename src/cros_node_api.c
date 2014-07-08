@@ -109,9 +109,9 @@ static ProviderContext * newProviderContext(const char *provider_path, ProviderT
       context->outgoing = cRosMessageNew();
       if (context->outgoing == NULL)
         goto clean;
-      break;
 
       cRosServiceBuildInner(context->incoming, context->outgoing, context->md5sum, provider_path);
+      break;
     }
     default:
       assert(0);
@@ -171,7 +171,7 @@ int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, con
 {
   char path[256];
   getSrvFilePath(node, path, 256, service_type);
-  ProviderContext *nodeContext = newProviderContext(path, CROS_PUBLISHER);
+  ProviderContext *nodeContext = newProviderContext(path, CROS_SERVICE_PROVIDER);
   nodeContext->api_callback = callback;
   nodeContext->status_callback = status_callback;
   nodeContext->context = context;

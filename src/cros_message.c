@@ -10,8 +10,11 @@
 #include "md5.h"
 
 static int arrayFieldValueAt(cRosMessageField *field, int position, int element_size, void* data);
+static const char * getMessageTypeDeclarationConst(msgConst *msgConst);
+static const char * getMessageTypeDeclarationField(msgFieldDef *fieldDef);
 
-char* base_msg_type(char* type)
+
+char* base_msg_type(const char* type)
 {
     //  """
     //  Compute the base data type, e.g. for arrays, get the underlying array item type
@@ -22,7 +25,7 @@ char* base_msg_type(char* type)
     //  """
     char* base = NULL;
     int char_count = 0;
-    char* iterator = type;
+    const char* iterator = type;
 
     while( *iterator != '\0' && *iterator != '[')
     {
@@ -420,7 +423,8 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
 
     while(const_it->next != NULL)
     {
-        dynStringPushBackStr(&buffer,const_it->type_s);
+        const char *type_decl = getMessageTypeDeclarationConst(const_it);
+        dynStringPushBackStr(&buffer,type_decl);
         dynStringPushBackStr(&buffer," ");
         dynStringPushBackStr(&buffer,const_it->name);
         dynStringPushBackStr(&buffer,"=");
@@ -433,17 +437,13 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
 
     while(fields_it->next != NULL)
     {
-        const char* base_type;
-        if (fields_it->type_s == NULL)
-          base_type = getMessageTypeDeclaration(fields_it->type);
-        else
-          base_type = fields_it->type_s;
+        const char *type_decl = getMessageTypeDeclarationField(fields_it);
 
         if(is_builtin_type(fields_it->type))
         {
           if(fields_it->is_array)
           {
-            dynStringPushBackStr(&buffer, base_type);
+            dynStringPushBackStr(&buffer, type_decl);
             dynStringPushBackStr(&buffer,"[");
             if(fields_it->array_size)
             {
@@ -455,7 +455,7 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
           }
           else
           {
-            dynStringPushBackStr(&buffer, base_type);
+            dynStringPushBackStr(&buffer, type_decl);
           }
 
           dynStringPushBackStr(&buffer," ");
@@ -481,7 +481,7 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
             dynStringInit(&filename_dep);
             dynStringPushBackStr(&filename_dep,msg->root_dir);
             dynStringPushBackStr(&filename_dep,"/");
-            dynStringPushBackStr(&filename_dep, base_type);
+            dynStringPushBackStr(&filename_dep, type_decl);
             dynStringPushBackStr(&filename_dep,".msg");
 
             cRosMessage msg;
@@ -519,7 +519,8 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
 
     while(const_it->next != NULL)
     {
-        dynStringPushBackStr(buffer,const_it->type_s);
+        const char *type_decl = getMessageTypeDeclarationConst(const_it);
+        dynStringPushBackStr(buffer,type_decl);
         dynStringPushBackStr(buffer," ");
         dynStringPushBackStr(buffer,const_it->name);
         dynStringPushBackStr(buffer,"=");
@@ -532,9 +533,10 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
 
     while(fields_it->next != NULL)
     {
+        const char *type_decl = getMessageTypeDeclarationField(fields_it);
         if(is_builtin_type(fields_it->type))
         {
-            dynStringPushBackStr(buffer,fields_it->type_s);
+            dynStringPushBackStr(buffer, type_decl);
             dynStringPushBackStr(buffer," ");
             dynStringPushBackStr(buffer,fields_it->name);
             dynStringPushBackStr(buffer,"\n");
@@ -558,7 +560,7 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
             dynStringInit(&filename_dep);
             dynStringPushBackStr(&filename_dep,msg->root_dir);
             dynStringPushBackStr(&filename_dep,"/");
-            dynStringPushBackStr(&filename_dep,base_msg_type(fields_it->type_s));
+            dynStringPushBackStr(&filename_dep,base_msg_type(type_decl));
             dynStringPushBackStr(&filename_dep,".msg");
 
             cRosMessage msg;
@@ -1649,7 +1651,7 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         }
         else
         {
-          memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), size);
+          memcpy(&field->data.opaque, dynBufferGetCurrentData(buffer), size);
           dynBufferMovePoseIndicator(buffer, size);
         }
 
@@ -1726,6 +1728,22 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       }
     }
   }
+}
+
+const char * getMessageTypeDeclarationConst(msgConst *msgConst)
+{
+  if (msgConst->type_s == NULL)
+    return getMessageTypeDeclaration(msgConst->type);
+   else
+     return msgConst->type_s;
+}
+
+const char * getMessageTypeDeclarationField(msgFieldDef *fieldDef)
+{
+  if (fieldDef->type_s == NULL)
+    return getMessageTypeDeclaration(fieldDef->type);
+   else
+     return fieldDef->type_s;
 }
 
 int is_builtin_type(CrosMessageType type)
