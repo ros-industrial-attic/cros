@@ -155,7 +155,7 @@ static CallbackResponse cRosNodeServiceProviderCallback(DynBuffer *request, DynB
   ServiceProviderApiCallback serviceProviderApiCallback = (ServiceProviderApiCallback)context->api_callback;
   CallbackResponse rc = serviceProviderApiCallback(context->incoming, context->outgoing, context->context);
 
-  cRosMessageSerialize(context->outgoing, request);
+  cRosMessageSerialize(context->outgoing, response);
 
   return rc;
 }

@@ -626,7 +626,7 @@ void cRosMessageFieldInit(cRosMessageField *field)
   field->is_fixed_array = 0;
   field->array_size = -1;
   field->array_capacity = -1;
-  field->data.opaque = NULL;
+  memset(field->data.opaque, 0, sizeof(field->data.opaque));
 }
 
 int loadFromStringMsg(char* text, cRosMessageDef* msg)
@@ -1144,13 +1144,13 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
       field->is_array = field_def_itr->is_array;
       if (field_def_itr->array_size == -1)
       {
-        field->data.opaque = calloc(1,field->size);
+        field->data.as_array = calloc(1,field->size);
         field->array_size = 0;
         field->array_capacity = 1;
       }
       else
       {
-        field->data.opaque = calloc(field_def_itr->array_size,field->size);
+        field->data.as_array = calloc(field_def_itr->array_size,field->size);
         field->array_size = field_def_itr->array_size;
         field->array_capacity = field_def_itr->array_size;
         field->is_fixed_array = 1;
@@ -1219,10 +1219,10 @@ int arrayFieldValuePushBack(cRosMessageField *field, const void* data, int eleme
   if(field->array_capacity == field->array_size)
   {
     void* new_location;
-    new_location = realloc(field->data.opaque, 2 * field->array_capacity * element_size);
+    new_location = realloc(field->data.as_array, 2 * field->array_capacity * element_size);
     if(new_location != NULL)
     {
-      field->data.opaque = new_location;
+      field->data.as_array = new_location;
       field->array_capacity *= 2;
     }
     else
@@ -1231,7 +1231,7 @@ int arrayFieldValuePushBack(cRosMessageField *field, const void* data, int eleme
     }
   }
 
-  memcpy(field->data.opaque + field->array_size * element_size, data, element_size);
+  memcpy(field->data.as_array + field->array_size * element_size, data, element_size);
   field->array_size ++;
   return 0;
 }
@@ -1331,7 +1331,7 @@ int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val
     new_location = realloc(field->data.as_string, 2 * field->array_capacity * sizeof(char));
     if(new_location != NULL)
     {
-      field->data.opaque = new_location;
+      field->data.as_array = new_location;
       field->array_capacity *= 2;
     }
     else
@@ -1360,10 +1360,10 @@ int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg)
   if(field->array_capacity == field->array_size)
   {
     void* new_location;
-    new_location = realloc(field->data.opaque, 2 * field->array_capacity * element_size);
+    new_location = realloc(field->data.as_array, 2 * field->array_capacity * element_size);
     if(new_location != NULL)
     {
-      field->data.opaque = new_location;
+      field->data.as_array = new_location;
       field->array_capacity *= 2;
     }
     else
@@ -1480,7 +1480,7 @@ int arrayFieldValueAt(cRosMessageField *field, int position, int element_size, v
   if(!field->is_array)
     return -1;
 
-  memcpy( data, field->data.opaque + position * element_size, element_size);
+  memcpy( data, field->data.as_array + position * element_size, element_size);
 
   return 0;
 }
@@ -1634,7 +1634,7 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
           size_t curr_data_size = field->array_size;
           if (field->is_fixed_array)
           {
-            memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), size * field->array_size);
+            memcpy(field->data.as_array, dynBufferGetCurrentData(buffer), size * field->array_size);
             dynBufferMovePoseIndicator(buffer, size * field->array_size);
           }
           else
@@ -1651,7 +1651,7 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         }
         else
         {
-          memcpy(&field->data.opaque, dynBufferGetCurrentData(buffer), size);
+          memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), size);
           dynBufferMovePoseIndicator(buffer, size);
         }
 

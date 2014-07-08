@@ -129,6 +129,7 @@ struct cRosMessageField
 
     union data
     {
+      uint8_t opaque[8];
       int8_t as_int8;
       uint8_t as_uint8;
       int16_t as_int16;
@@ -153,7 +154,7 @@ struct cRosMessageField
       double *as_float64_array;
       char **as_string_array;
       cRosMessage **as_msg_array;
-      void *opaque;
+      void *as_array;
     } data;
     int size;
     int is_const;
