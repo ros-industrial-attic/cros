@@ -219,7 +219,10 @@ void cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md
   cRosMD5Readable(result,&output);
 
   strcpy(md5sum, output.data);
-  cRosMessageBuildFromDef(request, srv->request);
+  if(srv->request->plain_text != NULL)
+  {
+    cRosMessageBuildFromDef(request, srv->request);
+  }
   cRosMessageBuildFromDef(response, srv->response);
 }
 
