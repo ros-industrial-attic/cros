@@ -135,7 +135,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
         CrosNodeStatusUsr status;
         status.xmlrpc_port = -1;
         status.xmlrpc_host = NULL;
-        callback(&status, call->context_data);
+        callback(&status, pub->context);
       }
 
       // Finally release publisher
@@ -156,7 +156,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
         CrosNodeStatusUsr status;
         status.xmlrpc_port = -1;
         status.xmlrpc_host = NULL;
-        callback(&status, call->context_data);
+        callback(&status, sub->context);
       }
 
       // Finally release subscriber
@@ -177,7 +177,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
         CrosNodeStatusUsr status;
         status.xmlrpc_port = -1;
         status.xmlrpc_host = NULL;
-        callback(&status, call->context_data);
+        callback(&status, service->context);
       }
 
       // Finally release service provider

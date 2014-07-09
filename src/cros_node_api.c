@@ -55,13 +55,13 @@ typedef struct ProviderContext
   NodeStatusCallback status_callback;
   void *api_callback;
   void *context;
+  int unregistering;
 } ProviderContext;
 
 static void freeProviderContext(ProviderContext *context)
 {
   cRosMessageFree(context->incoming);
   cRosMessageFree(context->outgoing);
-  free(context->message_definition);
   free(context->md5sum);
   free(context);
 }
@@ -164,6 +164,8 @@ static void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
 {
   ProviderContext *context = (ProviderContext *)context_;
   context->status_callback(status, context->context);
+  if (context->unregistering)
+    freeProviderContext(context);
 }
 
 int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
@@ -189,7 +191,7 @@ int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx)
   ProviderContext *context = (ProviderContext *)service->context;
   int rc = cRosNodeUnregisterSubscriber(node, svcidx);
   if (rc != -1)
-    freeProviderContext(context);
+    context->unregistering = 1;
 
   return rc;
 }
@@ -217,7 +219,7 @@ int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
   ProviderContext *context = (ProviderContext *)sub->context;
   int rc = cRosNodeUnregisterSubscriber(node, subidx);
   if (rc != -1)
-    freeProviderContext(context);
+    context->unregistering = 1;
 
   return rc;
 }
@@ -245,7 +247,7 @@ int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
   ProviderContext *context = (ProviderContext *)pub->context;
   int rc = cRosNodeUnregisterSubscriber(node, pubidx);
   if (rc != -1)
-    freeProviderContext(context);
+    context->unregistering = 1;
 
   return rc;
 }
