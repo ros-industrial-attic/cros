@@ -213,7 +213,13 @@ void cRosMessageFree(cRosMessage *message);
 
 void cRosMessageRelease(cRosMessage *message);
 
+cRosMessageField * cRosMessageFieldNew();
+
 void cRosMessageFieldInit(cRosMessageField *field);
+
+void cRosMessageFieldRelease(cRosMessageField *field);
+
+void cRosMessageFieldFree(cRosMessageField *field);
 
 cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field);
 

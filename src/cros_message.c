@@ -1162,13 +1162,73 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
   }
 }
 
+void cRosMessageConstDefFree(msgConst* msg_const)
+{
+  free(msg_const->name);
+  msg_const->name = NULL;
+  free(msg_const->type_s);
+  msg_const->type_s = NULL;
+  free(msg_const->value);
+  msg_const->value = NULL;
+}
+
+void cRosMessageFieldDefFree(msgFieldDef* msg_field)
+{
+  free(msg_field->name);
+  msg_field->name = NULL;
+  free(msg_field->type_s);
+  msg_field->type_s = NULL;
+}
+
+void cRosMessageDefFree(cRosMessageDef *msgDef)
+{
+  free(msgDef->name);
+  msgDef->name = NULL;
+  free(msgDef->package);
+  msgDef->package = NULL;
+  free(msgDef->root_dir);
+  msgDef->root_dir = NULL;
+  free(msgDef->plain_text);
+  msgDef->plain_text = NULL;
+
+  msgConst* it_const = msgDef->first_const;
+  while(it_const->next != NULL)
+  {
+    cRosMessageConstDefFree(it_const);
+    it_const = it_const->next;
+  }
+  free(msgDef->first_const);
+  msgDef->first_const = NULL;
+  msgDef->constants = NULL;
+
+  msgFieldDef* it_field = msgDef->first_field;
+  while(it_field->next != NULL)
+  {
+    cRosMessageFieldDefFree(it_field);
+    it_field = it_field->next;
+  }
+  free(msgDef->first_field);
+  msgDef->first_field = NULL;
+  msgDef->fields = NULL;
+}
+
 void cRosMessageRelease(cRosMessage *message)
 {
+  int i;
+
+  for(i = 0; i < message->n_fields; i++)
+  {
+    cRosMessageFieldFree(message->fields[i]);
+  }
   free(message->fields);
   message->fields = NULL;
   message->n_fields = 0;
-  free(message->msgDef);
+
+  cRosMessageDefFree(message->msgDef);
   message->msgDef = NULL;
+
+  free(message->md5sum);
+  message->md5sum = NULL;
 }
 
 void cRosMessageFree(cRosMessage *message)
@@ -1178,6 +1238,63 @@ void cRosMessageFree(cRosMessage *message)
 
   cRosMessageRelease(message);
   free(message);
+}
+
+cRosMessageField * cRosMessageFieldNew()
+{
+  cRosMessageField *ret = (cRosMessageField *)calloc(1, sizeof(cRosMessageField));
+  cRosMessageFieldInit(ret);
+  return ret;
+}
+
+void cRosMessageFieldRelease(cRosMessageField *field)
+{
+  free(field->name);
+  field->name = NULL;
+
+  free(field->type_s);
+  field->type_s = NULL;
+
+  if(field->is_array)
+  {
+    if(field->type != CROS_CUSTOM_TYPE ||
+    field->type != CROS_STD_MSGS_STRING ||
+    field->type != CROS_STD_MSGS_TIME ||
+    field->type != CROS_STD_MSGS_DURATION ||
+    field->type != CROS_STD_MSGS_HEADER)
+    {
+      free(field->data.as_array);
+      field->data.as_array = NULL;
+    }
+    else
+    {
+        int i;
+        uint8_t* it;
+        size_t data_size;
+        for(i = 0; i < field->array_size; i++)
+        {
+          if(field->data.as_string_array)
+          {
+            free(field->data.as_string_array[i]);
+          }
+          else
+          {
+            free(field->data.as_msg_array[i]);
+          }
+        }
+        free(field->data.as_array);
+        field->data.as_array = NULL;
+    }
+   }
+}
+
+void cRosMessageFieldFree(cRosMessageField *field)
+{
+  if (field == NULL)
+    return;
+
+  cRosMessageFieldRelease(field);
+  free(field);
 }
 
 cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field_name)
