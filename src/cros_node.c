@@ -15,6 +15,7 @@
 #include "cros_clock.h"
 #include "cros_defs.h"
 #include "cros_node_api.h"
+#include "cros_tcpros.h"
 
 static void initPublisherNode(PublisherNode *node);
 static void initSubscriberNode(SubscriberNode *node);

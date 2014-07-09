@@ -3,10 +3,6 @@
 
 #include "cros_node.h"
 
-#include <stdlib.h>
-#include <stddef.h>
-#include <stdint.h>
-
 /*! \defgroup cros_message cROS TCPROS 
  * 
  *  Implemenation of the TCPROS protocol for topic message exchanges
@@ -15,39 +11,6 @@
 /*! \addtogroup cros_message
  *  @{
  */
-
-static const char* FILEEXT_MSG = "msg";
-
-// e.g. std_msgs/String
-static const char* CHAR_SEP = "/";
-
-// character that designates a constant assignment rather than a field
-static const char* CHAR_CONST = "=";
-
-// char that denotes the comment line start
-static const char* CHAR_COMMENT = "#";
-
-static const char* HEADER_DEFAULT_PACK = "std_msgs";
-static const char* HEADER_DEFAULT_NAME = "Header";
-static const char* HEADER_DEFAULT_TYPE = "std_msgs/Header";
-
-static const char* HEADER_DEFAULT_TYPEDEF = "\
-# Standard metadata for higher-level stamped data types.\n\
-# This is generally used to communicate timestamped data\n\
-# in a particular coordinate frame.\n\
-#\n\
-# sequence ID: consecutively increasing ID\n\
-uint32 seq\n\
-#Two-integer timestamp that is expressed as:\n\
-# * stamp.secs: seconds (stamp_secs) since epoch\n\
-# * stamp.nsecs: nanoseconds since stamp_secs\n\
-# time-handling sugar is provided by the client library\n\
-time stamp\n\
-#Frame this data is associated with\n\
-# 0: no frame\n\
-# 1: global frame\n\
-string frame_id\n\
-";
 
 typedef enum CrosMessageType
 {
@@ -71,54 +34,6 @@ typedef enum CrosMessageType
   CROS_STD_MSGS_CHAR,
   CROS_STD_MSGS_BYTE
 } CrosMessageType;
-
-struct t_msgFieldDef
-{
-    CrosMessageType type;
-    char* type_s;
-    char* name;
-    int is_array;
-    int array_size;
-    struct t_msgFieldDef* prev;
-    struct t_msgFieldDef* next;
-};
-
-typedef struct t_msgFieldDef msgFieldDef;
-
-struct t_msgConst
-{
-    CrosMessageType type;
-    char* type_s;
-    char* name;
-    char* value;
-    struct t_msgConst* prev;
-    struct t_msgConst* next;
-};
-
-typedef struct t_msgConst msgConst;
-
-struct t_msgDef
-{
-    char* name;
-    char* package;
-    char* root_dir;
-    char* plain_text;
-    msgFieldDef* fields;
-    msgFieldDef* first_field;
-    msgConst* constants;
-    msgConst* first_const;
-};
-
-typedef struct t_msgDef cRosMessageDef;
-
-struct t_msgDep
-{
-    cRosMessageDef* msg;
-    struct t_msgDep* prev;
-    struct t_msgDep* next;
-};
-
-typedef struct t_msgDep msgDep;
 
 typedef struct cRosMessageField cRosMessageField;
 typedef struct cRosMessage cRosMessage;
@@ -166,6 +81,8 @@ struct cRosMessageField
     char *type_s;
 };
 
+typedef struct t_msgDef cRosMessageDef;
+
 struct cRosMessage
 {
     cRosMessageField **fields;
@@ -173,33 +90,6 @@ struct cRosMessage
     char* md5sum;
     int n_fields;
 };
-
-int getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps);
-
-//  Compute full text of message, including text of embedded
-//  types.  The text of the main msg is listed first. Embedded
-//  msg files are denoted first by an 80-character '=' separator,
-//  followed by a type declaration line,'MSG: pkg/type', followed by
-//  the text of the embedded type.
-char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps);
-
-int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps);
-
-void cRosMD5Readable(unsigned char* data, DynString* output);
-
-void getMD5Txt(cRosMessageDef* msg, DynString* buffer);
-
-void initCrosMsg(cRosMessageDef* msg);
-
-void initMsgConst(msgConst *msg);
-
-void initCrosDep(msgDep* dep);
-
-void initFieldDef(msgFieldDef* field);
-
-int loadFromStringMsg(char* text, cRosMessageDef* msg);
-
-int loadFromFileMsg(char* filename, cRosMessageDef* msg);
 
 cRosMessage * cRosMessageNew();
 
@@ -293,90 +183,7 @@ const char * getMessageTypeDeclaration(CrosMessageType type);
 
 size_t getMessageTypeSizeOf(CrosMessageType type);
 
-int is_builtin_type(CrosMessageType type);
-
-typedef enum
-{
-  TCPROS_PARSER_ERROR = 0,
-  TCPROS_PARSER_HEADER_INCOMPLETE,
-  TCPROS_PARSER_DATA_INCOMPLETE,
-  TCPROS_PARSER_DONE
-} TcprosParserState;
-
-/*! \brief Parse a TCPROS header sent initially from a subscriber
- * 
- *  \param n Ponter to the CrosNode object
- *  \param server_idx Index of the TcprosProcess ( tcpros_server_proc[server_idx] ) to be considered for the parsing
- * 
- *  \return Returns TCPROS_PARSER_DONE if the header is successfully parsed,
- *          TCPROS_PARSER_HEADER_INCOMPLETE if the header is incomplete,  
- *          or TCPROS_PARSER_ERROR on failure
- */
-TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx );
-
-/*! \brief Parse a TCPROS header sent from a publisher
- *
- *  \param n Ponter to the CrosNode object
- *  \param client_idx Index of the TcprosProcess ( tcpros_client_proc[server_idx] ) to be considered for the parsing
- *
- *  \return Returns TCPROS_PARSER_DONE if the header is successfully parsed,
- *          TCPROS_PARSER_HEADER_INCOMPLETE if the header is incomplete,
- *          or TCPROS_PARSER_ERROR on failure
- */
-TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx );
-
-/*! \brief Prepare a TCPROS header to be initially sent to a publisher
- *
- *  \param n Ponter to the CrosNode object
- *  \param client_idx Index of the TcprosProcess ( tcpros_client_proc[server_idx] ) to be considered
- */
-void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx );
-
-/*! \brief Prepare a TCPROS header to be initially sent back to a subscriber
- * 
- *  \param n Ponter to the CrosNode object
- *  \param server_idx Index of the TcprosProcess ( tcpros_server_proc[server_idx] ) to be considered
- */
-void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx );
-
-/*! \brief Prepare a TCPROS message (with data) to be sent to a subscriber
- * 
- *  \param n Ponter to the CrosNode object
- *  \param server_idx Index of the TcprosProcess ( tcpros_server_proc[server_idx] ) to be considered
- */
-void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx );
-
-/*! \brief Read the TCPROS message (with data) received from the publisher
- *
- *  \param n Ponter to the CrosNode object
- *  \param client_idx Index of the TcprosProcess ( tcpros_client_proc[server_idx] ) to be considered for the parsing
- */
-void cRosMessageParsePublicationPacket( CrosNode *n, int client_idx );
-
-/*! \brief Parse a RCPROS header sent from a service caller
- *
- *  \param n Ponter to the CrosNode object
- *  \param client_idx Index of the TcprosProcess ( rpcros_server_proc[server_idx] ) to be considered for the parsing
- *
- *  \return Returns TCPROS_PARSER_DONE if the header is successfully parsed,
- *          TCPROS_PARSER_HEADER_INCOMPLETE if the header is incomplete,
- *          or TCPROS_PARSER_ERROR on failure
- */
-TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_idx);
-
-/*! \brief Prepare a RCPROS header to be initially sent back to a service caller
- *
- *  \param n Ponter to the CrosNode object
- *  \param server_idx Index of the TcprosProcess ( rpcros_server_proc[server_idx] ) to be considered
- */
-void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx);
-
-/*! \brief Prepare a RCPROS response to be sent back to a service caller
- *
- *  \param n Ponter to the CrosNode object
- *  \param server_idx Index of the TcprosProcess ( rpcros_server_proc[server_idx] ) to be considered
- */
-void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx);
+int isBuiltinMessageType(CrosMessageType type);
 
 /*! @}*/
 

@@ -3,7 +3,9 @@
 #include <string.h>
 #include "cros_gentools.h"
 #include "cros_message.h"
+#include "cros_message_internal.h"
 #include "cros_service.h"
+#include "cros_service_internal.h"
 #include "md5.h"
 
 char* cRosGentoolsMD5(char* filename)

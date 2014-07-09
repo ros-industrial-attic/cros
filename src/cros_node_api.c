@@ -6,8 +6,9 @@
 #include "cros_defs.h"
 #include "cros_node_api.h"
 #include "cros_node_internal.h"
-#include "cros_message.h"
+#include "cros_message_internal.h"
 #include "cros_service.h"
+#include "cros_service_internal.h"
 #include "xmlrpc_process.h"
 
 static LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response);
