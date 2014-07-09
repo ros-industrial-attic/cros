@@ -249,29 +249,35 @@ int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val
 
 int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg);
 
-int cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position, int8_t* val);
+int8_t * cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtInt16(cRosMessageField *field, int position, int16_t* val);
+int16_t * cRosMessageFieldArrayAtInt16(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtInt32(cRosMessageField *field, int position, int32_t* val);
+int32_t * cRosMessageFieldArrayAtInt32(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtInt64(cRosMessageField *field, int position, int64_t* val);
+int64_t * cRosMessageFieldArrayAtInt64(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtUInt8(cRosMessageField *field, int position, uint8_t* val);
+uint8_t * cRosMessageFieldArrayAtUInt8(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtUInt16(cRosMessageField *field, int position, uint16_t* val);
+uint16_t * cRosMessageFieldArrayAtUInt16(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtUInt32(cRosMessageField *field, int position, uint32_t* val);
+uint32_t * cRosMessageFieldArrayAtUInt32(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtUInt64(cRosMessageField *field, int position, uint64_t* val);
+uint64_t * cRosMessageFieldArrayAtUInt64(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtFloat32(cRosMessageField *field, int position, float* val);
+float * cRosMessageFieldArrayAtFloat32(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtFloat64(cRosMessageField *field, int position, double* val);
+double * cRosMessageFieldArrayAtFloat64(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtString(cRosMessageField *field, int position, const char** val_ptr);
+int cRosMessageFieldArrayAtStringGet(cRosMessageField *field, int position, const char** ptr);
 
-int cRosMessageFieldArrayAtMsg(cRosMessageField *field, int position, cRosMessage** val);
+int cRosMessageFieldArrayAtStringSet(cRosMessageField *field, int position, const char* val);
+
+int cRosMessageFieldArrayAtMsgGet(cRosMessageField *field, int position, cRosMessage** ptr);
+
+int cRosMessageFieldArrayAtMsgSet(cRosMessageField *field, int position, cRosMessage* val);
+
+int cRosMessageFieldArrayClear(cRosMessageField *field);
 
 size_t cRosMessageSize(cRosMessage *message);
 
