@@ -1,9 +1,10 @@
 #ifndef _CROS_NODE_H_
 #define _CROS_NODE_H_
 
+#include <stdint.h>
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
-#include <cros_api_call.h>
+#include "cros_api_call.h"
 
 /*! \defgroup cros_node cROS Node */
 

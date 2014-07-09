@@ -1,7 +1,7 @@
 #ifndef _CROS_API_CALL_H_
 #define _CROS_API_CALL_H_
 
-#include "cros_api.h"
+#include "cros_node_api.h"
 #include "xmlrpc_params_vector.h"
 
 typedef void (*ResultCallback)(int callid, void *result, void *context);

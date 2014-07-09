@@ -8,7 +8,6 @@
 #include <assert.h>
 #include <errno.h>
 
-#include "cros_node_internal.h"
 #include "cros_node.h"
 #include "cros_api.h"
 #include "cros_message.h"
