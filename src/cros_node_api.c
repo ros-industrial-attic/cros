@@ -857,6 +857,9 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
   {
     struct TopicPubStats *pub_stats = &ret->stats.pub_stats[it1];
     XmlrpcParam* pub_stats_xml = xmlrpcParamArrayGetParamAt(pubs_stats, it1);
+    if (pub_stats_xml->array_n_elem < 3)
+      goto clean;
+
     XmlrpcParam* name_xml = xmlrpcParamArrayGetParamAt(pub_stats_xml, 0);
     pub_stats->topic_name = (char *)malloc(strlen(name_xml->data.as_string) + 1);
     if (pub_stats->topic_name == NULL)
@@ -901,6 +904,9 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
   {
     struct TopicSubStats *sub_stats = &ret->stats.sub_stats[it1];
     XmlrpcParam *sub_stats_xml = xmlrpcParamArrayGetParamAt(subs_stats, it1);
+    if (sub_stats_xml->array_n_elem < 3)
+      goto clean;
+
     XmlrpcParam *name_xml = xmlrpcParamArrayGetParamAt(sub_stats_xml, 0);
     sub_stats->topic_name = (char *)malloc(strlen(name_xml->data.as_string) + 1);
     if (sub_stats->topic_name == NULL)
