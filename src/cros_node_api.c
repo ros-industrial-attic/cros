@@ -227,7 +227,7 @@ int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char 
 {
   char path[256];
   getMsgFilePath(node, path, 256, topic_type);
-  ProviderContext *nodeContext = newProviderContext(topic_type, CROS_PUBLISHER);
+  ProviderContext *nodeContext = newProviderContext(path, CROS_PUBLISHER);
   nodeContext->api_callback = callback;
   nodeContext->status_callback = status_callback;
   nodeContext->context = context;
