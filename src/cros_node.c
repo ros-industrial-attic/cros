@@ -1087,13 +1087,13 @@ int checkNamespaceFormat(const char* namespace)
     {
       if(*(it_ns + 1) == '\0' ||
          !isalpha(*(it_ns + 1)))
-        return -1;
+        return 0;
       it_ns++;
     }
     else
     {
       if(!isalnum(*it_ns) && *it_ns != '_')
-        return -1;
+        return 0;
     }
     it_ns++;
   }
