@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <assert.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include "cros_node.h"
 #include "cros_api.h"
@@ -1073,6 +1074,106 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
   }
 }
 
+int checkNamespaceFormat(const char* namespace)
+{
+  const char* it_ns = namespace;
+
+  if(*it_ns == '~')
+    it_ns++;
+
+  while(*it_ns != '\0')
+  {
+    if(*it_ns == '/')
+    {
+      if(*(it_ns + 1) == '\0' ||
+         !isalpha(*(it_ns + 1)))
+        return -1;
+      it_ns++;
+    }
+    else
+    {
+      if(!isalnum(*it_ns) && *it_ns != '_')
+        return -1;
+    }
+    it_ns++;
+  }
+
+  return 1;
+}
+
+char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
+{
+  char* resolved_name = NULL;
+
+  if(!checkNamespaceFormat(resource_name))
+    return NULL;
+
+  if(node == NULL)
+  {
+    if(resource_name[0] == '/')
+    {
+      resolved_name = calloc(strlen(resource_name) + 1, sizeof(char));
+      strncat(resolved_name, resource_name,strlen(resource_name));
+    }
+    else
+    {
+      resolved_name = calloc(strlen(resource_name) + strlen("/") + 1, sizeof(char));
+      strncat(resolved_name, "/",strlen("/"));
+      strncat(resolved_name, resource_name,strlen(resource_name));
+    }
+  }
+  else
+  {
+    char* node_name = node->name;
+    switch(resource_name[0])
+    {
+      case '/':
+      {
+        //global namespace
+       if(node != NULL || 1)
+       {
+         resolved_name = calloc(strlen(resource_name) + 1,
+                                sizeof(char));
+         strncat(resolved_name,resource_name,strlen(resource_name));
+       }
+        break;
+      }
+      case '~':
+      {
+         //private namespace
+        if(node != NULL || 1)
+        {
+          resolved_name = calloc(strlen(node_name) +
+                                 strlen("/") +
+                                 strlen(resource_name) + 1,
+                                 sizeof(char));
+          strncat(resolved_name,node_name,strlen(node_name));
+          strncat(resolved_name,"/",strlen("/"));
+          strncat(resolved_name,resource_name + 1,strlen(resource_name) - 1 );
+        }
+        break;
+      }
+      default:
+      {
+        //the resource has a name that is not global or private
+        if(node != NULL || 1)
+        {
+          char* node_namespace = calloc(strlen(node_name) + 1, sizeof(char));
+          strcpy(node_namespace, node_name);
+          char* it = node_namespace + strlen(node_name);
+          while(*(it--) != '/');
+          *(it + 2) = '\0';
+          resolved_name = calloc(strlen(node_namespace) + strlen(resource_name) + 1,sizeof(char));
+          strncat(resolved_name,node_namespace,strlen(node_namespace));
+          strncat(resolved_name,resource_name,strlen(resource_name));
+        }
+        break;
+      }
+    }
+  }
+  return resolved_name;
+}
+
 CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
                           char *message_root_path, uint64_t const *select_timeout_ms)
 {
@@ -1096,7 +1197,7 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
 
   new_n->name = new_n->host = new_n->roscore_host = NULL;
 
-  new_n->name = ( char * ) malloc ( ( strlen ( node_name ) + 1 ) *sizeof ( char ) );
+  new_n->name = cRosNamespaceBuild(NULL, node_name);
   new_n->host = ( char * ) malloc ( ( strlen ( node_host ) + 1 ) *sizeof ( char ) );
   new_n->roscore_host = ( char * ) malloc ( ( strlen ( roscore_host ) + 1 ) *sizeof ( char ) );
   new_n->message_root_path = ( char * ) malloc ( ( strlen ( message_root_path ) + 1 ) *sizeof ( char ) );
@@ -1109,7 +1210,6 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
     return NULL;
   }
 
-  strcpy ( new_n->name, node_name );
   strcpy ( new_n->host, node_host );
   strcpy ( new_n->roscore_host, roscore_host );
   strcpy ( new_n->message_root_path, message_root_path );
@@ -1232,7 +1332,6 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
                                PublisherCallback callback, NodeStatusCallback status_callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterPublisher()\n" );
-  PRINT_INFO ( "Publishing topic %s type %s \n", topic_name, topic_type );
 
   if ( node->n_pubs >= CN_MAX_PUBLISHED_TOPICS )
   {
@@ -1242,7 +1341,7 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
   }
 
   char *pub_message_definition = ( char * ) malloc ( ( strlen ( message_definition ) + 1 ) * sizeof ( char ) );
-  char *pub_topic_name = ( char * ) malloc ( ( strlen ( topic_name ) + 1 ) * sizeof ( char ) );
+  char *pub_topic_name = cRosNamespaceBuild(node, topic_name);
   char *pub_topic_type = ( char * ) malloc ( ( strlen ( topic_type ) + 1 ) * sizeof ( char ) );
   char *pub_md5sum = ( char * ) malloc ( ( strlen ( md5sum ) + 1 ) * sizeof ( char ) );
 
@@ -1254,9 +1353,10 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
   }
 
   strcpy ( pub_message_definition, message_definition );
-  strcpy ( pub_topic_name, topic_name );
   strcpy ( pub_topic_type, topic_type );
   strcpy ( pub_md5sum, md5sum );
+
+  PRINT_INFO ( "Publishing topic %s type %s \n", pub_topic_name, pub_topic_type );
 
   int pubidx = -1;
   int it = 0;
@@ -1295,7 +1395,6 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
                                     void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
-  PRINT_INFO ( "Registering service %s type %s \n", service_name, service_type );
 
   if (node->n_services >= CN_MAX_SERVICE_PROVIDERS)
   {
@@ -1304,7 +1403,7 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
     return -1;
   }
 
-  char *srv_service_name = ( char * ) malloc ( ( strlen ( service_name ) + 1 ) * sizeof ( char ) );
+  char *srv_service_name =  cRosNamespaceBuild(node, service_name);
   char *srv_service_type = ( char * ) malloc ( ( strlen ( service_type ) + 1 ) * sizeof ( char ) );
   char *srv_servicerequest_type = ( char * ) malloc ( ( strlen ( service_type ) + strlen("Request") + 1 ) * sizeof ( char ) );
   char *srv_serviceresponse_type = ( char * ) malloc ( ( strlen ( service_type ) + strlen("Response") + 1 ) * sizeof ( char ) );
@@ -1317,13 +1416,14 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
     return -1;
   }
 
-  strncpy ( srv_service_name, service_name, strlen ( service_name ) + 1 );
   strncpy ( srv_service_type, service_type, strlen ( service_type ) + 1 );
   strncpy ( srv_servicerequest_type, service_type, strlen ( service_type ) + 1 );
   strncat ( srv_servicerequest_type, "Request", strlen("Request") + 1 );
   strncpy ( srv_serviceresponse_type, service_type, strlen ( service_type ) + 1 );
   strncat ( srv_serviceresponse_type, "Response", strlen("Response") +1 );
   strncpy ( srv_md5sum, md5sum, strlen(md5sum) + 1 );
+
+  PRINT_INFO ( "Registering service %s type %s \n", srv_service_name, srv_service_type);
 
   int serviceidx = -1;
   int it = 0;
@@ -1361,7 +1461,6 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
                                SubscriberCallback callback, NodeStatusCallback status_callback, void *data_context)
 {
   PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
-  PRINT_INFO ( "Subscribing to topic %s type %s \n", topic_name, topic_type );
 
   if (node->n_subs >= CN_MAX_SUBSCRIBED_TOPICS)
   {
@@ -1371,7 +1470,7 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
   }
 
   char *pub_message_definition = ( char * ) malloc ( ( strlen ( message_definition ) + 1 ) * sizeof ( char ) );
-  char *pub_topic_name = ( char * ) malloc ( ( strlen ( topic_name ) + 1 ) * sizeof ( char ) );
+  char *pub_topic_name = cRosNamespaceBuild(node, topic_name);
   char *pub_topic_type = ( char * ) malloc ( ( strlen ( topic_type ) + 1 ) * sizeof ( char ) );
   char *pub_md5sum = ( char * ) malloc ( ( strlen ( md5sum ) + 1 ) * sizeof ( char ) );
 
@@ -1385,6 +1484,8 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
   strcpy ( pub_topic_name, topic_name );
   strcpy ( pub_topic_type, topic_type );
   strcpy ( pub_md5sum, md5sum );
+
+  PRINT_INFO ( "Subscribing to topic %s type %s \n", pub_topic_name, pub_topic_type );
 
   int subidx = node->n_subs;
   int it = 0;

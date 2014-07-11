@@ -132,7 +132,7 @@ struct ServiceProviderNode
 typedef struct CrosNode CrosNode;
 struct CrosNode
 {
-  char *name;                   //! The node name: it is the absolute name, i.e. it should includes the namespace
+  char *name;                   //! The node name: it is the absolute name, i.e. it includes the namespace
   char *host;                   //! The node host (ipv4, e.g. 192.168.0.2)
   unsigned short xmlrpc_port;          //! The node port for the XMLRPC protocol
   unsigned short tcpros_port;          //! The node port for the TCPROS protocol
@@ -178,6 +178,15 @@ struct CrosNode
   int n_subs;                   //! Number of node's subscribed topics
   int n_services;               //! Number of registered services
 };
+
+/*! \brief Resolve the namespace of the resource name
+ *
+ *  \param node the CrosNode which is owner of the resource. If NULL the resource is a node as well.
+ *  \param resource_name the name of the resource.
+ *
+ *  \return A string with the resource name.
+ */
+char* cRosNamespaceBuild(CrosNode* node, const char* resource_name);
 
 /*! \brief Dynamically create a CrosNode instance. This is the right way to create a CrosNode object. 
  *         Once finished, the CrosNode should be released using cRosNodeDestroy()
