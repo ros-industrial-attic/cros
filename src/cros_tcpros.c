@@ -25,7 +25,7 @@ static uint32_t pushBackField( DynBuffer *pkt, TcprosTagStrDim *tag, const char 
   uint32_t out_len, field_len = tag->dim + val_len;
   //PRINT_DEBUG("pushBackField() : filed : %s field_len ; %d\n", tag->str, field_len);
   HOST_TO_ROS_UINT32( field_len, out_len );
-  dynBufferPushBackUint32( pkt, out_len );
+  dynBufferPushBackUInt32( pkt, out_len );
   dynBufferPushBackBuf( pkt, (const unsigned char*)tag->str, tag->dim );
   dynBufferPushBackBuf( pkt, (const unsigned char*)val, val_len ); 
   
@@ -398,7 +398,7 @@ void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx )
   int sub_idx = client_proc->topic_idx;
   DynBuffer *packet = &(client_proc->packet);
   uint32_t header_len = 0, header_out_len = 0;
-  dynBufferPushBackUint32( packet, header_out_len );
+  dynBufferPushBackUInt32( packet, header_out_len );
 
   header_len += pushBackField( packet, &TCPROS_MESSAGE_DEFINITION_TAG, n->subs[sub_idx].message_definition );
   header_len += pushBackField( packet, &TCPROS_CALLERID_TAG, n->name );
@@ -428,7 +428,7 @@ void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
   int pub_idx = server_proc->topic_idx;
   DynBuffer *packet = &(server_proc->packet);
   uint32_t header_len = 0, header_out_len = 0; 
-  dynBufferPushBackUint32( packet, header_out_len );
+  dynBufferPushBackUInt32( packet, header_out_len );
 
   // http://wiki.ros.org/ROS/TCPROS doesn't mention to send message_definition and topic_name
   // but they are sent anyway in ros groovy
@@ -451,7 +451,7 @@ void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
   TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
   int pub_idx = server_proc->topic_idx;
   DynBuffer *packet = &(server_proc->packet);
-  dynBufferPushBackUint32( packet, 0 ); // Placehoder for packet size
+  dynBufferPushBackUInt32( packet, 0 ); // Placehoder for packet size
 
   void* data_context = n->pubs[pub_idx].context;
   n->pubs[pub_idx].callback( packet, data_context);
@@ -631,7 +631,7 @@ void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
   int srv_idx = server_proc->service_idx;
   DynBuffer *packet = &(server_proc->packet);
   uint32_t header_len = 0, header_out_len = 0;
-  dynBufferPushBackUint32( packet, header_out_len );
+  dynBufferPushBackUInt32( packet, header_out_len );
 
   // http://wiki.ros.org/ROS/TCPROS doesn't mention to send message_definition and topic_name
   // but they are sent anyway in ros groovy
@@ -670,7 +670,7 @@ void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx)
   dynBufferPushBackBuf( packet, &ok, 1 );
 
   //Size data field
-  dynBufferPushBackUint32( packet, service_response.size);
+  dynBufferPushBackUInt32( packet, service_response.size);
 
   //Response data
   dynBufferPushBackBuf( packet, service_response.data, service_response.size);
