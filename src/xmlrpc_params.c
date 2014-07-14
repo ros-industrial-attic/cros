@@ -129,14 +129,14 @@ static int arrayFromXml ( DynString *message, XmlrpcParam *param )
   if ( data_init == NULL )
   {
     PRINT_ERROR ( "arrayFromXml() : no data tag found\n" );
-    return 0;
+    return -1;
   }
 
   // Update pose indicator (useful in case it is an array parameter)
   dynStringSetPoseIndicator ( message, i );
 
 
-  while ( paramFromXml ( message, param, 1 ) );
+  while (paramFromXml ( message, param, 1 ) != -1);
 
   c = dynStringGetCurrentData ( message );
   len = dynStringGetLen ( message );
@@ -157,12 +157,12 @@ static int arrayFromXml ( DynString *message, XmlrpcParam *param )
   if ( data_init == NULL )
   {
     PRINT_ERROR ( "arrayFromXml() : no end data tag found\n" );
-    return 0;
+    return -1;
   }
 
   dynStringSetPoseIndicator ( message, i );
 
-  return 1;
+  return 0;
 }
 
 static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
@@ -191,14 +191,14 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
               strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
     {
       PRINT_DEBUG ( "paramFromXml() : reach end of array\n" );
-      return 0;
+      return -1;
     }
   }
 
   if ( value_init == NULL )
   {
     PRINT_ERROR ( "paramFromXml() : no start value tag found\n" );
-    return 0;
+    return -1;
   }
   
   XmlrpcParamType p_type = XMLRPC_PARAM_UNKNOWN;
@@ -327,7 +327,7 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
     {
       PRINT_ERROR ( "paramFromXml() : not valid value\n" );
       xmlrpcParamSetUnknown ( param );
-      return 0;
+      return -1;
     }
   }
   else if ( p_type == XMLRPC_PARAM_INT )
@@ -344,7 +344,7 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
     {
       PRINT_ERROR ( "paramFromXml() : not valid value\n" );
       xmlrpcParamSetUnknown ( param );
-      return 0;
+      return -1;
     }
   }
   else if ( p_type == XMLRPC_PARAM_DOUBLE )
@@ -361,7 +361,7 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
     {
       PRINT_ERROR ( "paramFromXml() : not valid value\n" );
       xmlrpcParamSetUnknown ( param );
-      return 0;
+      return -1;
     }
   }
   else if ( p_type == XMLRPC_PARAM_STRING )
@@ -376,8 +376,8 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
       // Pushed new param array: start to parse for this new element
       param = xmlrpcParamArrayPushBackArray ( param );
 
-    if ( param == NULL || !arrayFromXml ( message, param ) )
-      return 0;
+    if (param == NULL || arrayFromXml(message, param) == -1)
+      return -1;
   }
   else if ( p_type == XMLRPC_PARAM_DATETIME )
   {
@@ -495,7 +495,7 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
   if ( type_end == NULL )
   {
     PRINT_ERROR ( "paramFromXml() : no end type tag found\n" );
-    return 0;
+    return -1;
   }
   
   if( p_type == XMLRPC_PARAM_STRING || p_type == XMLRPC_PARAM_UNKNOWN )
@@ -528,10 +528,10 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
   if ( value_end == NULL )
   {
     PRINT_ERROR ( "paramFromXml() : no end value tag found\n" );
-    return 0;
+    return -1;
   }
 
-  return 1;
+  return 0;
 }
 
 
