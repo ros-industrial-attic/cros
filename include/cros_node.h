@@ -60,19 +60,25 @@ typedef struct ParameterSubscription ParameterSubscription;
 typedef enum CrosNodeStatus
 {
   // TODO: this is a work in progress
-  CROS_STATUS_NONE,
+  CROS_STATUS_NONE = 0,
   CROS_STATUS_PUBLISHER_UNREGISTERED,
   CROS_STATUS_SUBSCRIBER_UNREGISTERED,
-  CROS_STATUS_SERVICE_PROVIDER_UNREGISTERED
+  CROS_STATUS_SERVICE_PROVIDER_UNREGISTERED,
+  CROS_STATUS_PARAM_UNSUBSCRIBED,
+  CROS_STATUS_PARAM_SUBSCRIBED,
+  CROS_STATUS_PARAM_UPDATE,
 } CrosNodeStatus;
 
 typedef struct CrosNodeStatusUsr
 {
   // FIXME: this is a work in progress
   // int callid; // This may be useful to track register/unregister
-  // CrosNodeState state; // May be useful to udnerstand what the node, or the particular sub/pub/svc is doing
+  CrosNodeStatus state; // May be useful to udnerstand what the node, or the particular sub/pub/svc is doing
+  int provider_idx;
   const char *xmlrpc_host;
   int xmlrpc_port;
+  const char *parameter_key;
+  XmlrpcParam *parameter_value;
 } CrosNodeStatusUsr;
 
 /*! \brief Callback to communicate publisher or subscriber status
@@ -133,8 +139,8 @@ struct ServiceProviderNode
 
 struct ParameterSubscription
 {
-  char *parameter_name;
-  char *current_value;
+  char *parameter_key;
+  XmlrpcParam parameter_value;
   void *context;
   NodeStatusCallback status_callback;
 };
@@ -250,6 +256,8 @@ void cRosNodeDoEventsLoop( CrosNode *n );
  *  It is an utiility function that call cRosNodeDoEventsLoop() inside a endless cycle
  */
 void cRosNodeStart( CrosNode *n, unsigned char *exit );
+
+XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
 
 /*! @}*/
 

@@ -32,10 +32,11 @@ struct XmlrpcParam
   XmlrpcParamType type; //! Param type 
   union
   {
+    uint8_t opaque[8];
     int as_bool;
     int32_t as_int;
     double as_double;
-    char* as_string;
+    char *as_string;
     XmlrpcParam *as_array;
     void* as_time; /* WARNING: Currently unsupported */
     void* as_binary; /* WARNING: Currently unsupported */
@@ -205,6 +206,10 @@ void xmlrpcParamArrayPushBackStringN( XmlrpcParam *param, const char *val, int n
  */
 XmlrpcParam *xmlrpcParamArrayPushBackArray( XmlrpcParam *param );
 
+XmlrpcParam * xmlrpcParamNew();
+
+void xmlrpcParamFree( XmlrpcParam *param );
+
 void xmlrpcParamInit( XmlrpcParam *param );
 
 /*! \brief Release internal data dynamically allocated (e.g., string and arrays)
@@ -234,6 +239,10 @@ int xmlrpcParamFromXml( DynString *message, XmlrpcParam *param );
  *  \param param Pointer to the output parameter
  */
 void xmlrpcParamPrint( XmlrpcParam *param );
+
+XmlrpcParam * xmlrpcParamClone( XmlrpcParam *param );
+
+int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source);
 
 /*! @}*/
 

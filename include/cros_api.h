@@ -1,6 +1,7 @@
 #ifndef _CROS_API_H_
 #define _CROS_API_H_
 
+#include "xmlrpc_params.h"
 #include "cros_node.h"
 #include "cros_message.h"
 
@@ -177,36 +178,43 @@ struct DeleteParamResult
 {
   int code;
   char *status;
+  int ignore;
 };
 
 struct SetParamResult
 {
   int code;
   char *status;
+  int ignore;
 };
 
 struct GetParamResult
 {
   int code;
   char *status;
+  XmlrpcParam *value;
 };
 
 struct SearchParamResult
 {
   int code;
   char *status;
+  char *found_key;
 };
 
 struct HasParamResult
 {
   int code;
   char *status;
+  int has_param;
 };
 
 struct GetParamNamesResult
 {
   int code;
   char *status;
+  char **parameter_names;
+  size_t parameter_count;
 };
 
 struct TopicTypePair
@@ -358,7 +366,7 @@ int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx);
 
 // Parameter Server API: other methods
 int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context);
-int cRosApiSetParam(CrosNode *node, const char *key, const char *value, SetParamCallback callback, void *context);
+int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context);
 int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context);
 int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context);
 int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context);

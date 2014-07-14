@@ -91,6 +91,10 @@ CrosApiMethod getMethodCode(const char *method);
 int isRosMasterApi(CrosApiMethod method);
 int isRosSlaveApi(CrosApiMethod method);
 
+struct CrosNodeStatusUsr;
+
+void initCrosNodeStatus(struct CrosNodeStatusUsr *status);
+
 /*! @}*/
 
 #endif

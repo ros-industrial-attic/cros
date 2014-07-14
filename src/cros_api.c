@@ -557,12 +557,21 @@ int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback call
   return enqueueMasterApiCall(node, call);
 }
 
-int cRosApiSetParam(CrosNode *node, const char *key, const char *value, SetParamCallback callback, void *context)
+int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
-    PRINT_ERROR ( "cRosApiDeleteParam() : Can't allocate memory\n");
+    PRINT_ERROR ( "cRosApiSetParam() : Can't allocate memory\n");
+    return -1;
+  }
+
+  XmlrpcParam param;
+  int rc = xmlrpcParamCopy(&param, value);
+  if (rc == -1)
+  {
+    PRINT_ERROR ( "cRosApiSetParam() : Can't allocate memory\n");
+    freeRosApiCall(call);
     return -1;
   }
 
@@ -574,6 +583,13 @@ int cRosApiSetParam(CrosNode *node, const char *key, const char *value, SetParam
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
+  rc = xmlrpcParamVectorPushBack(&call->params, &param);
+  if (rc == -1)
+  {
+    freeRosApiCall(call);
+    xmlrpcParamReleaseData(&param);
+    return -1;
+  }
 
   return enqueueMasterApiCall(node, call);
 }
@@ -583,7 +599,7 @@ int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, 
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
-    PRINT_ERROR ( "cRosApiDeleteParam() : Can't allocate memory\n");
+    PRINT_ERROR ( "cRosApiGetParam() : Can't allocate memory\n");
     return -1;
   }
 
@@ -604,7 +620,7 @@ int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback call
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
-    PRINT_ERROR ( "cRosApiDeleteParam() : Can't allocate memory\n");
+    PRINT_ERROR ( "cRosApiSearchParam() : Can't allocate memory\n");
     return -1;
   }
 
@@ -625,7 +641,7 @@ int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, 
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
-    PRINT_ERROR ( "cRosApiDeleteParam() : Can't allocate memory\n");
+    PRINT_ERROR ( "cRosApiHasParam() : Can't allocate memory\n");
     return -1;
   }
 
@@ -646,7 +662,7 @@ int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *c
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
-    PRINT_ERROR ( "cRosApiDeleteParam() : Can't allocate memory\n");
+    PRINT_ERROR ( "cRosApiGetParamNames() : Can't allocate memory\n");
     return -1;
   }
 
@@ -1071,7 +1087,7 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
       sub_data->connection_id = connection_id->data.as_int;
       sub_data->bytes_received = (size_t)bytes_received->data.as_int;
       sub_data->drop_estimate = drop_estimate->data.as_int;
-      sub_data->connected = connected->data.as_int;
+      sub_data->connected = connected->data.as_bool;
     }
   }
 
@@ -1206,7 +1222,7 @@ ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response)
   strcpy(ret->status, status->data.as_string);
 
   XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->ignore = ignore->data.as_int;
+  ret->ignore = ignore->data.as_bool;
 
   return ret;
 
@@ -1345,6 +1361,8 @@ static DeleteParamResult * fetchDeleteParamResult(XmlrpcParamVector *response)
   if (ret->status == NULL)
     goto clean;
   strcpy(ret->status, status->data.as_string);
+  XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->ignore = ignore->data.as_bool;
 
 clean:
   freeDeleteParamResult(ret);
@@ -1365,6 +1383,8 @@ static SetParamResult * fetchSetParamResult(XmlrpcParamVector *response)
   if (ret->status == NULL)
     goto clean;
   strcpy(ret->status, status->data.as_string);
+  XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->ignore = ignore->data.as_bool;
 
 clean:
   freeSetParamResult(ret);
@@ -1385,6 +1405,10 @@ static GetParamResult * fetchGetParamResult(XmlrpcParamVector *response)
   if (ret->status == NULL)
     goto clean;
   strcpy(ret->status, status->data.as_string);
+  XmlrpcParam* value = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->value = xmlrpcParamClone(value);
+  if (ret->status == NULL)
+    goto clean;
 
 clean:
   freeGetParamResult(ret);
@@ -1405,6 +1429,11 @@ static SearchParamResult * fetchSearchParamResult(XmlrpcParamVector *response)
   if (ret->status == NULL)
     goto clean;
   strcpy(ret->status, status->data.as_string);
+  XmlrpcParam* found_key = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->found_key = (char *)malloc(strlen(found_key->data.as_string) + 1);
+  if (ret->found_key == NULL)
+    goto clean;
+  strcpy(ret->found_key, found_key->data.as_string);
 
 clean:
   freeSearchParamResult(ret);
@@ -1425,6 +1454,8 @@ static HasParamResult * fetchHasParamResult(XmlrpcParamVector *response)
   if (ret->status == NULL)
     goto clean;
   strcpy(ret->status, status->data.as_string);
+  XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->has_param = ignore->data.as_bool;
 
 clean:
   freeHasParamResult(ret);
@@ -1445,6 +1476,21 @@ static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *respons
   if (ret->status == NULL)
     goto clean;
   strcpy(ret->status, status->data.as_string);
+  XmlrpcParam* param_names = xmlrpcParamArrayGetParamAt(array, 2);
+  ret->parameter_names = (char **)calloc(param_names->array_n_elem, sizeof(char *));
+  if (ret->parameter_names)
+    goto clean;
+
+  int it = 0;
+  for (; it < param_names->array_n_elem; it++)
+  {
+    ret->parameter_names[it] = malloc(strlen(param_names->data.as_array[it].data.as_string));
+    if (ret->parameter_names[it] == NULL)
+      goto clean;
+
+    strcpy(ret->parameter_names[it], param_names->data.as_array[it].data.as_string);
+  }
+  ret->parameter_count = (size_t)param_names->array_n_elem;
 
 clean:
   freeGetParamNamesResult(ret);
@@ -1621,12 +1667,14 @@ static void freeSetParamResult(SetParamResult *result)
 static void freeGetParamResult(GetParamResult *result)
 {
   free(result->status);
+  xmlrpcParamFree(result->value);
   free(result);
 }
 
 static void freeSearchParamResult(SearchParamResult *result)
 {
   free(result->status);
+  free(result->found_key);
   free(result);
 }
 
@@ -1639,5 +1687,9 @@ static void freeHasParamResult(HasParamResult *result)
 static void freeGetParamNamesResult(GetParamNamesResult *result)
 {
   free(result->status);
+  int it = 0;
+  for (; it < result->parameter_count; it++)
+    free(result->parameter_names[it]);
+  free(result->parameter_names);
   free(result);
 }

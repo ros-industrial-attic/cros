@@ -440,19 +440,19 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         int array_size = xmlrpcParamArrayGetSize( publishers_param );
         XmlrpcParam *uri;
         XmlrpcParam *proto_name;
-        int topic_found = 0;
+        int sub_idx = -1;
         int uri_found = 0;
         SubscriberNode* requesting_subscriber = NULL;
 
         int i = 0;
-        for(i = 0 ; i < n->n_subs; i++)
+        for(; i < n->n_subs; i++)
         {
           if (n->subs[i].topic_name == NULL)
             continue;
 
           if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
           {
-            topic_found = 1;
+            sub_idx = i;
             requesting_subscriber = &(n->subs[i]);
             break;
           }
@@ -467,7 +467,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           }
         }
 
-        if (topic_found && uri_found && requesting_subscriber->tcpros_port == -1)
+        if (sub_idx != -1 && uri_found && requesting_subscriber->tcpros_port == -1)
         {
           // Subscriber that is still waiting for a tcpros connection found
           publishers_param = xmlrpcParamVectorAt(&server_proc->params, 2);
@@ -503,7 +503,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             }
 
             requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-            enqueueRequestTopic(n, i);
+            enqueueRequestTopic(n, sub_idx);
           }
 
           xmlrpcParamVectorPushBackArray(&params);
@@ -559,6 +559,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             if (pub->status_callback != NULL && strlen(server_proc->host) != 0)
             {
               CrosNodeStatusUsr status;
+              initCrosNodeStatus(&status);
               status.xmlrpc_host = server_proc->host;
               status.xmlrpc_port = server_proc->port;
               pub->status_callback(&status, pub->context);
@@ -643,36 +644,53 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_PARAM_UPDATE:
     {
-      ParameterSubscription* subscription = NULL;
       XmlrpcParam *node_param = xmlrpcParamVectorAt(&server_proc->params, 0);
       XmlrpcParam *key_param = xmlrpcParamVectorAt(&server_proc->params, 1);
       XmlrpcParam *value_param = xmlrpcParamVectorAt(&server_proc->params, 2);
-      if (xmlrpcParamGetType(key_param) != XMLRPC_PARAM_STRING
-          || xmlrpcParamGetType(value_param) != XMLRPC_PARAM_STRING)
+      if (xmlrpcParamGetType(key_param) != XMLRPC_PARAM_STRING)
       {
         PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong paramUpdate message\n" );
         goto PrepareResponse;
       }
 
-      char *parameter_name = xmlrpcParamGetString(key_param);
+      int paramsubidx = -1;
+      char *parameter_key = xmlrpcParamGetString(key_param);
       int it = 0;
       for (it = 0 ; it < n->n_paramsubs; it++)
       {
-        if (n->paramsubs[it].parameter_name == NULL)
+        if (n->paramsubs[it].parameter_key == NULL)
           continue;
 
-        if (strcmp(parameter_name, n->paramsubs[it].parameter_name) == 0)
+        if (strcmp(parameter_key, n->paramsubs[it].parameter_key) == 0)
         {
-          subscription = &(n->paramsubs[it]);
+          paramsubidx = it;
+
           break;
         }
       }
 
-      if (subscription != NULL && subscription->status_callback != NULL)
+      ParameterSubscription* subscription = NULL;
+      if (paramsubidx != -1)
       {
-        CrosNodeStatusUsr status;
-        // TODO
-        subscription->status_callback(&status, subscription->context);
+        if (subscription->status_callback != NULL)
+        {
+          CrosNodeStatusUsr status;
+          initCrosNodeStatus(&status);
+          status.state = CROS_STATUS_PARAM_UPDATE;
+          status.provider_idx = it;
+          status.parameter_key = subscription->parameter_key;
+          status.parameter_value = value_param;
+          subscription->status_callback(&status, subscription->context);
+        }
+
+        subscription = &n->paramsubs[it];
+        XmlrpcParam param;
+        int rc = xmlrpcParamCopy(&param, value_param);
+        if (rc != -1)
+        {
+          xmlrpcParamReleaseData(&subscription->parameter_value);
+          subscription->parameter_value = param;
+        }
       }
 
     PrepareResponse:

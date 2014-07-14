@@ -138,8 +138,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       if (callback != NULL)
       {
         CrosNodeStatusUsr status;
-        status.xmlrpc_port = -1;
-        status.xmlrpc_host = NULL;
+        initCrosNodeStatus(&status);
         callback(&status, pub->context);
       }
 
@@ -159,8 +158,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       if (callback != NULL)
       {
         CrosNodeStatusUsr status;
-        status.xmlrpc_port = -1;
-        status.xmlrpc_host = NULL;
+        initCrosNodeStatus(&status);
         callback(&status, sub->context);
       }
 
@@ -180,8 +178,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       if (callback != NULL)
       {
         CrosNodeStatusUsr status;
-        status.xmlrpc_port = -1;
-        status.xmlrpc_host = NULL;
+        initCrosNodeStatus(&status);
         callback(&status, service->context);
       }
 
@@ -201,8 +198,10 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       if (callback != NULL)
       {
         CrosNodeStatusUsr status;
-        status.xmlrpc_port = -1;
-        status.xmlrpc_host = NULL;
+        initCrosNodeStatus(&status);
+        status.state = CROS_STATUS_PARAM_UNSUBSCRIBED;
+        status.provider_idx = call->provider_idx;
+        status.parameter_key = subscription->parameter_key;
         callback(&status, subscription->context);
       }
 
@@ -1693,14 +1692,14 @@ int cRosApiSubscribeParam(CrosNode *node, char *caller_api, const char *key, Nod
     return -1;
   }
 
-  char *parameter_name = ( char * ) malloc ( ( strlen ( key ) + 1 ) * sizeof ( char ) );
-  if (parameter_name == NULL)
+  char *parameter_key = ( char * ) malloc ( ( strlen ( key ) + 1 ) * sizeof ( char ) );
+  if (parameter_key == NULL)
   {
     PRINT_ERROR ( "cRosApiUnsubscribeParam() : Can't allocate memory\n" );
     return -1;
   }
 
-  strcpy (parameter_name, key);
+  strcpy (parameter_key, key);
 
   int paramsubidx;
   int it = 0;
@@ -1714,7 +1713,7 @@ int cRosApiSubscribeParam(CrosNode *node, char *caller_api, const char *key, Nod
   }
 
   ParameterSubscription *sub = &node->paramsubs[paramsubidx];
-  sub->parameter_name = parameter_name;
+  sub->parameter_key = parameter_key;
 
   node->n_paramsubs++;
 
@@ -1731,7 +1730,7 @@ int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx)
     return -1;
 
   ParameterSubscription *sub = &node->paramsubs[paramsubidx];
-  if (sub->parameter_name == NULL)
+  if (sub->parameter_key == NULL)
     return -1;
 
   XmlrpcProcess *coreproc = &node->xmlrpc_client_proc[0];
@@ -2338,7 +2337,7 @@ int enqueueParameterSubscription(CrosNode *node, int parameteridx)
   char node_uri[256];
   snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
   xmlrpcParamVectorPushBackString( &call->params, node_uri );
-  xmlrpcParamVectorPushBackString( &call->params, subscrition->parameter_name);
+  xmlrpcParamVectorPushBackString( &call->params, subscrition->parameter_key);
 
   return enqueueMasterApiCallInternal(node, call);
 }
@@ -2360,7 +2359,7 @@ int enqueueParameterUnsubscription(CrosNode *node, int parameteridx)
   char node_uri[256];
   snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
   xmlrpcParamVectorPushBackString( &call->params, node_uri );
-  xmlrpcParamVectorPushBackString( &call->params, subscrition->parameter_name );
+  xmlrpcParamVectorPushBackString( &call->params, subscrition->parameter_key );
 
   // NB: Node release is done in handleApiCallAttempt()
   return enqueueMasterApiCallInternal(node, call);
@@ -2382,6 +2381,7 @@ int enqueueRequestTopic(CrosNode *node, int subidx)
   if (sub->status_callback != NULL)
   {
     CrosNodeStatusUsr status;
+    initCrosNodeStatus(&status);
     status.xmlrpc_host = sub->topic_host;
     status.xmlrpc_port = sub->topic_port;
     sub->status_callback(&status, sub->context);
@@ -2468,8 +2468,8 @@ void initServiceProviderNode(ServiceProviderNode *node)
 
 void initParameterSubscrition(ParameterSubscription *subscription)
 {
-  subscription->parameter_name = NULL;
-  subscription->current_value = NULL;
+  subscription->parameter_key = NULL;
+  xmlrpcParamInit(&subscription->parameter_value);
   subscription->status_callback = NULL;
   subscription->context = NULL;
 }
@@ -2500,9 +2500,20 @@ void releaseServiceProviderNode(ServiceProviderNode *node)
   free(node->md5sum);
 }
 
+void initCrosNodeStatus(CrosNodeStatusUsr *status)
+{
+  status->state = CROS_STATUS_NONE;
+  status->xmlrpc_port = -1;
+  status->xmlrpc_host = NULL;
+  status->provider_idx = -1;
+  status->parameter_key = NULL;
+  status->parameter_value = NULL;
+}
+
 void releaseParameterSubscrition(ParameterSubscription *subscription)
 {
-  free(subscription->parameter_name);
+  free(subscription->parameter_key);
+  xmlrpcParamReleaseData(&subscription->parameter_value);
 }
 
 void getIdleXmplrpcClients(CrosNode *node, int idle_clients[], size_t *idle_client_count)
@@ -2583,4 +2594,19 @@ void getMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *to
 void getSrvFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *service_type)
 {
   snprintf(buffer, bufsize, "%s/%s.srv", node->message_root_path, service_type);
+}
+
+XmlrpcParam * cRosNodeGetParameterValue( CrosNode *node, const char *key)
+{
+  int it = 0;
+  for (it = 0 ; it < node->n_paramsubs; it++)
+  {
+    if (node->paramsubs[it].parameter_key == NULL)
+      continue;
+
+    if (strcmp(node->paramsubs[it].parameter_key, key) == 0)
+      return &node->paramsubs[it].parameter_value;
+  }
+
+  return NULL;
 }

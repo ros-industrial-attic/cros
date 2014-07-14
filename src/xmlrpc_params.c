@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <assert.h>
 
 #include "xmlrpc_params.h"
 #include "xmlrpc_tags.h"
@@ -758,7 +759,7 @@ XmlrpcParam *xmlrpcParamArrayPushBackArray ( XmlrpcParam *param )
 void xmlrpcParamInit( XmlrpcParam *param )
 {
   param->type = XMLRPC_PARAM_UNKNOWN;
-  param->data.as_int = 0;
+  memset(param->data.opaque, 0, sizeof(param->data.opaque));
   param->array_n_elem = -1;
   param->array_max_elem = -1;
 }
@@ -910,4 +911,87 @@ static void paramPrint( XmlrpcParam *param, char *head )
 void xmlrpcParamPrint( XmlrpcParam *param )
 {
   paramPrint( param, "XMLRPC parameter" );
+}
+
+XmlrpcParam * xmlrpcParamNew()
+{
+  XmlrpcParam *ret = (XmlrpcParam *)malloc(sizeof(XmlrpcParam));
+  if (ret == NULL)
+    return NULL;
+
+  xmlrpcParamInit(ret);
+
+  return ret;
+}
+
+void xmlrpcParamFree( XmlrpcParam *param )
+{
+  if (param == NULL)
+    return;
+
+  xmlrpcParamReleaseData(param);
+  free(param);
+}
+
+XmlrpcParam * xmlrpcParamClone(XmlrpcParam *source)
+{
+  XmlrpcParam *ret = (XmlrpcParam *)malloc(sizeof(XmlrpcParam));
+  if (ret == NULL)
+    return NULL;
+
+  int rc = xmlrpcParamCopy(ret, source);
+  if (rc == -1)
+  {
+    free(ret);
+    return NULL;
+  }
+
+  return ret;
+}
+
+int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
+{
+  memcpy(dest, source, sizeof(XmlrpcParam));
+
+  switch ( source->type )
+  {
+    case XMLRPC_PARAM_BOOL:
+    case XMLRPC_PARAM_INT:
+    case XMLRPC_PARAM_DOUBLE:
+      break;
+    case XMLRPC_PARAM_STRING:
+      dest->data.as_string = (char *)malloc(strlen(source->data.as_string));
+      if (dest->data.as_string == NULL)
+        goto clean;
+      strcpy(dest->data.as_string, source->data.as_string);
+      break;
+    case XMLRPC_PARAM_ARRAY:
+      dest->data.as_array = (XmlrpcParam *)calloc(source->array_n_elem, sizeof(XmlrpcParam));
+      if (dest->data.as_array == NULL)
+        goto clean;
+
+      int it = 0;
+      for (; it < source->array_n_elem; it++)
+      {
+        int rc = xmlrpcParamCopy(&dest->data.as_array[it], &source->data.as_array[it]);
+        if (rc == -1)
+          goto clean;
+      }
+      break;
+    case XMLRPC_PARAM_DATETIME:
+    case XMLRPC_PARAM_BINARY:
+    case XMLRPC_PARAM_STRUCT:
+      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
+      assert(0);
+      break;
+    default:
+      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
+      assert(0);
+  }
+
+  return 0;
+
+clean:
+  xmlrpcParamReleaseData(dest);
+  return -1;
 }
