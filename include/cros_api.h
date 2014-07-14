@@ -173,6 +173,42 @@ struct GetPublicationsResult
   size_t topic_count;
 };
 
+struct DeleteParamResult
+{
+  int code;
+  char *status;
+};
+
+struct SetParamResult
+{
+  int code;
+  char *status;
+};
+
+struct GetParamResult
+{
+  int code;
+  char *status;
+};
+
+struct SearchParamResult
+{
+  int code;
+  char *status;
+};
+
+struct HasParamResult
+{
+  int code;
+  char *status;
+};
+
+struct GetParamNamesResult
+{
+  int code;
+  char *status;
+};
+
 struct TopicTypePair
 {
   char *topic;
@@ -225,6 +261,12 @@ typedef struct ShutdownResult ShutdownResult;
 typedef struct GetPidResult GetPidResult;
 typedef struct GetSubscriptionsResult GetSubscriptionsResult;
 typedef struct GetPublicationsResult GetPublicationsResult;
+typedef struct DeleteParamResult DeleteParamResult;
+typedef struct SetParamResult SetParamResult;
+typedef struct GetParamResult GetParamResult;
+typedef struct SearchParamResult SearchParamResult;
+typedef struct HasParamResult HasParamResult;
+typedef struct GetParamNamesResult GetParamNamesResult;
 
 typedef void (*LookupNodeCallback)(int callid, LookupNodeResult *result, void *context);
 typedef void (*GetPublishedTopicsCallback)(int callid, GetPublishedTopicsResult *result, void *context);
@@ -239,6 +281,12 @@ typedef void (*RequestShutdownCallback)(int callid, ShutdownResult *result, void
 typedef void (*GetPidCallback)(int callid, GetPidResult *result, void *context);
 typedef void (*GetSubscriptionsCallback)(int callid, GetSubscriptionsResult *result, void *context);
 typedef void (*GetPublicationsCallback)(int callid, GetPublicationsResult *result, void *context);
+typedef void (*DeleteParamCallback)(int callid, DeleteParamResult *result, void *context);
+typedef void (*SetParamCallback)(int callid, SetParamResult *result, void *context);
+typedef void (*GetParamCallback)(int callid, GetParamResult *result, void *context);
+typedef void (*SearchParamCallback)(int callid, SearchParamResult *result, void *context);
+typedef void (*HasParamCallback)(int callid, HasParamResult *result, void *context);
+typedef void (*GetParamNamesCallback)(int callid, GetParamNamesResult *result, void *context);
 
 typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *request, cRosMessage *response, void *context);
 typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void *context);
@@ -303,5 +351,17 @@ int cRosApiGetSubscriptions(CrosNode *node, const char* host, int port, GetSubsc
  *  \param port Used only if host == NULL
  */
 int cRosApiGetPublications(CrosNode *node, const char* host, int port, GetSubscriptionsCallback callback, void *context);
+
+// Parameter Server API: subscribe/unsubscribe params
+int cRosApiSubscribeParam(CrosNode *node, char *caller_api, const char *key, NodeStatusCallback callback, void *context);
+int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx);
+
+// Parameter Server API: other methods
+int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context);
+int cRosApiSetParam(CrosNode *node, const char *key, const char *value, SetParamCallback callback, void *context);
+int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context);
+int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context);
+int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context);
+int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context);
 
 #endif // _CROS_API_H_

@@ -20,12 +20,16 @@
 static void initPublisherNode(PublisherNode *node);
 static void initSubscriberNode(SubscriberNode *node);
 static void initServiceProviderNode(ServiceProviderNode *node);
+static void initParameterSubscrition(ParameterSubscription *subscription);
 static void releasePublisherNode(PublisherNode *node);
 static void releaseSubscriberNode(SubscriberNode *node);
 static void releaseServiceProviderNode(ServiceProviderNode *node);
+static void releaseParameterSubscrition(ParameterSubscription *subscription);
 static int enqueueSubscriberAdvertise(CrosNode *node, int subidx);
 static int enqueuePublisherAdvertise(CrosNode *node, int pubidx);
 static int enqueueServiceAdvertise(CrosNode *node, int servivceidx);
+static int enqueueParameterSubscription(CrosNode *node, int parameteridx);
+static int enqueueParameterUnsubscription(CrosNode *node, int parameteridx);
 static void getIdleXmplrpcClients(CrosNode *node, int array[], size_t *count);
 static int enqueueSlaveApiCallInternal(CrosNode *node, RosApiCall *call);
 static int enqueueMasterApiCallInternal(CrosNode *node, RosApiCall *call);
@@ -187,6 +191,27 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       call->provider_idx = -1;
       break;
     }
+    case CROS_API_UNSUBSCRIBE_PARAM:
+    {
+      if (call->provider_idx == -1)
+        break;
+
+      ParameterSubscription *subscription = &node->paramsubs[call->provider_idx];
+      NodeStatusCallback callback = subscription->status_callback;
+      if (callback != NULL)
+      {
+        CrosNodeStatusUsr status;
+        status.xmlrpc_port = -1;
+        status.xmlrpc_host = NULL;
+        callback(&status, subscription->context);
+      }
+
+      // Finally release parameter subscription
+      releaseParameterSubscrition(subscription);
+      initParameterSubscrition(subscription);
+      call->provider_idx = -1;
+      break;
+    }
     default:
     {
       break;
@@ -222,6 +247,7 @@ static void handleXmlrpcClientError(CrosNode *node, int i)
     case CROS_API_REGISTER_SERVICE:
     case CROS_API_REGISTER_PUBLISHER:
     case CROS_API_REGISTER_SUBSCRIBER:
+    case CROS_API_SUBSCRIBE_PARAM:
     {
       proc->current_call = NULL;
       enqueueApiCall(&node->master_api_queue, call);
@@ -1247,18 +1273,19 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
 
   for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS; i++)
     initPublisherNode(&new_n->pubs[i]);
-
   new_n->n_pubs = 0;
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS; i++)
     initSubscriberNode(&new_n->subs[i]);
-
   new_n->n_subs = 0;
 
   for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS; i++)
     initServiceProviderNode(&new_n->services[i]);
-
   new_n->n_services = 0;
+
+  for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS; i++)
+    initParameterSubscrition(&new_n->paramsubs[i]);
+  new_n->n_paramsubs = 0;
 
   if (select_timeout_ms == NULL)
     new_n->select_timeout = UINT64_MAX;
@@ -1325,6 +1352,9 @@ void cRosNodeDestroy ( CrosNode *n )
 
   for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS; i++)
     releaseServiceProviderNode(&n->services[i]);
+
+  for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS; i++)
+    releaseParameterSubscrition(&n->paramsubs[i]);
 }
 
 int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
@@ -1649,6 +1679,75 @@ int cRosNodeUnregisterService(CrosNode *node, int serviceidx)
   // NB: Node release is done in handleApiCallAttempt()
 
   return enqueueMasterApiCallInternal(node, call);
+}
+
+int cRosApiSubscribeParam(CrosNode *node, char *caller_api, const char *key, NodeStatusCallback callback, void *context)
+{
+  PRINT_VDEBUG ( "cRosApiSubscribeParam()\n" );
+  PRINT_INFO ( "Subscribing to parameter %s\n", key);
+
+  if (node->n_paramsubs >= CN_MAX_PARAMETER_SUBSCRIPTIONS)
+  {
+    PRINT_ERROR ( "cRosApiSubscribeParam() : Can't register a new parameter subscription: \
+                  reached the maximum number of parameters\n");
+    return -1;
+  }
+
+  char *parameter_name = ( char * ) malloc ( ( strlen ( key ) + 1 ) * sizeof ( char ) );
+  if (parameter_name == NULL)
+  {
+    PRINT_ERROR ( "cRosApiUnsubscribeParam() : Can't allocate memory\n" );
+    return -1;
+  }
+
+  strcpy (parameter_name, key);
+
+  int paramsubidx;
+  int it = 0;
+  for (; it < CN_MAX_PARAMETER_SUBSCRIPTIONS; it++)
+  {
+    if (node->subs[it].topic_name == NULL)
+    {
+      paramsubidx = it;
+      break;
+    }
+  }
+
+  ParameterSubscription *sub = &node->paramsubs[paramsubidx];
+  sub->parameter_name = parameter_name;
+
+  node->n_paramsubs++;
+
+  int rc = enqueueParameterSubscription(node, paramsubidx);
+  if (rc == -1)
+    return -1;
+
+  return 0;
+}
+
+int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx)
+{
+  if (paramsubidx < 0 || paramsubidx >= CN_MAX_PARAMETER_SUBSCRIPTIONS)
+    return -1;
+
+  ParameterSubscription *sub = &node->paramsubs[paramsubidx];
+  if (sub->parameter_name == NULL)
+    return -1;
+
+  XmlrpcProcess *coreproc = &node->xmlrpc_client_proc[0];
+  if (coreproc->current_call != NULL
+      && coreproc->current_call->method == CROS_API_SUBSCRIBE_PARAM
+      && coreproc->current_call->provider_idx == paramsubidx)
+  {
+    // Delist current registration
+    closeXmlrpcProcess(coreproc);
+  }
+
+  int rc = enqueueParameterUnsubscription(node, paramsubidx);
+  if (rc == -1)
+    return -1;
+
+  return 0;
 }
 
 void cRosNodeDoEventsLoop ( CrosNode *n )
@@ -2222,6 +2321,51 @@ int enqueueServiceAdvertise(CrosNode *node, int serviceidx)
   return enqueueMasterApiCallInternal(node, call);
 }
 
+int enqueueParameterSubscription(CrosNode *node, int parameteridx)
+{
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterServiceProvider() : Can't allocate memory\n");
+    return -1;
+  }
+
+  call->provider_idx = parameteridx;
+  call->method = CROS_API_SUBSCRIBE_PARAM;
+
+  ParameterSubscription *subscrition = &node->paramsubs[parameteridx];
+  xmlrpcParamVectorPushBackString( &call->params, node->name );
+  char node_uri[256];
+  snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+  xmlrpcParamVectorPushBackString( &call->params, node_uri );
+  xmlrpcParamVectorPushBackString( &call->params, subscrition->parameter_name);
+
+  return enqueueMasterApiCallInternal(node, call);
+}
+
+int enqueueParameterUnsubscription(CrosNode *node, int parameteridx)
+{
+  RosApiCall *call = newRosApiCall();
+  if (call == NULL)
+  {
+    PRINT_ERROR ( "cRosNodeRegisterServiceProvider() : Can't allocate memory\n");
+    return -1;
+  }
+
+  call->method = CROS_API_UNSUBSCRIBE_PARAM;
+  call->provider_idx = parameteridx;
+
+  ParameterSubscription *subscrition = &node->paramsubs[parameteridx];
+  xmlrpcParamVectorPushBackString( &call->params, node->name);
+  char node_uri[256];
+  snprintf( node_uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+  xmlrpcParamVectorPushBackString( &call->params, node_uri );
+  xmlrpcParamVectorPushBackString( &call->params, subscrition->parameter_name );
+
+  // NB: Node release is done in handleApiCallAttempt()
+  return enqueueMasterApiCallInternal(node, call);
+}
+
 int enqueueRequestTopic(CrosNode *node, int subidx)
 {
   RosApiCall *call = newRosApiCall();
@@ -2322,6 +2466,14 @@ void initServiceProviderNode(ServiceProviderNode *node)
   node->serviceresponse_type = NULL;
 }
 
+void initParameterSubscrition(ParameterSubscription *subscription)
+{
+  subscription->parameter_name = NULL;
+  subscription->current_value = NULL;
+  subscription->status_callback = NULL;
+  subscription->context = NULL;
+}
+
 void releasePublisherNode(PublisherNode *node)
 {
   free(node->message_definition);
@@ -2346,6 +2498,11 @@ void releaseServiceProviderNode(ServiceProviderNode *node)
   free(node->servicerequest_type);
   free(node->serviceresponse_type);
   free(node->md5sum);
+}
+
+void releaseParameterSubscrition(ParameterSubscription *subscription)
+{
+  free(subscription->parameter_name);
 }
 
 void getIdleXmplrpcClients(CrosNode *node, int idle_clients[], size_t *idle_client_count)

@@ -22,6 +22,9 @@
 /*! Max num service providers */
 #define CN_MAX_SERVICE_PROVIDERS 7
 
+/*! Max num parameter subscriptions */
+#define CN_MAX_PARAMETER_SUBSCRIPTIONS 20
+
 /*! Max num serving XMLRPC connections */
 #define CN_MAX_XMLRPC_SERVER_CONNECTIONS 5
 
@@ -52,6 +55,7 @@
 typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
+typedef struct ParameterSubscription ParameterSubscription;
 
 typedef enum CrosNodeStatus
 {
@@ -127,6 +131,14 @@ struct ServiceProviderNode
   NodeStatusCallback status_callback;
 };
 
+struct ParameterSubscription
+{
+  char *parameter_name;
+  char *current_value;
+  void *context;
+  NodeStatusCallback status_callback;
+};
+
 /*! \brief CrosNode object. Don't modify its internal members: use
  *         the related functions instead */
 typedef struct CrosNode CrosNode;
@@ -173,10 +185,12 @@ struct CrosNode
   PublisherNode pubs[CN_MAX_PUBLISHED_TOPICS];            //! All the published topic, defined by PublisherNode structures
   SubscriberNode subs[CN_MAX_SUBSCRIBED_TOPICS];          //! All the subscribed topic, defined by PublisherNode structures
   ServiceProviderNode services[CN_MAX_SERVICE_PROVIDERS]; //! All the services to register
+  ParameterSubscription paramsubs[CN_MAX_PARAMETER_SUBSCRIPTIONS];
 
   int n_pubs;                   //! Number of node's published topics
   int n_subs;                   //! Number of node's subscribed topics
   int n_services;               //! Number of registered services
+  int n_paramsubs;
 };
 
 /*! \brief Resolve the namespace of the resource name
