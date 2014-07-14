@@ -688,7 +688,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         int rc = xmlrpcParamCopy(&param, value_param);
         if (rc != -1)
         {
-          xmlrpcParamReleaseData(&subscription->parameter_value);
+          xmlrpcParamRelease(&subscription->parameter_value);
           subscription->parameter_value = param;
         }
       }

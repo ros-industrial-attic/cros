@@ -764,7 +764,7 @@ void xmlrpcParamInit( XmlrpcParam *param )
   param->array_max_elem = -1;
 }
 
-void xmlrpcParamReleaseData ( XmlrpcParam *param )
+void xmlrpcParamRelease ( XmlrpcParam *param )
 {
   PRINT_VDEBUG ( "xmlrpcParamReleaseData()\n" );
   int i;
@@ -787,7 +787,7 @@ void xmlrpcParamReleaseData ( XmlrpcParam *param )
     if ( param->data.as_array != NULL )
     {
       for ( i = 0; i< param->array_n_elem; i++ )
-        xmlrpcParamReleaseData ( & ( param->data.as_array[i] ) );
+        xmlrpcParamRelease ( & ( param->data.as_array[i] ) );
       free ( param->data.as_array );
       param->data.as_array = NULL;
     }
@@ -929,7 +929,7 @@ void xmlrpcParamFree( XmlrpcParam *param )
   if (param == NULL)
     return;
 
-  xmlrpcParamReleaseData(param);
+  xmlrpcParamRelease(param);
   free(param);
 }
 
@@ -992,6 +992,6 @@ int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
   return 0;
 
 clean:
-  xmlrpcParamReleaseData(dest);
+  xmlrpcParamRelease(dest);
   return -1;
 }

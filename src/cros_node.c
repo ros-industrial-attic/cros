@@ -2513,7 +2513,7 @@ void initCrosNodeStatus(CrosNodeStatusUsr *status)
 void releaseParameterSubscrition(ParameterSubscription *subscription)
 {
   free(subscription->parameter_key);
-  xmlrpcParamReleaseData(&subscription->parameter_value);
+  xmlrpcParamRelease(&subscription->parameter_value);
 }
 
 void getIdleXmplrpcClients(CrosNode *node, int idle_clients[], size_t *idle_client_count)

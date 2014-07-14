@@ -24,7 +24,7 @@ void xmlrpcParamVectorRelease ( XmlrpcParamVector *p_vec )
 
   int i;
   for ( i = 0; i < p_vec->size; i++ )
-    xmlrpcParamReleaseData ( & ( p_vec->data[i] ) );
+    xmlrpcParamRelease ( & ( p_vec->data[i] ) );
 
   free ( p_vec->data );
   p_vec->data = NULL;

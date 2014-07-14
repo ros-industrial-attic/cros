@@ -587,7 +587,7 @@ int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetPara
   if (rc == -1)
   {
     freeRosApiCall(call);
-    xmlrpcParamReleaseData(&param);
+    xmlrpcParamRelease(&param);
     return -1;
   }
 

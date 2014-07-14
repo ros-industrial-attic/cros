@@ -216,7 +216,7 @@ void xmlrpcParamInit( XmlrpcParam *param );
  * 
  *  \param param Pointer to a XMLRPC parameter
  */
-void xmlrpcParamReleaseData( XmlrpcParam *param );
+void xmlrpcParamRelease( XmlrpcParam *param );
 
 /*! \brief Append to a dynamic string the parameters given in input, converted in XML
  * 
