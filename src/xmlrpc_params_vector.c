@@ -42,7 +42,7 @@ int xmlrpcParamVectorPushBackBool ( XmlrpcParamVector *p_vec, int val )
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }
 
-int xmlrpcParamVectorPushBackInt ( XmlrpcParamVector *p_vec, int val )
+int xmlrpcParamVectorPushBackInt ( XmlrpcParamVector *p_vec, int32_t val )
 {
   PRINT_VDEBUG ( "xmlrpcParamVectorPushBackInt()\n" );
 

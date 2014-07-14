@@ -1,6 +1,7 @@
 #ifndef _XMLRPC_PARAMS_H_
 #define _XMLRPC_PARAMS_H_
 
+#include <stdint.h>
 #include "dyn_string.h"
 
 /*! \defgroup xmlrpc_param XMLRPC parameters */
@@ -31,8 +32,8 @@ struct XmlrpcParam
   XmlrpcParamType type; //! Param type 
   union
   {
-    unsigned char as_bool;
-    int as_int;
+    int as_bool;
+    int32_t as_int;
     double as_double;
     char* as_string;
     XmlrpcParam *as_array;
@@ -51,9 +52,9 @@ struct XmlrpcParam
  * 
  *  \param param Pointer to a XMLRPC parameter
  * 
- *  \return An unisigned char value ( 0 : false, 1 : true )
+ *  \return An integer value ( 0 : false, 1 : true )
  */
-unsigned char xmlrpcParamGetBool( XmlrpcParam *param );
+int xmlrpcParamGetBool( XmlrpcParam *param );
 
 /*! \brief Return an XMLRPC parameter as a integer value.
  *         No type control are performed. If the XMLRPC parameter 
@@ -63,7 +64,7 @@ unsigned char xmlrpcParamGetBool( XmlrpcParam *param );
  * 
  *  \return The integer value
  */
-int xmlrpcParamGetInt( XmlrpcParam *param );
+int32_t xmlrpcParamGetInt( XmlrpcParam *param );
 
 /*! \brief Return an XMLRPC parameter as a double value.
  *         No type control are performed. If the XMLRPC parameter 
@@ -103,7 +104,7 @@ void xmlrpcParamSetBool( XmlrpcParam *param, int val );
  *  \param param Pointer to a XMLRPC parameter
  *  \param val An integer value
  */
-void xmlrpcParamSetInt( XmlrpcParam *param, int val );
+void xmlrpcParamSetInt( XmlrpcParam *param, int32_t val );
 
 /*! \brief Setup a XMLRPC double floating point parameter with the given value
  * 
@@ -172,7 +173,7 @@ void xmlrpcParamArrayPushBackBool( XmlrpcParam *param, int val );
  *  \param param Pointer to an array XMLRPC parameter
  *  \param val An integer value
  */
-void xmlrpcParamArrayPushBackInt( XmlrpcParam *param, int val );
+void xmlrpcParamArrayPushBackInt( XmlrpcParam *param, int32_t val );
 
 /*! \brief Append to an array XMLRPC parameter a double parameter
  * 

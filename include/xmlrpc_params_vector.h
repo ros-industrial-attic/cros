@@ -49,7 +49,7 @@ int xmlrpcParamVectorPushBackBool( XmlrpcParamVector *p_vec, int val );
  * 
  *  \return The new dynamic vector size, or -1 on failure
  */
-int xmlrpcParamVectorPushBackInt( XmlrpcParamVector *p_vec, int val );
+int xmlrpcParamVectorPushBackInt( XmlrpcParamVector *p_vec, int32_t val );
 
 /*! \brief Append a new XMLRPC double floating point parameter to the vector. 
  * 

@@ -563,12 +563,12 @@ static XmlrpcParam *arrayAddElem ( XmlrpcParam *param )
 }
 
 
-unsigned char xmlrpcParamGetBool( XmlrpcParam *param )
+int xmlrpcParamGetBool( XmlrpcParam *param )
 {
   return param->data.as_bool?1:0;
 }
 
-int xmlrpcParamGetInt( XmlrpcParam *param )
+int32_t xmlrpcParamGetInt( XmlrpcParam *param )
 {
   return param->data.as_int;
 }
@@ -598,7 +598,7 @@ void xmlrpcParamSetBool ( XmlrpcParam *param, int val )
   PRINT_DEBUG ( "xmlrpcSetBool() : Set: %s\n", param->data.as_bool?"TRUE":"FALSE" );
 }
 
-void xmlrpcParamSetInt ( XmlrpcParam *param, int val )
+void xmlrpcParamSetInt ( XmlrpcParam *param, int32_t val )
 {
   PRINT_VDEBUG ( "xmlrpcSetInt()\n" );
 
@@ -704,7 +704,7 @@ void xmlrpcParamArrayPushBackBool ( XmlrpcParam *param, int val )
   xmlrpcParamSetBool ( new_param, val );
 }
 
-void xmlrpcParamArrayPushBackInt ( XmlrpcParam *param, int val )
+void xmlrpcParamArrayPushBackInt ( XmlrpcParam *param, int32_t val )
 {
   PRINT_VDEBUG ( "xmlrpcParamArrayPushBackInt()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
