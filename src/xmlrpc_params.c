@@ -84,6 +84,19 @@ static void stringToXml ( char *val, DynString *message )
   dynStringPushBackStr ( message, XMLRPC_VALUE_ETAG.str );
 }
 
+static void structToXml ( XmlrpcParam *val, DynString *message )
+{
+  dynStringPushBackStr ( message, XMLRPC_VALUE_TAG.str );
+  dynStringPushBackStr ( message, XMLRPC_STRUCT_TAG.str );
+
+  int i;
+  for ( i = 0; i < val->array_n_elem; i++ )
+    xmlrpcParamToXml ( & ( val->data.as_array[i] ), message );
+
+  dynStringPushBackStr ( message, XMLRPC_STRUCT_ETAG.str );
+  dynStringPushBackStr ( message, XMLRPC_VALUE_ETAG.str );
+}
+
 static void arrayToXml ( XmlrpcParam *val, DynString *message )
 {
   dynStringPushBackStr ( message, XMLRPC_VALUE_TAG.str );
@@ -108,12 +121,6 @@ static void timeToXml ( void *val, DynString *message )
 static void binaryToXml ( void *val, DynString *message )
 {
   PRINT_ERROR ( "binaryToXml() : Not yet implemented! (FATAL ERROR) \n" );
-  exit ( EXIT_FAILURE );
-}
-
-static void structToXml ( void *val, DynString *message )
-{
-  PRINT_ERROR ( "structToXml() : Not yet implemented! (FATAL ERROR) \n" );
   exit ( EXIT_FAILURE );
 }
 
@@ -763,7 +770,7 @@ int structMemberFromXml ( DynString *message, XmlrpcParam *param)
 
 XmlrpcParam * arrayAddElem ( XmlrpcParam *param )
 {
-  if ( param->type != XMLRPC_PARAM_ARRAY )
+  if ( param->type != XMLRPC_PARAM_ARRAY && param->type != XMLRPC_PARAM_STRUCT )
   {
     PRINT_ERROR ( "arrayAddElem() : Not array type param \n" );
     return NULL;
@@ -1060,7 +1067,8 @@ void xmlrpcParamRelease ( XmlrpcParam *param )
     PRINT_ERROR ( "xmlrpcParamReleaseData() : Parameter type not yet supported (FATAL ERROR) \n" );
     exit ( EXIT_FAILURE );
     break;
-
+  case XMLRPC_PARAM_UNKNOWN:
+    break;
   default:
     PRINT_DEBUG ( "xmlrpcParamReleaseData() : Unknown parameter \n" );
     break;
@@ -1070,6 +1078,16 @@ void xmlrpcParamRelease ( XmlrpcParam *param )
 void xmlrpcParamToXml ( XmlrpcParam *param, DynString *message )
 {
   PRINT_VDEBUG ( "xmlrpcParamToXml()\n" );
+
+  int struct_member = 0;
+  if (param->member_name != NULL)
+  {
+    dynStringPushBackStr ( message, XMLRPC_MEMBER_TAG.str );
+    dynStringPushBackStr ( message, XMLRPC_NAME_TAG.str );
+    dynStringPushBackStr ( message, param->member_name );
+    dynStringPushBackStr ( message, XMLRPC_NAME_ETAG.str );
+    struct_member = 1;
+  }
 
   switch ( param->type )
   {
@@ -1088,20 +1106,24 @@ void xmlrpcParamToXml ( XmlrpcParam *param, DynString *message )
   case XMLRPC_PARAM_ARRAY:
     arrayToXml ( param, message );
     break;
+  case XMLRPC_PARAM_STRUCT:
+    structToXml ( param, message );
+    break;
   case XMLRPC_PARAM_DATETIME:
     timeToXml ( param->data.as_time, message );
     break;
   case XMLRPC_PARAM_BINARY:
     binaryToXml ( param->data.as_binary, message );
     break;
-  case XMLRPC_PARAM_STRUCT:
-    structToXml ( param->data.as_struct, message );
+  case XMLRPC_PARAM_UNKNOWN:
     break;
-
   default:
     PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
     break;
   }
+
+  if (struct_member)
+    dynStringPushBackStr ( message, XMLRPC_MEMBER_ETAG.str );
 }
 
 int xmlrpcParamFromXml ( DynString *message, XmlrpcParam *param )
@@ -1225,7 +1247,7 @@ int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
     case XMLRPC_PARAM_DOUBLE:
       break;
     case XMLRPC_PARAM_STRING:
-      dest->data.as_string = (char *)malloc(strlen(source->data.as_string));
+      dest->data.as_string = (char *)malloc(strlen(source->data.as_string) + 1);
       if (dest->data.as_string == NULL)
         goto clean;
       strcpy(dest->data.as_string, source->data.as_string);
@@ -1248,6 +1270,8 @@ int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
     case XMLRPC_PARAM_BINARY:
       PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
       assert(0);
+      break;
+    case XMLRPC_PARAM_UNKNOWN:
       break;
     default:
       PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );

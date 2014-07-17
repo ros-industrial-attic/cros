@@ -42,7 +42,6 @@ struct XmlrpcParam
     XmlrpcParam *as_array;
     void* as_time; /* WARNING: Currently unsupported */
     void* as_binary; /* WARNING: Currently unsupported */
-    void* as_struct; /* WARNING: Currently unsupported */
   } data; //! Param data
   int array_n_elem; //! Used only if type is XMLRPC_PARAM_ARRAY: it stores the array size
   int array_max_elem; //! Used only if type is XMLRPC_PARAM_ARRAY: it stores the current max size
