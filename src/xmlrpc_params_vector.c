@@ -82,6 +82,16 @@ int xmlrpcParamVectorPushBackArray ( XmlrpcParamVector *p_vec )
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }
 
+int xmlrpcParamVectorPushBackStruct ( XmlrpcParamVector *p_vec )
+{
+  PRINT_VDEBUG ( "xmlrpcParamVectorPushBackStruct()\n" );
+
+  XmlrpcParam param;
+  xmlrpcParamInit(&param);
+  xmlrpcParamSetStruct ( &param );
+  return xmlrpcParamVectorPushBack ( p_vec, &param );
+}
+
 int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 {
   PRINT_VDEBUG ( "xmlrpcParamVectorPushBack()\n" );

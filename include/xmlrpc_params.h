@@ -211,9 +211,24 @@ XmlrpcParam * xmlrpcParamArrayPushBackStringN( XmlrpcParam *param, const char *v
  * 
  *  \return A pointer to the new pushed array XMLRPC parameter, or NULL on failure
  */
-XmlrpcParam *xmlrpcParamArrayPushBackArray( XmlrpcParam *param );
+XmlrpcParam * xmlrpcParamArrayPushBackArray( XmlrpcParam *param );
 
+/*! \brief Append to an array XMLRPC parameter an empty struct parameter
+ *
+ *  \param param Pointer to an array XMLRPC parameter
+ *
+ *  \return A pointer to the new pushed struct XMLRPC parameter, or NULL on failure
+ */
 XmlrpcParam * xmlrpcParamArrayPushBackStruct ( XmlrpcParam *param );
+
+XmlrpcParam * xmlrpcParamStructGetParam( XmlrpcParam *param, const char *name );
+XmlrpcParam * xmlrpcParamArrayPushBackBool( XmlrpcParam *param, int val );
+XmlrpcParam * xmlrpcParamStructPushBackInt( XmlrpcParam *param, const char *name, int32_t val );
+XmlrpcParam * xmlrpcParamStructPushBackDouble( XmlrpcParam *param, const char *name, double val );
+XmlrpcParam * xmlrpcParamStructPushBackString( XmlrpcParam *param, const char *name, const char *val );
+XmlrpcParam * xmlrpcParamStructPushBackStringN( XmlrpcParam *param, const char *name, const char *val, int n );
+XmlrpcParam * xmlrpcParamStructPushBackArray( XmlrpcParam *param, const char *name );
+XmlrpcParam * xmlrpcParamStructPushBackStruct ( XmlrpcParam *param, const char *name );
 
 XmlrpcParam * xmlrpcParamNew();
 

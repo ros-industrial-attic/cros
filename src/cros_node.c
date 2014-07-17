@@ -1714,6 +1714,8 @@ int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback ca
 
   ParameterSubscription *sub = &node->paramsubs[paramsubidx];
   sub->parameter_key = parameter_key;
+  sub->context = context;
+  sub->status_callback = callback;
 
   node->n_paramsubs++;
 

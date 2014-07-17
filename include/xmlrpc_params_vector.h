@@ -79,6 +79,15 @@ int xmlrpcParamVectorPushBackString( XmlrpcParamVector *p_vec, const char *val )
  */
 int xmlrpcParamVectorPushBackArray( XmlrpcParamVector *p_vec );
 
+/*! \brief Append a new (empty) XMLRPC struct parameter to the vector,
+ *         and start to allocate internal memory
+ *
+ *  \param p_vec Pointer to a XmlrpcParamVector object
+ *
+ *  \return The new dynamic vector size, or -1 on failure
+ */
+int xmlrpcParamVectorPushBackStruct( XmlrpcParamVector *p_vec );
+
 /*! \brief Append a new XMLRPC parameter to the vector. 
  *         Warning: data as string and arrays ARE NOT copied, i.e. only references are copyed.
  * 

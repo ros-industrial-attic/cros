@@ -23,6 +23,7 @@ static int structMemberFromXml ( DynString *message, XmlrpcParam *param);
 static int arrayFromXml ( DynString *message, XmlrpcParam *param);
 static int structFromXml ( DynString *message, XmlrpcParam *param);
 static XmlrpcParam * arrayAddElem ( XmlrpcParam *param );
+static int paramSetMemberName ( XmlrpcParam *param, const char *name );
 
 static void boolToXml ( unsigned char val, DynString *message )
 {
@@ -214,9 +215,9 @@ int paramFromXml ( DynString *message, XmlrpcParam *param,  ParamContainerType c
         if ( len - i >= XMLRPC_VALUE_ETAG.dim &&
               strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
         {
+          param_end = c;
           c += XMLRPC_VALUE_ETAG.dim;
           i += XMLRPC_VALUE_ETAG.dim;
-          param_end = c;
           goto exit;
         }
         break;
@@ -226,9 +227,9 @@ int paramFromXml ( DynString *message, XmlrpcParam *param,  ParamContainerType c
         if ( len - i >= XMLRPC_MEMBER_ETAG.dim &&
             strncmp ( c, XMLRPC_MEMBER_ETAG.str, XMLRPC_MEMBER_ETAG.dim ) == 0 )
         {
+          param_end = c;
           c += XMLRPC_MEMBER_ETAG.dim;
           i += XMLRPC_MEMBER_ETAG.dim;
-          param_end = c;
           goto exit;
         }
         break;
@@ -292,10 +293,9 @@ int arrayFromXml(DynString *message, XmlrpcParam *param)
     if ( len - i >= XMLRPC_DATA_ETAG.dim &&
          strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
     {
+      data_end = c;
       c += XMLRPC_DATA_ETAG.dim;
       i += XMLRPC_DATA_ETAG.dim;
-
-      data_end = c;
       break;
     }
   }
@@ -692,9 +692,9 @@ int structMemberFromXml ( DynString *message, XmlrpcParam *param)
     if ( len - i >= XMLRPC_NAME_ETAG.dim &&
          strncmp ( c, XMLRPC_NAME_ETAG.str, XMLRPC_NAME_ETAG.dim ) == 0 )
     {
+      name_end = c;
       c += XMLRPC_NAME_ETAG.dim;
       i += XMLRPC_NAME_ETAG.dim;
-      name_end = c;
       break;
     }
   }
@@ -705,7 +705,7 @@ int structMemberFromXml ( DynString *message, XmlrpcParam *param)
     return -1;
   }
 
-  size_t name_len = (name_end - name_begin) * sizeof(char *);
+  size_t name_len = name_end - name_begin;
   param->member_name = malloc(name_len + 1);
   if (param->member_name == NULL)
   {
@@ -750,9 +750,9 @@ int structMemberFromXml ( DynString *message, XmlrpcParam *param)
     if ( len - i >= XMLRPC_VALUE_ETAG.dim &&
         strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
     {
+      value_end = c;
       c += XMLRPC_VALUE_ETAG.dim;
       i += XMLRPC_VALUE_ETAG.dim;
-      value_end = c;
       break;
     }
   }
@@ -772,7 +772,7 @@ XmlrpcParam * arrayAddElem ( XmlrpcParam *param )
 {
   if ( param->type != XMLRPC_PARAM_ARRAY && param->type != XMLRPC_PARAM_STRUCT )
   {
-    PRINT_ERROR ( "arrayAddElem() : Not array type param \n" );
+    PRINT_ERROR ( "arrayAddElem() : Not array or struct type param \n" );
     return NULL;
   }
 
@@ -1019,6 +1019,119 @@ XmlrpcParam * xmlrpcParamArrayPushBackStruct ( XmlrpcParam *param )
 
   xmlrpcParamSetStruct ( new_param );
   return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructGetParam( XmlrpcParam *param, const char *name )
+{
+  if ( param->type != XMLRPC_PARAM_STRUCT )
+  {
+    PRINT_ERROR ( "xmlrpcParamStructGetParam() : Not a struct type param \n" );
+    return NULL;
+  }
+
+  int it = 0;
+  for (; it < param->array_n_elem; it++)
+  {
+    XmlrpcParam *param = &param->data.as_array[it];
+    if (strcmp(param->member_name, name) == 0)
+      return param;
+  }
+
+  return NULL;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackBool( XmlrpcParam *param, const char *name, int val )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackBool()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetBool ( new_param, val );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackInt( XmlrpcParam *param, const char *name, int32_t val )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackInt()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetInt ( new_param, val );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackDouble( XmlrpcParam *param, const char *name, double val )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackDouble()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetDouble ( new_param, val );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackString( XmlrpcParam *param, const char *name, const char *val )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackString()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetString ( new_param, val );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackStringN( XmlrpcParam *param, const char *name, const char *val, int n )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackStringN()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetStringN ( new_param, val, n );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackArray( XmlrpcParam *param, const char *name )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackArray()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetArray ( new_param );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackStruct ( XmlrpcParam *param, const char *name )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackStruct()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetStruct ( new_param );
+  return new_param;
+}
+
+int paramSetMemberName ( XmlrpcParam *param, const char *name )
+{
+  param->member_name = (char *)malloc(strlen(name) + 1);
+  if (param->member_name == NULL)
+    return -1;
+  strcpy(param->member_name, name);
+
+  return 0;
 }
 
 void xmlrpcParamInit( XmlrpcParam *param )

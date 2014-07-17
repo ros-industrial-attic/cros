@@ -248,6 +248,18 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           if (rc < 0)
             break;
 
+          subscription = &n->paramsubs[paramsubidx];
+          if (subscription->status_callback != NULL)
+          {
+            CrosNodeStatusUsr status;
+            initCrosNodeStatus(&status);
+            status.state = CROS_STATUS_PARAM_SUBSCRIBED;
+            status.provider_idx = paramsubidx;
+            status.parameter_key = subscription->parameter_key;
+            status.parameter_value = value;
+            subscription->status_callback(&status, subscription->context);
+          }
+
           ret = 0;
           xmlrpcParamRelease(&subscription->parameter_value);
           subscription->parameter_value = copy;
@@ -698,7 +710,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         if (n->paramsubs[it].parameter_key == NULL)
           continue;
 
-        if (strcmp(parameter_key, n->paramsubs[it].parameter_key) == 0)
+        if (strncmp(parameter_key, n->paramsubs[it].parameter_key, strlen(n->paramsubs[it].parameter_key)) == 0)
         {
           paramsubidx = it;
 
@@ -709,18 +721,18 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       ParameterSubscription* subscription = NULL;
       if (paramsubidx != -1)
       {
+        subscription = &n->paramsubs[it];
         if (subscription->status_callback != NULL)
         {
           CrosNodeStatusUsr status;
           initCrosNodeStatus(&status);
           status.state = CROS_STATUS_PARAM_UPDATE;
           status.provider_idx = it;
-          status.parameter_key = subscription->parameter_key;
+          status.parameter_key = parameter_key;
           status.parameter_value = value_param;
           subscription->status_callback(&status, subscription->context);
         }
 
-        subscription = &n->paramsubs[it];
         XmlrpcParam param;
         int rc = xmlrpcParamCopy(&param, value_param);
         if (rc != -1)
