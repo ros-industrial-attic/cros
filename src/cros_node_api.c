@@ -11,6 +11,7 @@
 #include "cros_api.h"
 #include "cros_api_internal.h"
 #include "cros_defs.h"
+#include "xmlrpc_params.h"
 
 int
 lookup_host (const char *host, char *ip)
@@ -231,6 +232,29 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
         break;
       }
+      case CROS_API_SUBSCRIBE_PARAM:
+      {
+        int paramsubidx = call->provider_idx;
+        ParameterSubscription *subscription = &n->paramsubs[paramsubidx];
+
+        if(checkResponseValue( &client_proc->response ) )
+        {
+          XmlrpcParam *array = xmlrpcParamVectorAt(&client_proc->response,0);
+          XmlrpcParam *status_msg = xmlrpcParamArrayGetParamAt(array, 1);
+          XmlrpcParam *value = xmlrpcParamArrayGetParamAt(array, 2);
+
+          XmlrpcParam copy;
+          int rc = xmlrpcParamCopy(&copy, value);
+          if (rc < 0)
+            break;
+
+          ret = 0;
+          xmlrpcParamRelease(&subscription->parameter_value);
+          subscription->parameter_value = copy;
+        }
+
+        break;
+      }
       case CROS_API_GET_PID:
       {
         PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
@@ -256,13 +280,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         {
           restartAdversing(n);
         }
-        xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
 
+        xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
         break;
       }
       case CROS_API_UNREGISTER_SERVICE:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         if( checkResponseValue( &client_proc->response ) )
@@ -273,12 +296,10 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
-
         break;
       }
       case CROS_API_UNREGISTER_PUBLISHER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
@@ -288,12 +309,10 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
-
         break;
       }
       case CROS_API_UNREGISTER_SUBSCRIBER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
@@ -303,7 +322,19 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
+        break;
+      }
+      case CROS_API_UNSUBSCRIBE_PARAM:
+      {
+        if( checkResponseValue( &client_proc->response ) )
+        {
+          ret = 0;
+          XmlrpcParam *array = xmlrpcParamVectorAt(&client_proc->response, 0);
+          XmlrpcParam* status_msg = xmlrpcParamArrayGetParamAt(array, 1);
+          XmlrpcParam* unreg_num = xmlrpcParamArrayGetParamAt(array, 2);
+        }
 
+        xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
         break;
       }
       default:
@@ -330,6 +361,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       case CROS_API_GET_PID:
       case CROS_API_GET_SUBSCRIPTIONS:
       case CROS_API_GET_PUBLICATIONS:
+      case CROS_API_DELETE_PARAM:
+      case CROS_API_SET_PARAM:
+      case CROS_API_GET_PARAM:
+      case CROS_API_SEARCH_PARAM:
+      case CROS_API_HAS_PARAM:
+      case CROS_API_GET_PARAM_NAMES:
       {
         ret = 0;
 

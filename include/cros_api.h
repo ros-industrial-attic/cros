@@ -361,7 +361,7 @@ int cRosApiGetSubscriptions(CrosNode *node, const char* host, int port, GetSubsc
 int cRosApiGetPublications(CrosNode *node, const char* host, int port, GetSubscriptionsCallback callback, void *context);
 
 // Parameter Server API: subscribe/unsubscribe params
-int cRosApiSubscribeParam(CrosNode *node, char *caller_api, const char *key, NodeStatusCallback callback, void *context);
+int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context);
 int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx);
 
 // Parameter Server API: other methods

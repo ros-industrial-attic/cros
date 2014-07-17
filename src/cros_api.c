@@ -1364,6 +1364,8 @@ static DeleteParamResult * fetchDeleteParamResult(XmlrpcParamVector *response)
   XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
   ret->ignore = ignore->data.as_bool;
 
+  return ret;
+
 clean:
   freeDeleteParamResult(ret);
   return NULL;
@@ -1385,6 +1387,8 @@ static SetParamResult * fetchSetParamResult(XmlrpcParamVector *response)
   strcpy(ret->status, status->data.as_string);
   XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
   ret->ignore = ignore->data.as_bool;
+
+  return ret;
 
 clean:
   freeSetParamResult(ret);
@@ -1409,6 +1413,8 @@ static GetParamResult * fetchGetParamResult(XmlrpcParamVector *response)
   ret->value = xmlrpcParamClone(value);
   if (ret->status == NULL)
     goto clean;
+
+  return ret;
 
 clean:
   freeGetParamResult(ret);
@@ -1435,6 +1441,8 @@ static SearchParamResult * fetchSearchParamResult(XmlrpcParamVector *response)
     goto clean;
   strcpy(ret->found_key, found_key->data.as_string);
 
+  return ret;
+
 clean:
   freeSearchParamResult(ret);
   return NULL;
@@ -1457,6 +1465,8 @@ static HasParamResult * fetchHasParamResult(XmlrpcParamVector *response)
   XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
   ret->has_param = ignore->data.as_bool;
 
+  return ret;
+
 clean:
   freeHasParamResult(ret);
   return NULL;
@@ -1478,19 +1488,21 @@ static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *respons
   strcpy(ret->status, status->data.as_string);
   XmlrpcParam* param_names = xmlrpcParamArrayGetParamAt(array, 2);
   ret->parameter_names = (char **)calloc(param_names->array_n_elem, sizeof(char *));
-  if (ret->parameter_names)
+  if (ret->parameter_names== NULL)
     goto clean;
 
   int it = 0;
   for (; it < param_names->array_n_elem; it++)
   {
-    ret->parameter_names[it] = malloc(strlen(param_names->data.as_array[it].data.as_string));
+    ret->parameter_names[it] = malloc(strlen(param_names->data.as_array[it].data.as_string) + 1);
     if (ret->parameter_names[it] == NULL)
       goto clean;
 
     strcpy(ret->parameter_names[it], param_names->data.as_array[it].data.as_string);
   }
   ret->parameter_count = (size_t)param_names->array_n_elem;
+
+  return ret;
 
 clean:
   freeGetParamNamesResult(ret);

@@ -1680,7 +1680,7 @@ int cRosNodeUnregisterService(CrosNode *node, int serviceidx)
   return enqueueMasterApiCallInternal(node, call);
 }
 
-int cRosApiSubscribeParam(CrosNode *node, char *caller_api, const char *key, NodeStatusCallback callback, void *context)
+int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context)
 {
   PRINT_VDEBUG ( "cRosApiSubscribeParam()\n" );
   PRINT_INFO ( "Subscribing to parameter %s\n", key);
