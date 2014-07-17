@@ -93,7 +93,7 @@ int dynBufferPushBackInt64( DynBuffer *d_buf, int64_t val );
  *
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackUint8( DynBuffer *d_buf, uint8_t val );
+int dynBufferPushBackUInt8( DynBuffer *d_buf, uint8_t val );
 
 /*! \brief Append a 16 bit unsigned integer (in binary format)
  *         to the end of the dynamic buffer pointed by d_buf
@@ -104,7 +104,7 @@ int dynBufferPushBackUint8( DynBuffer *d_buf, uint8_t val );
  *
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackUint16( DynBuffer *d_buf, uint16_t val );
+int dynBufferPushBackUInt16( DynBuffer *d_buf, uint16_t val );
 
 /*! \brief Append a 32 bit unsigned integer (in binary format)
  *         to the end of the dynamic buffer pointed by d_buf
@@ -115,7 +115,7 @@ int dynBufferPushBackUint16( DynBuffer *d_buf, uint16_t val );
  *
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackUint32( DynBuffer *d_buf, uint32_t val );
+int dynBufferPushBackUInt32( DynBuffer *d_buf, uint32_t val );
 
 /*! \brief Append a 64 bit unsigned integer (in binary format)
  *         to the end of the dynamic buffer pointed by d_buf
@@ -126,7 +126,7 @@ int dynBufferPushBackUint32( DynBuffer *d_buf, uint32_t val );
  *
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackUint64( DynBuffer *d_buf, uint64_t val );
+int dynBufferPushBackUInt64( DynBuffer *d_buf, uint64_t val );
 
 /*! \brief Append a single precision floating point value (in binary format)
  *         to the end of the dynamic buffer pointed by d_buf
@@ -136,7 +136,7 @@ int dynBufferPushBackUint64( DynBuffer *d_buf, uint64_t val );
  *
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackSingle( DynBuffer *d_buf, float val );
+int dynBufferPushBackFloat32( DynBuffer *d_buf, float val );
 
 /*! \brief Append a double precision floating point value (in binary format)
  *         to the end of the dynamic buffer pointed by d_buf
@@ -146,7 +146,7 @@ int dynBufferPushBackSingle( DynBuffer *d_buf, float val );
  *
  *  \return The new dynamic bufer size, or -1 on failure
  */
-int dynBufferPushBackDouble( DynBuffer *d_buf, double val );
+int dynBufferPushBackFloat64( DynBuffer *d_buf, double val );
 
 /*! \brief Clear a dynamic buffer (the internal memory IS NOT released)
  * 

@@ -11,6 +11,7 @@
 #include "cros_api.h"
 #include "cros_api_internal.h"
 #include "cros_defs.h"
+#include "xmlrpc_params.h"
 
 int
 lookup_host (const char *host, char *ip)
@@ -231,6 +232,41 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
         break;
       }
+      case CROS_API_SUBSCRIBE_PARAM:
+      {
+        int paramsubidx = call->provider_idx;
+        ParameterSubscription *subscription = &n->paramsubs[paramsubidx];
+
+        if(checkResponseValue( &client_proc->response ) )
+        {
+          XmlrpcParam *array = xmlrpcParamVectorAt(&client_proc->response,0);
+          XmlrpcParam *status_msg = xmlrpcParamArrayGetParamAt(array, 1);
+          XmlrpcParam *value = xmlrpcParamArrayGetParamAt(array, 2);
+
+          XmlrpcParam copy;
+          int rc = xmlrpcParamCopy(&copy, value);
+          if (rc < 0)
+            break;
+
+          subscription = &n->paramsubs[paramsubidx];
+          if (subscription->status_callback != NULL)
+          {
+            CrosNodeStatusUsr status;
+            initCrosNodeStatus(&status);
+            status.state = CROS_STATUS_PARAM_SUBSCRIBED;
+            status.provider_idx = paramsubidx;
+            status.parameter_key = subscription->parameter_key;
+            status.parameter_value = value;
+            subscription->status_callback(&status, subscription->context);
+          }
+
+          ret = 0;
+          xmlrpcParamRelease(&subscription->parameter_value);
+          subscription->parameter_value = copy;
+        }
+
+        break;
+      }
       case CROS_API_GET_PID:
       {
         ROS_DEBUG ( "cRosApiParseResponse() : ping response \n" );
@@ -256,8 +292,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         {
           restartAdversing(n);
         }
-        xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
 
+        xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
         break;
       }
       case CROS_API_UNREGISTER_SERVICE:
@@ -273,7 +309,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
-
         break;
       }
       case CROS_API_UNREGISTER_PUBLISHER:
@@ -288,7 +323,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
-
         break;
       }
       case CROS_API_UNREGISTER_SUBSCRIBER:
@@ -303,7 +337,19 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
+        break;
+      }
+      case CROS_API_UNSUBSCRIBE_PARAM:
+      {
+        if( checkResponseValue( &client_proc->response ) )
+        {
+          ret = 0;
+          XmlrpcParam *array = xmlrpcParamVectorAt(&client_proc->response, 0);
+          XmlrpcParam* status_msg = xmlrpcParamArrayGetParamAt(array, 1);
+          XmlrpcParam* unreg_num = xmlrpcParamArrayGetParamAt(array, 2);
+        }
 
+        xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
         break;
       }
       default:
@@ -330,6 +376,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       case CROS_API_GET_PID:
       case CROS_API_GET_SUBSCRIPTIONS:
       case CROS_API_GET_PUBLICATIONS:
+      case CROS_API_DELETE_PARAM:
+      case CROS_API_SET_PARAM:
+      case CROS_API_GET_PARAM:
+      case CROS_API_SEARCH_PARAM:
+      case CROS_API_HAS_PARAM:
+      case CROS_API_GET_PARAM_NAMES:
       {
         ret = 0;
 
@@ -440,19 +492,19 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         int array_size = xmlrpcParamArrayGetSize( publishers_param );
         XmlrpcParam *uri;
         XmlrpcParam *proto_name;
-        int topic_found = 0;
+        int sub_idx = -1;
         int uri_found = 0;
         SubscriberNode* requesting_subscriber = NULL;
 
         int i = 0;
-        for(i = 0 ; i < n->n_subs; i++)
+        for(; i < n->n_subs; i++)
         {
           if (n->subs[i].topic_name == NULL)
             continue;
 
           if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
           {
-            topic_found = 1;
+            sub_idx = i;
             requesting_subscriber = &(n->subs[i]);
             break;
           }
@@ -467,7 +519,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           }
         }
 
-        if (topic_found && uri_found && requesting_subscriber->tcpros_port == -1)
+        if (sub_idx != -1 && uri_found && requesting_subscriber->tcpros_port == -1)
         {
           // Subscriber that is still waiting for a tcpros connection found
           publishers_param = xmlrpcParamVectorAt(&server_proc->params, 2);
@@ -503,7 +555,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             }
 
             requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-            enqueueRequestTopic(n, i);
+            enqueueRequestTopic(n, sub_idx);
           }
 
           xmlrpcParamVectorPushBackArray(&params);
@@ -559,6 +611,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             if (pub->status_callback != NULL && strlen(server_proc->host) != 0)
             {
               CrosNodeStatusUsr status;
+              initCrosNodeStatus(&status);
               status.xmlrpc_host = server_proc->host;
               status.xmlrpc_port = server_proc->port;
               pub->status_callback(&status, pub->context);
@@ -643,7 +696,64 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_PARAM_UPDATE:
     {
-      // TODO
+      XmlrpcParam *node_param = xmlrpcParamVectorAt(&server_proc->params, 0);
+      XmlrpcParam *key_param = xmlrpcParamVectorAt(&server_proc->params, 1);
+      XmlrpcParam *value_param = xmlrpcParamVectorAt(&server_proc->params, 2);
+      if (xmlrpcParamGetType(key_param) != XMLRPC_PARAM_STRING)
+      {
+        PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong paramUpdate message\n" );
+        goto PrepareResponse;
+      }
+
+      int paramsubidx = -1;
+      char *parameter_key = xmlrpcParamGetString(key_param);
+      int it = 0;
+      for (it = 0 ; it < n->n_paramsubs; it++)
+      {
+        if (n->paramsubs[it].parameter_key == NULL)
+          continue;
+
+        if (strncmp(parameter_key, n->paramsubs[it].parameter_key, strlen(n->paramsubs[it].parameter_key)) == 0)
+        {
+          paramsubidx = it;
+
+          break;
+        }
+      }
+
+      ParameterSubscription* subscription = NULL;
+      if (paramsubidx != -1)
+      {
+        subscription = &n->paramsubs[it];
+        if (subscription->status_callback != NULL)
+        {
+          CrosNodeStatusUsr status;
+          initCrosNodeStatus(&status);
+          status.state = CROS_STATUS_PARAM_UPDATE;
+          status.provider_idx = it;
+          status.parameter_key = parameter_key;
+          status.parameter_value = value_param;
+          subscription->status_callback(&status, subscription->context);
+        }
+
+        XmlrpcParam param;
+        int rc = xmlrpcParamCopy(&param, value_param);
+        if (rc != -1)
+        {
+          xmlrpcParamRelease(&subscription->parameter_value);
+          subscription->parameter_value = param;
+        }
+      }
+
+    PrepareResponse:
+      xmlrpcParamVectorPushBackArray(&params);
+      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(array, 1);
+      xmlrpcParamArrayPushBackString(array, "");
+      if (subscription == NULL)
+        xmlrpcParamArrayPushBackInt(array, 1);
+      else
+        xmlrpcParamArrayPushBackInt(array, 0);
       break;
     }
     case CROS_API_GET_SUBSCRIPTIONS:
@@ -749,6 +859,22 @@ const char * getMethodName(CrosApiMethod method)
       return "publisherUpdate";
     case CROS_API_REQUEST_TOPIC:
       return "requestTopic";
+    case CROS_API_DELETE_PARAM:
+      return "deleteParam";
+    case CROS_API_SET_PARAM:
+      return "setParam";
+    case CROS_API_GET_PARAM:
+      return "getParam";
+    case CROS_API_SEARCH_PARAM:
+      return "searchParam";
+    case CROS_API_SUBSCRIBE_PARAM:
+      return "subscribeParam";
+    case CROS_API_UNSUBSCRIBE_PARAM:
+      return "unsubscribeParam";
+    case CROS_API_HAS_PARAM:
+      return "hasParam";
+    case CROS_API_GET_PARAM_NAMES:
+      return "getParamNames";
     default:
       assert(0);
   }
@@ -800,6 +926,22 @@ CrosApiMethod getMethodCode(const char *method)
     return CROS_API_PUBLISHER_UPDATE;
   else if (strcmp(method, "requestTopic") == 0)
     return CROS_API_REQUEST_TOPIC;
+  else if (strcmp(method, "deleteParam") == 0)
+    return CROS_API_DELETE_PARAM;
+  else if (strcmp(method, "setParam") == 0)
+    return CROS_API_SET_PARAM;
+  else if (strcmp(method, "getParam") == 0)
+    return CROS_API_GET_PARAM;
+  else if (strcmp(method, "searchParam") == 0)
+    return CROS_API_SEARCH_PARAM;
+  else if (strcmp(method, "subscribeParam") == 0)
+    return CROS_API_SUBSCRIBE_PARAM;
+  else if (strcmp(method, "unsubscribeParam") == 0)
+    return CROS_API_UNSUBSCRIBE_PARAM;
+  else if (strcmp(method, "hasParam") == 0)
+    return CROS_API_HAS_PARAM;
+  else if (strcmp(method, "getParamNames") == 0)
+    return CROS_API_GET_PARAM_NAMES;
   else
     return CROS_API_NONE;
 }
@@ -834,6 +976,15 @@ int isRosMasterApi(CrosApiMethod method)
     case CROS_API_PUBLISHER_UPDATE:
     case CROS_API_REQUEST_TOPIC:
       return 0;
+    case CROS_API_DELETE_PARAM:
+    case CROS_API_SET_PARAM:
+    case CROS_API_GET_PARAM:
+    case CROS_API_SEARCH_PARAM:
+    case CROS_API_SUBSCRIBE_PARAM:
+    case CROS_API_UNSUBSCRIBE_PARAM:
+    case CROS_API_HAS_PARAM:
+    case CROS_API_GET_PARAM_NAMES:
+      return 1;
     default:
       assert(0);
   }
@@ -869,6 +1020,15 @@ int isRosSlaveApi(CrosApiMethod method)
     case CROS_API_PUBLISHER_UPDATE:
     case CROS_API_REQUEST_TOPIC:
       return 1;
+    case CROS_API_DELETE_PARAM:
+    case CROS_API_SET_PARAM:
+    case CROS_API_GET_PARAM:
+    case CROS_API_SEARCH_PARAM:
+    case CROS_API_SUBSCRIBE_PARAM:
+    case CROS_API_UNSUBSCRIBE_PARAM:
+    case CROS_API_HAS_PARAM:
+    case CROS_API_GET_PARAM_NAMES:
+      return 0;
     default:
       assert(0);
   }

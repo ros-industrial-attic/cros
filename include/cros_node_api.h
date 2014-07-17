@@ -28,7 +28,15 @@ typedef enum
   CROS_API_GET_PUBLICATIONS,
   CROS_API_PARAM_UPDATE,
   CROS_API_PUBLISHER_UPDATE,
-  CROS_API_REQUEST_TOPIC
+  CROS_API_REQUEST_TOPIC,
+  CROS_API_DELETE_PARAM,
+  CROS_API_SET_PARAM,
+  CROS_API_GET_PARAM,
+  CROS_API_SEARCH_PARAM,
+  CROS_API_SUBSCRIBE_PARAM,
+  CROS_API_UNSUBSCRIBE_PARAM,
+  CROS_API_HAS_PARAM,
+  CROS_API_GET_PARAM_NAMES
 } CrosApiMethod;
 
 /*! \defgroup cros_api cROS APIs
@@ -82,6 +90,10 @@ const char * getMethodName(CrosApiMethod method);
 CrosApiMethod getMethodCode(const char *method);
 int isRosMasterApi(CrosApiMethod method);
 int isRosSlaveApi(CrosApiMethod method);
+
+struct CrosNodeStatusUsr;
+
+void initCrosNodeStatus(struct CrosNodeStatusUsr *status);
 
 /*! @}*/
 

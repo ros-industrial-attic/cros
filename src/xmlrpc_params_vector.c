@@ -25,7 +25,7 @@ void xmlrpcParamVectorRelease ( XmlrpcParamVector *p_vec )
 
   int i;
   for ( i = 0; i < p_vec->size; i++ )
-    xmlrpcParamReleaseData ( & ( p_vec->data[i] ) );
+    xmlrpcParamRelease ( & ( p_vec->data[i] ) );
 
   free ( p_vec->data );
   p_vec->data = NULL;
@@ -43,7 +43,7 @@ int xmlrpcParamVectorPushBackBool ( XmlrpcParamVector *p_vec, int val )
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }
 
-int xmlrpcParamVectorPushBackInt ( XmlrpcParamVector *p_vec, int val )
+int xmlrpcParamVectorPushBackInt ( XmlrpcParamVector *p_vec, int32_t val )
 {
   PRINT_VDEBUG ( "xmlrpcParamVectorPushBackInt()\n" );
 
@@ -80,6 +80,16 @@ int xmlrpcParamVectorPushBackArray ( XmlrpcParamVector *p_vec )
   XmlrpcParam param;
   xmlrpcParamInit(&param);
   xmlrpcParamSetArray ( &param );
+  return xmlrpcParamVectorPushBack ( p_vec, &param );
+}
+
+int xmlrpcParamVectorPushBackStruct ( XmlrpcParamVector *p_vec )
+{
+  PRINT_VDEBUG ( "xmlrpcParamVectorPushBackStruct()\n" );
+
+  XmlrpcParam param;
+  xmlrpcParamInit(&param);
+  xmlrpcParamSetStruct ( &param );
   return xmlrpcParamVectorPushBack ( p_vec, &param );
 }
 

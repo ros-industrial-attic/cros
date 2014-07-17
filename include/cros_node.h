@@ -23,6 +23,9 @@
 /*! Max num service providers */
 #define CN_MAX_SERVICE_PROVIDERS 8
 
+/*! Max num parameter subscriptions */
+#define CN_MAX_PARAMETER_SUBSCRIPTIONS 20
+
 /*! Max num serving XMLRPC connections */
 #define CN_MAX_XMLRPC_SERVER_CONNECTIONS 5
 
@@ -53,23 +56,30 @@
 typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
+typedef struct ParameterSubscription ParameterSubscription;
 
 typedef enum CrosNodeStatus
 {
   // TODO: this is a work in progress
-  CROS_STATUS_NONE,
+  CROS_STATUS_NONE = 0,
   CROS_STATUS_PUBLISHER_UNREGISTERED,
   CROS_STATUS_SUBSCRIBER_UNREGISTERED,
-  CROS_STATUS_SERVICE_PROVIDER_UNREGISTERED
+  CROS_STATUS_SERVICE_PROVIDER_UNREGISTERED,
+  CROS_STATUS_PARAM_UNSUBSCRIBED,
+  CROS_STATUS_PARAM_SUBSCRIBED,
+  CROS_STATUS_PARAM_UPDATE,
 } CrosNodeStatus;
 
 typedef struct CrosNodeStatusUsr
 {
   // FIXME: this is a work in progress
   // int callid; // This may be useful to track register/unregister
-  // CrosNodeState state; // May be useful to udnerstand what the node, or the particular sub/pub/svc is doing
+  CrosNodeStatus state; // May be useful to udnerstand what the node, or the particular sub/pub/svc is doing
+  int provider_idx;
   const char *xmlrpc_host;
   int xmlrpc_port;
+  const char *parameter_key;
+  XmlrpcParam *parameter_value;
 } CrosNodeStatusUsr;
 
 /*! \brief Callback to communicate publisher or subscriber status
@@ -128,6 +138,14 @@ struct ServiceProviderNode
   NodeStatusCallback status_callback;
 };
 
+struct ParameterSubscription
+{
+  char *parameter_key;
+  XmlrpcParam parameter_value;
+  void *context;
+  NodeStatusCallback status_callback;
+};
+
 /*! \brief CrosNode object. Don't modify its internal members: use
  *         the related functions instead */
 typedef struct CrosNode CrosNode;
@@ -178,10 +196,12 @@ struct CrosNode
   PublisherNode pubs[CN_MAX_PUBLISHED_TOPICS];            //! All the published topic, defined by PublisherNode structures
   SubscriberNode subs[CN_MAX_SUBSCRIBED_TOPICS];          //! All the subscribed topic, defined by PublisherNode structures
   ServiceProviderNode services[CN_MAX_SERVICE_PROVIDERS]; //! All the services to register
+  ParameterSubscription paramsubs[CN_MAX_PARAMETER_SUBSCRIPTIONS];
 
   int n_pubs;                   //! Number of node's published topics
   int n_subs;                   //! Number of node's subscribed topics
   int n_services;               //! Number of registered services
+  int n_paramsubs;
 };
 
 /*! \brief Resolve the namespace of the resource name
@@ -245,6 +265,8 @@ void cRosNodeDoEventsLoop( CrosNode *n );
 void cRosNodeStart( CrosNode *n, unsigned char *exit );
 
 CrosNode* cRosNodeGetCurrent();
+
+XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/
 
 #endif

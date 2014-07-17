@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <assert.h>
 
 #include "xmlrpc_params.h"
 #include "xmlrpc_tags.h"
@@ -9,6 +10,21 @@
 #include "cros_log.h"
 
 enum { XMLRPC_ARRAY_INIT_SIZE = 4, XMLRPC_ARRAY_GROW_RATE = 2 };
+
+typedef enum ParamContainerType
+{
+  PARAM_CONTAINER_NONE = 0,
+  PARAM_CONTAINER_ARRAY = 1,
+  PARAM_CONTAINER_STRUCT = 2
+} ParamContainerType;
+
+static int paramFromXml ( DynString *message, XmlrpcParam *param, ParamContainerType container);
+static int paramValueFromXml ( DynString *message, XmlrpcParam *param,  ParamContainerType container);
+static int structMemberFromXml ( DynString *message, XmlrpcParam *param);
+static int arrayFromXml ( DynString *message, XmlrpcParam *param);
+static int structFromXml ( DynString *message, XmlrpcParam *param);
+static XmlrpcParam * arrayAddElem ( XmlrpcParam *param );
+static int paramSetMemberName ( XmlrpcParam *param, const char *name );
 
 static void boolToXml ( unsigned char val, DynString *message )
 {
@@ -70,6 +86,19 @@ static void stringToXml ( char *val, DynString *message )
   dynStringPushBackStr ( message, XMLRPC_VALUE_ETAG.str );
 }
 
+static void structToXml ( XmlrpcParam *val, DynString *message )
+{
+  dynStringPushBackStr ( message, XMLRPC_VALUE_TAG.str );
+  dynStringPushBackStr ( message, XMLRPC_STRUCT_TAG.str );
+
+  int i;
+  for ( i = 0; i < val->array_n_elem; i++ )
+    xmlrpcParamToXml ( & ( val->data.as_array[i] ), message );
+
+  dynStringPushBackStr ( message, XMLRPC_STRUCT_ETAG.str );
+  dynStringPushBackStr ( message, XMLRPC_VALUE_ETAG.str );
+}
+
 static void arrayToXml ( XmlrpcParam *val, DynString *message )
 {
   dynStringPushBackStr ( message, XMLRPC_VALUE_TAG.str );
@@ -97,23 +126,143 @@ static void binaryToXml ( void *val, DynString *message )
   exit ( EXIT_FAILURE );
 }
 
-static void structToXml ( void *val, DynString *message )
+int paramFromXml ( DynString *message, XmlrpcParam *param,  ParamContainerType container)
 {
-  PRINT_ERROR ( "structToXml() : Not yet implemented! (FATAL ERROR) \n" );
-  exit ( EXIT_FAILURE );
+  PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", is_array?"TRUE":"FALSE" );
+
+  int rc;
+  const char *c = dynStringGetCurrentData ( message );
+  int len = dynStringGetLen ( message );
+  int i = dynStringGetPoseIndicatorOffset ( message );
+  const char *param_begin =  NULL;
+  const char *param_end = NULL;
+  for (; i < len; i++, c++ )
+  {
+    if ((container == PARAM_CONTAINER_NONE || container == PARAM_CONTAINER_ARRAY)
+          && len - i >= XMLRPC_VALUE_TAG.dim
+          && strncmp ( c, XMLRPC_VALUE_TAG.str, XMLRPC_VALUE_TAG.dim ) == 0 )
+    {
+      c += XMLRPC_VALUE_TAG.dim;
+      i += XMLRPC_VALUE_TAG.dim;
+      param_begin = c;
+      break;
+    }
+    else if (container == PARAM_CONTAINER_STRUCT && len - i >= XMLRPC_MEMBER_TAG.dim
+             && strncmp ( c, XMLRPC_MEMBER_TAG.str, XMLRPC_MEMBER_TAG.dim ) == 0 )
+    {
+      c += XMLRPC_MEMBER_TAG.dim;
+      i += XMLRPC_MEMBER_TAG.dim;
+      param_begin = c;
+      break;
+    }
+    else if (container == PARAM_CONTAINER_ARRAY && len - i >= XMLRPC_DATA_ETAG.dim
+             && strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
+    {
+      PRINT_DEBUG ( "paramFromXml() : reach end of array\n" );
+      return -1;
+    }
+    else if (container == PARAM_CONTAINER_STRUCT && len - i >= XMLRPC_STRUCT_ETAG.dim
+             && strncmp ( c, XMLRPC_STRUCT_ETAG.str, XMLRPC_STRUCT_ETAG.dim ) == 0 )
+    {
+      PRINT_DEBUG ( "paramFromXml() : reach end of struct\n" );
+      return -1;
+    }
+  }
+
+  if (param_begin == NULL)
+  {
+    PRINT_ERROR ( "paramFromXml() : no param tag found\n" );
+    return -1;
+  }
+
+  dynStringSetPoseIndicator ( message, i);
+
+  switch (container)
+  {
+    case PARAM_CONTAINER_NONE:
+    case PARAM_CONTAINER_ARRAY:
+    {
+      rc = paramValueFromXml(message, param, container);
+      break;
+    }
+    case PARAM_CONTAINER_STRUCT:
+    {
+      param = arrayAddElem (param);
+      if (param == NULL)
+        return -1;
+
+      rc = structMemberFromXml(message, param);
+      break;
+    }
+    default:
+    {
+      assert(0);
+    }
+  }
+
+  if (rc < 0)
+    return rc;
+
+  c = dynStringGetCurrentData ( message );
+  i = dynStringGetPoseIndicatorOffset ( message );
+
+  for (; i < len; i++, c++ )
+  {
+    switch (container)
+    {
+      case PARAM_CONTAINER_NONE:
+      case PARAM_CONTAINER_ARRAY:
+      {
+        if ( len - i >= XMLRPC_VALUE_ETAG.dim &&
+              strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
+        {
+          param_end = c;
+          c += XMLRPC_VALUE_ETAG.dim;
+          i += XMLRPC_VALUE_ETAG.dim;
+          goto exit;
+        }
+        break;
+      }
+      case PARAM_CONTAINER_STRUCT:
+      {
+        if ( len - i >= XMLRPC_MEMBER_ETAG.dim &&
+            strncmp ( c, XMLRPC_MEMBER_ETAG.str, XMLRPC_MEMBER_ETAG.dim ) == 0 )
+        {
+          param_end = c;
+          c += XMLRPC_MEMBER_ETAG.dim;
+          i += XMLRPC_MEMBER_ETAG.dim;
+          goto exit;
+        }
+        break;
+      }
+      default:
+      {
+        assert(0);
+      }
+    }
+  }
+
+exit:
+  if ( param_end == NULL )
+  {
+    PRINT_ERROR ( "arrayFromXml() : no param end tag found\n" );
+    return -1;
+  }
+
+  dynStringSetPoseIndicator ( message, i);
+
+  return 0;
 }
 
-// Forward declaration useful for arrayFromXml()
-static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array );
-
-static int arrayFromXml ( DynString *message, XmlrpcParam *param )
+int arrayFromXml(DynString *message, XmlrpcParam *param)
 {
   PRINT_VDEBUG ( "arrayFromXml()\n" );
 
   const char *c = dynStringGetCurrentData ( message );
   int len = dynStringGetLen ( message );
   int i = dynStringGetPoseIndicatorOffset ( message );
-  const char *data_init = NULL, *data_end = NULL;
+  const char *data_init = NULL;
+  const char *data_end = NULL;
 
   for ( ; i < len; i++, c++ )
   {
@@ -130,17 +279,14 @@ static int arrayFromXml ( DynString *message, XmlrpcParam *param )
   if ( data_init == NULL )
   {
     PRINT_ERROR ( "arrayFromXml() : no data tag found\n" );
-    return 0;
+    return -1;
   }
 
-  // Update pose indicator (useful in case it is an array parameter)
-  dynStringSetPoseIndicator ( message, i );
+  dynStringSetPoseIndicator ( message, i);
 
-
-  while ( paramFromXml ( message, param, 1 ) );
+  while (paramFromXml ( message, param, PARAM_CONTAINER_ARRAY ) != -1);
 
   c = dynStringGetCurrentData ( message );
-  len = dynStringGetLen ( message );
   i = dynStringGetPoseIndicatorOffset ( message );
 
   for ( ; i < len; i++, c++ )
@@ -148,62 +294,43 @@ static int arrayFromXml ( DynString *message, XmlrpcParam *param )
     if ( len - i >= XMLRPC_DATA_ETAG.dim &&
          strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
     {
+      data_end = c;
       c += XMLRPC_DATA_ETAG.dim;
       i += XMLRPC_DATA_ETAG.dim;
-      data_init = c;
       break;
     }
   }
 
-  if ( data_init == NULL )
+  if ( data_end == NULL )
   {
     PRINT_ERROR ( "arrayFromXml() : no end data tag found\n" );
-    return 0;
+    return -1;
   }
 
   dynStringSetPoseIndicator ( message, i );
 
-  return 1;
+  return 0;
 }
 
-static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
+int structFromXml(DynString *message, XmlrpcParam *param)
 {
-  PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", is_array?"TRUE":"FALSE" );
+  PRINT_VDEBUG ( "structFromXml()\n" );
 
+  while (paramFromXml ( message, param, PARAM_CONTAINER_STRUCT ) != -1);
+
+  return 0;
+}
+
+int paramValueFromXml ( DynString *message, XmlrpcParam *param,  ParamContainerType container)
+{
   const char *c = dynStringGetCurrentData ( message );
   int len = dynStringGetLen ( message );
-  int i = dynStringGetPoseIndicatorOffset ( message ), val_size = 0, val_i = 0;
-  const char *value_init = NULL, *value_end = NULL;
-  
-  for ( ; i < len; i++, c++ )
-  {
-    if ( len - i >= XMLRPC_VALUE_TAG.dim &&
-         strncmp ( c, XMLRPC_VALUE_TAG.str, XMLRPC_VALUE_TAG.dim ) == 0 )
-    {
-      c += XMLRPC_VALUE_TAG.dim;
-      i += XMLRPC_VALUE_TAG.dim;
+  int i = dynStringGetPoseIndicatorOffset ( message );
 
-      value_init = c;
-      val_i = i;
-      
-      break;
-    }
-    else if ( is_array && len - i >= XMLRPC_DATA_ETAG.dim &&
-              strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
-    {
-      ROS_DEBUG ( "paramFromXml() : reach end of array\n" );
-      return 0;
-    }
-  }
-
-  if ( value_init == NULL )
-  {
-    PRINT_ERROR ( "paramFromXml() : no start value tag found\n" );
-    return 0;
-  }
-  
   XmlrpcParamType p_type = XMLRPC_PARAM_UNKNOWN;
-  const char *type_init = NULL, *type_end = NULL;
+  const char *value_init = NULL;
+  const char *type_init = NULL;
+  const char *type_end = NULL;
 
   for ( ; i < len; i++, c++ )
   {
@@ -267,11 +394,11 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
       PRINT_ERROR ( "paramFromXml() : Tag %s not yet implemented! (FATAL ERROR) \n", XMLRPC_DATETIME_TAG.str );
       exit ( EXIT_FAILURE );
 
-//       c += XMLRPC_DATETIME_TAG.dim;
-//       i += XMLRPC_DATETIME_TAG.dim;
-//       type_init = c;
-//       p_type = XMLRPC_PARAM_DATETIME;
-//       break;
+      c += XMLRPC_DATETIME_TAG.dim;
+      i += XMLRPC_DATETIME_TAG.dim;
+      type_init = c;
+      p_type = XMLRPC_PARAM_DATETIME;
+      break;
     }
     else if ( len - i >= XMLRPC_BASE64_TAG.dim &&
               strncmp ( c, XMLRPC_BASE64_TAG.str, XMLRPC_BASE64_TAG.dim ) == 0 )
@@ -279,29 +406,26 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
       PRINT_ERROR ( "paramFromXml() : Tag %s not yet implemented! (FATAL ERROR) \n", XMLRPC_BASE64_TAG.str );
       exit ( EXIT_FAILURE );
 
-//       c += XMLRPC_BASE64_TAG.dim;
-//       i += XMLRPC_BASE64_TAG.dim;
-//       type_init = c;
-//       p_type = XMLRPC_PARAM_BINARY;
-//       break;
+      c += XMLRPC_BASE64_TAG.dim;
+      i += XMLRPC_BASE64_TAG.dim;
+      type_init = c;
+      p_type = XMLRPC_PARAM_BINARY;
+      break;
     }
     else if ( len - i >= XMLRPC_STRUCT_TAG.dim &&
               strncmp ( c, XMLRPC_STRUCT_TAG.str, XMLRPC_STRUCT_TAG.dim ) == 0 )
     {
-      PRINT_ERROR ( "paramFromXml() : Tag %s not yet implemented! (FATAL ERROR) \n", XMLRPC_STRUCT_TAG.str );
-      exit ( EXIT_FAILURE );
-
-//       c += XMLRPC_BASE64_TAG.dim;
-//       i += XMLRPC_BASE64_TAG.dim;
-//       type_init = c;
-//       p_type = XMLRPC_STRUCT_TAG;
-//       break;
+      c += XMLRPC_STRUCT_TAG.dim;
+      i += XMLRPC_STRUCT_TAG.dim;
+      type_init = c;
+      p_type = XMLRPC_PARAM_STRUCT;
+      break;
     }
     else if ( len - i >= XMLRPC_VALUE_ETAG.dim &&
          strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
     {
-      c = value_init;
-      i = val_i;
+      value_init = dynStringGetCurrentData ( message );
+      i = dynStringGetPoseIndicatorOffset ( message );
       break;
     }
   }
@@ -310,99 +434,125 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
     
   // Update pose indicator (useful in case it is an array parameter)
   dynStringSetPoseIndicator ( message, i );
-  
+
   const char *str_init = NULL;
   int str_len = 0;
-  
-  if ( p_type == XMLRPC_PARAM_BOOL )
-  {
-    int val;
-    if ( sscanf ( c, "%d", &val ) == 1 )
-    {
-      if ( !is_array )
-        xmlrpcParamSetBool ( param, val );
-      else
-        xmlrpcParamArrayPushBackBool ( param, val );
-    }
-    else
-    {
-      PRINT_ERROR ( "paramFromXml() : not valid value\n" );
-      xmlrpcParamSetUnknown ( param );
-      return 0;
-    }
-  }
-  else if ( p_type == XMLRPC_PARAM_INT )
-  {
-    int val;
-    if ( sscanf ( c, "%d", &val ) == 1 )
-    {
-      if ( !is_array )
-        xmlrpcParamSetInt ( param, val );
-      else
-        xmlrpcParamArrayPushBackInt ( param, val );
-    }
-    else
-    {
-      PRINT_ERROR ( "paramFromXml() : not valid value\n" );
-      xmlrpcParamSetUnknown ( param );
-      return 0;
-    }
-  }
-  else if ( p_type == XMLRPC_PARAM_DOUBLE )
-  {
-    double val;
-    if ( sscanf ( c, "%lf", &val ) == 1 )
-    {
-      if ( !is_array )
-        xmlrpcParamSetDouble ( param, val );
-      else
-        xmlrpcParamArrayPushBackDouble ( param, val );
-    }
-    else
-    {
-      PRINT_ERROR ( "paramFromXml() : not valid value\n" );
-      xmlrpcParamSetUnknown ( param );
-      return 0;
-    }
-  }
-  else if ( p_type == XMLRPC_PARAM_STRING )
-  {
-    str_init = type_init;
-  }
-  else if ( p_type == XMLRPC_PARAM_ARRAY )
-  {
-    if ( !is_array )
-      xmlrpcParamSetArray ( param );
-    else
-      // Pushed new param array: start to parse for this new element
-      param = xmlrpcParamArrayPushBackArray ( param );
 
-    if ( param == NULL || !arrayFromXml ( message, param ) )
-      return 0;
-  }
-  else if ( p_type == XMLRPC_PARAM_DATETIME )
+  switch (p_type)
   {
-    // TODO Implement me!
-  }
-  else if ( p_type == XMLRPC_PARAM_BINARY )
-  {
-    // TODO Implement me!
-  }
-  else if ( p_type == XMLRPC_PARAM_STRUCT )
-  {
-    // TODO Implement me!
-  }
-  else
-  {
-    // Maybe string without <string> and </string> tabs
-    str_init = value_init;
-  }
+    case XMLRPC_PARAM_BOOL:
+    {
+      int val;
+      if ( sscanf ( c, "%d", &val ) == 1 )
+      {
+        if (container == PARAM_CONTAINER_ARRAY)
+          xmlrpcParamArrayPushBackBool ( param, val );
+        else
+          xmlrpcParamSetBool ( param, val );
+      }
+      else
+      {
+        PRINT_ERROR ( "paramFromXml() : not valid value\n" );
+        xmlrpcParamSetUnknown ( param );
+        return -1;
+      }
+      break;
+    }
+    case XMLRPC_PARAM_INT:
+    {
+      int val;
+      if ( sscanf ( c, "%d", &val ) == 1 )
+      {
+        if (container == PARAM_CONTAINER_ARRAY)
+          xmlrpcParamArrayPushBackInt ( param, val );
+        else
+          xmlrpcParamSetInt ( param, val );
+      }
+      else
+      {
+        PRINT_ERROR ( "paramFromXml() : not valid value\n" );
+        xmlrpcParamSetUnknown ( param );
+        return -1;
+      }
+      break;
+    }
+    case XMLRPC_PARAM_DOUBLE:
+    {
+      double val;
+      if ( sscanf ( c, "%lf", &val ) == 1 )
+      {
+        if (container == PARAM_CONTAINER_ARRAY)
+          xmlrpcParamArrayPushBackDouble ( param, val );
+        else
+          xmlrpcParamSetDouble ( param, val );
+      }
+      else
+      {
+        PRINT_ERROR ( "paramFromXml() : not valid value\n" );
+        xmlrpcParamSetUnknown ( param );
+        return -1;
+      }
+      break;
+    }
+    case XMLRPC_PARAM_STRING:
+    {
+      str_init = type_init;
+      break;
+    }
+    case XMLRPC_PARAM_ARRAY:
+    {
+      if (container == PARAM_CONTAINER_ARRAY)
+        // Pushed new param array: start to parse for this new element
+        param = xmlrpcParamArrayPushBackArray ( param );
+      else
+        xmlrpcParamSetArray ( param );
 
+      if (param == NULL)
+        return -1;
+
+      int rc = arrayFromXml(message, param);
+      if (rc < rc)
+        return rc;
+
+      break;
+    }
+    case XMLRPC_PARAM_DATETIME:
+    {
+      // TODO Implement me!
+      break;
+    }
+    case XMLRPC_PARAM_BINARY:
+    {
+      // TODO Implement me!
+      break;
+    }
+    case XMLRPC_PARAM_STRUCT:
+    {
+      if (container == PARAM_CONTAINER_ARRAY)
+        // Pushed new param array: start to parse for this new element
+        param = xmlrpcParamArrayPushBackStruct ( param );
+      else
+        xmlrpcParamSetStruct ( param );
+
+      if (param == NULL)
+        return -1;
+
+      int rc = structFromXml(message, param);
+      if (rc < rc)
+        return rc;
+
+      break;
+    }
+    default:
+    {
+      // Maybe string without <string> and </string> tabs
+      str_init = value_init;
+      break;
+    }
+  }
 
   c = dynStringGetCurrentData ( message );
-  // len = dynStringGetLen ( message );
   i = dynStringGetPoseIndicatorOffset ( message );
-  
   for ( ; i < len; i++, c++ )
   {
     if ( p_type == XMLRPC_PARAM_BOOL && len - i >= XMLRPC_BOOLEAN_ETAG.dim &&
@@ -450,6 +600,15 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
       i += XMLRPC_ARRAY_ETAG.dim;
       break;
     }
+    else if ( p_type == XMLRPC_PARAM_STRUCT && len - i >= XMLRPC_STRUCT_ETAG.dim &&
+         strncmp ( c, XMLRPC_STRUCT_ETAG.str, XMLRPC_STRUCT_ETAG.dim ) == 0 )
+    {
+      type_end = c;
+
+      c += XMLRPC_STRUCT_ETAG.dim;
+      i += XMLRPC_STRUCT_ETAG.dim;
+      break;
+    }
     else if ( p_type == XMLRPC_PARAM_DATETIME && len - i >= XMLRPC_DATETIME_ETAG.dim &&
          strncmp ( c, XMLRPC_DATETIME_ETAG.str, XMLRPC_DATETIME_ETAG.dim ) == 0 )
     {
@@ -480,67 +639,142 @@ static int paramFromXml ( DynString *message, XmlrpcParam *param, int is_array )
     else if ( p_type == XMLRPC_PARAM_UNKNOWN && len - i >= XMLRPC_VALUE_ETAG.dim &&
          strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
     {
-      type_end = value_end = c;
+      type_end = c;
 
-      c += XMLRPC_VALUE_ETAG.dim;
-      i += XMLRPC_VALUE_ETAG.dim;
+      // End value tag is feeded outside
       break;
     }
     else
       str_len++;
   }
-  
+
   // Update pose indicator (useful in case it is an array parameter)
   dynStringSetPoseIndicator ( message, i );
-  
+
   if ( type_end == NULL )
   {
     PRINT_ERROR ( "paramFromXml() : no end type tag found\n" );
-    return 0;
+    return -1;
   }
-  
+
   if( p_type == XMLRPC_PARAM_STRING || p_type == XMLRPC_PARAM_UNKNOWN )
   {
-    if ( !is_array )
-      xmlrpcParamSetStringN ( param, str_init, str_len );
-    else
+    if (container == PARAM_CONTAINER_ARRAY)
       xmlrpcParamArrayPushBackStringN ( param, str_init, str_len  );
+    else
+      xmlrpcParamSetStringN ( param, str_init, str_len );
   }
 
-  if( p_type != XMLRPC_PARAM_UNKNOWN )
-  {
-    for ( ; i < len; i++, c++ )
-    {
-      if ( len - i >= XMLRPC_VALUE_ETAG.dim &&
-          strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
-      {
-        value_end = c;
+  return 0;
+}
 
-        c += XMLRPC_VALUE_ETAG.dim;
-        i += XMLRPC_VALUE_ETAG.dim;
-        break;
-      }
+int structMemberFromXml ( DynString *message, XmlrpcParam *param)
+{
+  int rc;
+  int len = dynStringGetLen ( message );
+  const char *c = dynStringGetCurrentData ( message );
+  int i = dynStringGetPoseIndicatorOffset ( message );
+
+  const char *name_begin = NULL;
+  const char *name_end = NULL;
+  for ( ; i < len; i++, c++ )
+  {
+    if ( len - i >= XMLRPC_NAME_TAG.dim &&
+         strncmp ( c, XMLRPC_NAME_TAG.str, XMLRPC_NAME_TAG.dim ) == 0 )
+    {
+      c += XMLRPC_NAME_TAG.dim;
+      i += XMLRPC_NAME_TAG.dim;
+      name_begin = c;
+      break;
     }
   }
 
-  // Update pose indicator (useful in case it is an array parameter)
-  dynStringSetPoseIndicator ( message, i );
-  
-  if ( value_end == NULL )
+  for ( ; i < len; i++, c++ )
   {
-    PRINT_ERROR ( "paramFromXml() : no end value tag found\n" );
-    return 0;
+    if ( len - i >= XMLRPC_NAME_ETAG.dim &&
+         strncmp ( c, XMLRPC_NAME_ETAG.str, XMLRPC_NAME_ETAG.dim ) == 0 )
+    {
+      name_end = c;
+      c += XMLRPC_NAME_ETAG.dim;
+      i += XMLRPC_NAME_ETAG.dim;
+      break;
+    }
   }
 
-  return 1;
+  if (name_begin == NULL || name_end == NULL)
+  {
+    PRINT_ERROR ( "paramMemberFromXml() : no name type tag found\n" );
+    return -1;
+  }
+
+  size_t name_len = name_end - name_begin;
+  param->member_name = malloc(name_len + 1);
+  if (param->member_name == NULL)
+  {
+    PRINT_ERROR ( "paramMemberFromXml() : Can't allocate memory\n" );
+    return -1;
+  }
+
+  memcpy(param->member_name, name_begin, name_len);
+  param->member_name[name_len] = '\0';
+
+  const char *value_begin = NULL;
+  const char *value_end = NULL;
+  for ( ; i < len; i++, c++ )
+  {
+    if ( len - i >= XMLRPC_VALUE_TAG.dim &&
+         strncmp ( c, XMLRPC_VALUE_TAG.str, XMLRPC_VALUE_TAG.dim ) == 0 )
+    {
+      c += XMLRPC_VALUE_TAG.dim;
+      i += XMLRPC_VALUE_TAG.dim;
+      value_begin = c;
+      break;
+    }
+  }
+
+  if (value_begin == NULL)
+  {
+    PRINT_ERROR ( "paramMemberFromXml() : no value tag found\n" );
+    return -1;
+  }
+
+  dynStringSetPoseIndicator ( message, i);
+
+  rc = paramValueFromXml(message, param, XMLRPC_PARAM_STRUCT);
+  if (rc < 0)
+    return rc;
+
+  c = dynStringGetCurrentData ( message );
+  i = dynStringGetPoseIndicatorOffset ( message );
+
+  for ( ; i < len; i++, c++ )
+  {
+    if ( len - i >= XMLRPC_VALUE_ETAG.dim &&
+        strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
+    {
+      value_end = c;
+      c += XMLRPC_VALUE_ETAG.dim;
+      i += XMLRPC_VALUE_ETAG.dim;
+      break;
+    }
+  }
+
+  if ( value_end == NULL )
+  {
+    PRINT_ERROR ( "paramMemberFromXml() : no value end tag found\n" );
+    return -1;
+  }
+
+  dynStringSetPoseIndicator ( message, i);
+
+  return 0;
 }
 
-
-static XmlrpcParam *arrayAddElem ( XmlrpcParam *param )
+XmlrpcParam * arrayAddElem ( XmlrpcParam *param )
 {
-  if ( param->type != XMLRPC_PARAM_ARRAY )
+  if ( param->type != XMLRPC_PARAM_ARRAY && param->type != XMLRPC_PARAM_STRUCT )
   {
-    PRINT_ERROR ( "arrayAddElem() : Not array type param \n" );
+    PRINT_ERROR ( "arrayAddElem() : Not array or struct type param \n" );
     return NULL;
   }
 
@@ -564,12 +798,12 @@ static XmlrpcParam *arrayAddElem ( XmlrpcParam *param )
 }
 
 
-unsigned char xmlrpcParamGetBool( XmlrpcParam *param )
+int xmlrpcParamGetBool( XmlrpcParam *param )
 {
   return param->data.as_bool?1:0;
 }
 
-int xmlrpcParamGetInt( XmlrpcParam *param )
+int32_t xmlrpcParamGetInt( XmlrpcParam *param )
 {
   return param->data.as_int;
 }
@@ -599,7 +833,7 @@ void xmlrpcParamSetBool ( XmlrpcParam *param, int val )
   ROS_DEBUG( "xmlrpcSetBool() : Set: %s\n", param->data.as_bool?"TRUE":"FALSE" );
 }
 
-void xmlrpcParamSetInt ( XmlrpcParam *param, int val )
+void xmlrpcParamSetInt ( XmlrpcParam *param, int32_t val )
 {
   PRINT_VDEBUG ( "xmlrpcSetInt()\n" );
 
@@ -690,59 +924,81 @@ void xmlrpcParamSetArray ( XmlrpcParam *param )
   param->array_max_elem = XMLRPC_ARRAY_INIT_SIZE;
 }
 
+void xmlrpcParamSetStruct( XmlrpcParam *param )
+{
+  PRINT_VDEBUG ( "xmlrpcSetArray()\n" );
+  param->type = XMLRPC_PARAM_STRUCT;
+
+  param->data.as_array = ( XmlrpcParam * ) malloc ( XMLRPC_ARRAY_INIT_SIZE*sizeof ( XmlrpcParam ) );
+  if ( param->data.as_array == NULL )
+  {
+    PRINT_ERROR ( "xmlrpcSetArray() : Can't allocate memory\n" );
+    param->array_max_elem = param->array_n_elem = 0;
+    return;
+  }
+  param->array_n_elem = 0;
+  param->array_max_elem = XMLRPC_ARRAY_INIT_SIZE;
+}
+
+
 XmlrpcParamType xmlrpcParamGetType ( XmlrpcParam *param )
 {
   return param->type;
 }
 
-void xmlrpcParamArrayPushBackBool ( XmlrpcParam *param, int val )
+XmlrpcParam * xmlrpcParamArrayPushBackBool ( XmlrpcParam *param, int val )
 {
   PRINT_VDEBUG ( "xmlrpcParamArrayPushBackBool()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
-    return;
+    return NULL;
 
   xmlrpcParamSetBool ( new_param, val );
+  return new_param;
 }
 
-void xmlrpcParamArrayPushBackInt ( XmlrpcParam *param, int val )
+XmlrpcParam * xmlrpcParamArrayPushBackInt ( XmlrpcParam *param, int32_t val )
 {
   PRINT_VDEBUG ( "xmlrpcParamArrayPushBackInt()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
-    return;
+    return NULL;
 
   xmlrpcParamSetInt ( new_param, val );
+  return new_param;
 }
 
-void xmlrpcParamArrayPushBackDouble ( XmlrpcParam *param, double val )
+XmlrpcParam * xmlrpcParamArrayPushBackDouble ( XmlrpcParam *param, double val )
 {
   PRINT_VDEBUG ( "xmlrpcParamArrayPushBackDouble()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
-    return;
+    return NULL;
 
   xmlrpcParamSetDouble ( new_param, val );
+  return new_param;
 }
 
-void xmlrpcParamArrayPushBackString ( XmlrpcParam *param, const char *val )
+XmlrpcParam * xmlrpcParamArrayPushBackString ( XmlrpcParam *param, const char *val )
 {
   PRINT_VDEBUG ( "xmlrpcParamArrayPushBackString()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
-    return;
+    return NULL;
 
   xmlrpcParamSetString ( new_param, val );
+  return new_param;
 }
 
-void xmlrpcParamArrayPushBackStringN ( XmlrpcParam *param, const char *val, int n )
+XmlrpcParam * xmlrpcParamArrayPushBackStringN ( XmlrpcParam *param, const char *val, int n )
 {
   PRINT_VDEBUG ( "xmlrpcParamArrayPushBackStringN()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
-    return;
+    return NULL;
 
   xmlrpcParamSetStringN ( new_param, val, n );
+  return new_param;
 }
 
 XmlrpcParam *xmlrpcParamArrayPushBackArray ( XmlrpcParam *param )
@@ -756,15 +1012,140 @@ XmlrpcParam *xmlrpcParamArrayPushBackArray ( XmlrpcParam *param )
   return new_param;
 }
 
+XmlrpcParam * xmlrpcParamArrayPushBackStruct ( XmlrpcParam *param )
+{
+  PRINT_VDEBUG ( "xmlrpcParamArrayPushBackStruct()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  xmlrpcParamSetStruct ( new_param );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructGetParam( XmlrpcParam *param, const char *name )
+{
+  if ( param->type != XMLRPC_PARAM_STRUCT )
+  {
+    PRINT_ERROR ( "xmlrpcParamStructGetParam() : Not a struct type param \n" );
+    return NULL;
+  }
+
+  int it = 0;
+  for (; it < param->array_n_elem; it++)
+  {
+    XmlrpcParam *param = &param->data.as_array[it];
+    if (strcmp(param->member_name, name) == 0)
+      return param;
+  }
+
+  return NULL;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackBool( XmlrpcParam *param, const char *name, int val )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackBool()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetBool ( new_param, val );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackInt( XmlrpcParam *param, const char *name, int32_t val )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackInt()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetInt ( new_param, val );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackDouble( XmlrpcParam *param, const char *name, double val )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackDouble()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetDouble ( new_param, val );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackString( XmlrpcParam *param, const char *name, const char *val )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackString()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetString ( new_param, val );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackStringN( XmlrpcParam *param, const char *name, const char *val, int n )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackStringN()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetStringN ( new_param, val, n );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackArray( XmlrpcParam *param, const char *name )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackArray()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetArray ( new_param );
+  return new_param;
+}
+
+XmlrpcParam * xmlrpcParamStructPushBackStruct ( XmlrpcParam *param, const char *name )
+{
+  PRINT_VDEBUG ( "xmlrpcParamStructPushBackStruct()\n" );
+  XmlrpcParam *new_param = arrayAddElem ( param );
+  if ( new_param == NULL )
+    return NULL;
+
+  paramSetMemberName(new_param, name);
+  xmlrpcParamSetStruct ( new_param );
+  return new_param;
+}
+
+int paramSetMemberName ( XmlrpcParam *param, const char *name )
+{
+  param->member_name = (char *)malloc(strlen(name) + 1);
+  if (param->member_name == NULL)
+    return -1;
+  strcpy(param->member_name, name);
+
+  return 0;
+}
+
 void xmlrpcParamInit( XmlrpcParam *param )
 {
   param->type = XMLRPC_PARAM_UNKNOWN;
-  param->data.as_int = 0;
+  param->member_name =  NULL;
+  memset(param->data.opaque, 0, sizeof(param->data.opaque));
   param->array_n_elem = -1;
   param->array_max_elem = -1;
 }
 
-void xmlrpcParamReleaseData ( XmlrpcParam *param )
+void xmlrpcParamRelease ( XmlrpcParam *param )
 {
   PRINT_VDEBUG ( "xmlrpcParamReleaseData()\n" );
   int i;
@@ -784,25 +1165,27 @@ void xmlrpcParamReleaseData ( XmlrpcParam *param )
     break;
 
   case XMLRPC_PARAM_ARRAY:
+  case XMLRPC_PARAM_STRUCT:
     if ( param->data.as_array != NULL )
     {
       for ( i = 0; i< param->array_n_elem; i++ )
-        xmlrpcParamReleaseData ( & ( param->data.as_array[i] ) );
+        xmlrpcParamRelease ( & ( param->data.as_array[i] ) );
       free ( param->data.as_array );
       param->data.as_array = NULL;
     }
-    param->array_n_elem = param->array_max_elem = 0;
+    param->array_n_elem = 0;
+    param->array_max_elem = 0;
     break;
 
   case XMLRPC_PARAM_DATETIME: /* WARNING: Currently unsupported */
   case XMLRPC_PARAM_BINARY: /* WARNING: Currently unsupported */
-  case XMLRPC_PARAM_STRUCT: /* WARNING: Currently unsupported */
     PRINT_ERROR ( "xmlrpcParamReleaseData() : Parameter type not yet supported (FATAL ERROR) \n" );
     exit ( EXIT_FAILURE );
     break;
-
+  case XMLRPC_PARAM_UNKNOWN:
+    break;
   default:
-    PRINT_ERROR ( "xmlrpcParamReleaseData() : Unknown parameter \n" );
+    PRINT_DEBUG ( "xmlrpcParamReleaseData() : Unknown parameter \n" );
     break;
   }
 }
@@ -810,6 +1193,16 @@ void xmlrpcParamReleaseData ( XmlrpcParam *param )
 void xmlrpcParamToXml ( XmlrpcParam *param, DynString *message )
 {
   PRINT_VDEBUG ( "xmlrpcParamToXml()\n" );
+
+  int struct_member = 0;
+  if (param->member_name != NULL)
+  {
+    dynStringPushBackStr ( message, XMLRPC_MEMBER_TAG.str );
+    dynStringPushBackStr ( message, XMLRPC_NAME_TAG.str );
+    dynStringPushBackStr ( message, param->member_name );
+    dynStringPushBackStr ( message, XMLRPC_NAME_ETAG.str );
+    struct_member = 1;
+  }
 
   switch ( param->type )
   {
@@ -828,20 +1221,24 @@ void xmlrpcParamToXml ( XmlrpcParam *param, DynString *message )
   case XMLRPC_PARAM_ARRAY:
     arrayToXml ( param, message );
     break;
+  case XMLRPC_PARAM_STRUCT:
+    structToXml ( param, message );
+    break;
   case XMLRPC_PARAM_DATETIME:
     timeToXml ( param->data.as_time, message );
     break;
   case XMLRPC_PARAM_BINARY:
     binaryToXml ( param->data.as_binary, message );
     break;
-  case XMLRPC_PARAM_STRUCT:
-    structToXml ( param->data.as_struct, message );
+  case XMLRPC_PARAM_UNKNOWN:
     break;
-
   default:
     PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
     break;
   }
+
+  if (struct_member)
+    dynStringPushBackStr ( message, XMLRPC_MEMBER_ETAG.str );
 }
 
 int xmlrpcParamFromXml ( DynString *message, XmlrpcParam *param )
@@ -852,7 +1249,7 @@ int xmlrpcParamFromXml ( DynString *message, XmlrpcParam *param )
   int initial_pos_idx = dynStringGetPoseIndicatorOffset ( message );
   dynStringRewindPoseIndicator ( message );
 
-  int ret = paramFromXml ( message, param, 0 );
+  int ret = paramFromXml ( message, param, PARAM_CONTAINER_NONE );
 
   /* Restore position indicator */
   dynStringSetPoseIndicator ( message, initial_pos_idx );
@@ -911,4 +1308,94 @@ static void paramPrint( XmlrpcParam *param, char *head )
 void xmlrpcParamPrint( XmlrpcParam *param )
 {
   paramPrint( param, "XMLRPC parameter" );
+}
+
+XmlrpcParam * xmlrpcParamNew()
+{
+  XmlrpcParam *ret = (XmlrpcParam *)malloc(sizeof(XmlrpcParam));
+  if (ret == NULL)
+    return NULL;
+
+  xmlrpcParamInit(ret);
+
+  return ret;
+}
+
+void xmlrpcParamFree( XmlrpcParam *param )
+{
+  if (param == NULL)
+    return;
+
+  xmlrpcParamRelease(param);
+  free(param);
+}
+
+XmlrpcParam * xmlrpcParamClone(XmlrpcParam *source)
+{
+  XmlrpcParam *ret = (XmlrpcParam *)malloc(sizeof(XmlrpcParam));
+  if (ret == NULL)
+    return NULL;
+
+  int rc = xmlrpcParamCopy(ret, source);
+  if (rc == -1)
+  {
+    free(ret);
+    return NULL;
+  }
+
+  return ret;
+}
+
+int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
+{
+  memcpy(dest, source, sizeof(XmlrpcParam));
+  if (source->member_name != NULL)
+  {
+    dest->member_name = (char *)malloc(strlen(source->member_name) + 1);
+    strcpy(dest->member_name, source->member_name);
+  }
+
+  switch ( source->type )
+  {
+    case XMLRPC_PARAM_BOOL:
+    case XMLRPC_PARAM_INT:
+    case XMLRPC_PARAM_DOUBLE:
+      break;
+    case XMLRPC_PARAM_STRING:
+      dest->data.as_string = (char *)malloc(strlen(source->data.as_string) + 1);
+      if (dest->data.as_string == NULL)
+        goto clean;
+      strcpy(dest->data.as_string, source->data.as_string);
+      break;
+    case XMLRPC_PARAM_ARRAY:
+    case XMLRPC_PARAM_STRUCT:
+      dest->data.as_array = (XmlrpcParam *)calloc(source->array_n_elem, sizeof(XmlrpcParam));
+      if (dest->data.as_array == NULL)
+        goto clean;
+
+      int it = 0;
+      for (; it < source->array_n_elem; it++)
+      {
+        int rc = xmlrpcParamCopy(&dest->data.as_array[it], &source->data.as_array[it]);
+        if (rc == -1)
+          goto clean;
+      }
+      break;
+    case XMLRPC_PARAM_DATETIME:
+    case XMLRPC_PARAM_BINARY:
+      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
+      assert(0);
+      break;
+    case XMLRPC_PARAM_UNKNOWN:
+      break;
+    default:
+      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
+      assert(0);
+  }
+
+  return 0;
+
+clean:
+  xmlrpcParamRelease(dest);
+  return -1;
 }

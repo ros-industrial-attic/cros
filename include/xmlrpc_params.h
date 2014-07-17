@@ -1,6 +1,7 @@
 #ifndef _XMLRPC_PARAMS_H_
 #define _XMLRPC_PARAMS_H_
 
+#include <stdint.h>
 #include "dyn_string.h"
 
 /*! \defgroup xmlrpc_param XMLRPC parameters */
@@ -19,26 +20,28 @@ typedef enum
   XMLRPC_PARAM_ARRAY,
   XMLRPC_PARAM_DATETIME, /* WARNING: Currently unsupported */
   XMLRPC_PARAM_BINARY, /* WARNING: Currently unsupported */
-  XMLRPC_PARAM_STRUCT, /* WARNING: Currently unsupported */
+  XMLRPC_PARAM_STRUCT
 }XmlrpcParamType;
  
 /*! \brief Struct used to store a input/oputput XMLRPC param.
  *         To modify its internal members, you could use the related functions
  */
 typedef struct XmlrpcParam XmlrpcParam;
+
 struct XmlrpcParam
 {
-  XmlrpcParamType type; //! Param type 
+  XmlrpcParamType type; //! Param type
+  char *member_name;
   union
   {
-    unsigned char as_bool;
-    int as_int;
+    uint8_t opaque[8];
+    int as_bool;
+    int32_t as_int;
     double as_double;
-    char* as_string;
+    char *as_string;
     XmlrpcParam *as_array;
     void* as_time; /* WARNING: Currently unsupported */
     void* as_binary; /* WARNING: Currently unsupported */
-    void* as_struct; /* WARNING: Currently unsupported */
   } data; //! Param data
   int array_n_elem; //! Used only if type is XMLRPC_PARAM_ARRAY: it stores the array size
   int array_max_elem; //! Used only if type is XMLRPC_PARAM_ARRAY: it stores the current max size
@@ -51,9 +54,9 @@ struct XmlrpcParam
  * 
  *  \param param Pointer to a XMLRPC parameter
  * 
- *  \return An unisigned char value ( 0 : false, 1 : true )
+ *  \return An integer value ( 0 : false, 1 : true )
  */
-unsigned char xmlrpcParamGetBool( XmlrpcParam *param );
+int xmlrpcParamGetBool( XmlrpcParam *param );
 
 /*! \brief Return an XMLRPC parameter as a integer value.
  *         No type control are performed. If the XMLRPC parameter 
@@ -63,7 +66,7 @@ unsigned char xmlrpcParamGetBool( XmlrpcParam *param );
  * 
  *  \return The integer value
  */
-int xmlrpcParamGetInt( XmlrpcParam *param );
+int32_t xmlrpcParamGetInt( XmlrpcParam *param );
 
 /*! \brief Return an XMLRPC parameter as a double value.
  *         No type control are performed. If the XMLRPC parameter 
@@ -103,7 +106,7 @@ void xmlrpcParamSetBool( XmlrpcParam *param, int val );
  *  \param param Pointer to a XMLRPC parameter
  *  \param val An integer value
  */
-void xmlrpcParamSetInt( XmlrpcParam *param, int val );
+void xmlrpcParamSetInt( XmlrpcParam *param, int32_t val );
 
 /*! \brief Setup a XMLRPC double floating point parameter with the given value
  * 
@@ -134,6 +137,12 @@ void xmlrpcParamSetStringN( XmlrpcParam *param, const char *val, int n );
  */
 void xmlrpcParamSetArray( XmlrpcParam *param );
 
+/*! \brief Setup an empty struct XMLRPC parameter, starting to allocate internal memory
+ *
+ *  \param param Pointer to a XMLRPC parameter
+ */
+void xmlrpcParamSetStruct( XmlrpcParam *param );
+
 /*! \brief Return the data type for a given XMLRPC parameter
  * 
  *  \param param Pointer to a XMLRPC parameter
@@ -158,35 +167,35 @@ int xmlrpcParamArrayGetSize( XmlrpcParam *param );
  *  \return Pointer to the XMLRPC parameter, or NULL 
  *          if the XMLRPC parameter is not an array or if idx exceeds the array size
  */
-XmlrpcParam *xmlrpcParamArrayGetParamAt( XmlrpcParam *param, int idx );
+XmlrpcParam * xmlrpcParamArrayGetParamAt( XmlrpcParam *param, int idx );
 
 /*! \brief Append to an array XMLRPC parameter a bool parameter
  * 
  *  \param param Pointer to an array XMLRPC parameter
  *  \param val An integer value (false if it is equal to 0, true otherwise)
  */
-void xmlrpcParamArrayPushBackBool( XmlrpcParam *param, int val );
+XmlrpcParam * xmlrpcParamArrayPushBackBool( XmlrpcParam *param, int val );
 
 /*! \brief Append to an array XMLRPC parameter an integer parameter
  * 
  *  \param param Pointer to an array XMLRPC parameter
  *  \param val An integer value
  */
-void xmlrpcParamArrayPushBackInt( XmlrpcParam *param, int val );
+XmlrpcParam * xmlrpcParamArrayPushBackInt( XmlrpcParam *param, int32_t val );
 
 /*! \brief Append to an array XMLRPC parameter a double parameter
  * 
  *  \param param Pointer to an array XMLRPC parameter
  *  \param val An double value
  */
-void xmlrpcParamArrayPushBackDouble( XmlrpcParam *param, double val );
+XmlrpcParam * xmlrpcParamArrayPushBackDouble( XmlrpcParam *param, double val );
 
 /*! \brief Append to an array XMLRPC parameter a string parameter
  * 
  *  \param param Pointer to an array XMLRPC parameter
  *  \param val Pointer to a string
  */
-void xmlrpcParamArrayPushBackString( XmlrpcParam *param, const char *val );
+XmlrpcParam * xmlrpcParamArrayPushBackString( XmlrpcParam *param, const char *val );
 
 /*! \brief As xmlrpcParamArrayPushBackString(), but limits the string length to n characters
  * 
@@ -194,7 +203,7 @@ void xmlrpcParamArrayPushBackString( XmlrpcParam *param, const char *val );
  *  \param val Pointer to a string
  *  \param n The string length
  */
-void xmlrpcParamArrayPushBackStringN( XmlrpcParam *param, const char *val, int n );
+XmlrpcParam * xmlrpcParamArrayPushBackStringN( XmlrpcParam *param, const char *val, int n );
 
 /*! \brief Append to an array XMLRPC parameter an empty array parameter
  * 
@@ -202,7 +211,28 @@ void xmlrpcParamArrayPushBackStringN( XmlrpcParam *param, const char *val, int n
  * 
  *  \return A pointer to the new pushed array XMLRPC parameter, or NULL on failure
  */
-XmlrpcParam *xmlrpcParamArrayPushBackArray( XmlrpcParam *param );
+XmlrpcParam * xmlrpcParamArrayPushBackArray( XmlrpcParam *param );
+
+/*! \brief Append to an array XMLRPC parameter an empty struct parameter
+ *
+ *  \param param Pointer to an array XMLRPC parameter
+ *
+ *  \return A pointer to the new pushed struct XMLRPC parameter, or NULL on failure
+ */
+XmlrpcParam * xmlrpcParamArrayPushBackStruct ( XmlrpcParam *param );
+
+XmlrpcParam * xmlrpcParamStructGetParam( XmlrpcParam *param, const char *name );
+XmlrpcParam * xmlrpcParamArrayPushBackBool( XmlrpcParam *param, int val );
+XmlrpcParam * xmlrpcParamStructPushBackInt( XmlrpcParam *param, const char *name, int32_t val );
+XmlrpcParam * xmlrpcParamStructPushBackDouble( XmlrpcParam *param, const char *name, double val );
+XmlrpcParam * xmlrpcParamStructPushBackString( XmlrpcParam *param, const char *name, const char *val );
+XmlrpcParam * xmlrpcParamStructPushBackStringN( XmlrpcParam *param, const char *name, const char *val, int n );
+XmlrpcParam * xmlrpcParamStructPushBackArray( XmlrpcParam *param, const char *name );
+XmlrpcParam * xmlrpcParamStructPushBackStruct ( XmlrpcParam *param, const char *name );
+
+XmlrpcParam * xmlrpcParamNew();
+
+void xmlrpcParamFree( XmlrpcParam *param );
 
 void xmlrpcParamInit( XmlrpcParam *param );
 
@@ -210,7 +240,7 @@ void xmlrpcParamInit( XmlrpcParam *param );
  * 
  *  \param param Pointer to a XMLRPC parameter
  */
-void xmlrpcParamReleaseData( XmlrpcParam *param );
+void xmlrpcParamRelease( XmlrpcParam *param );
 
 /*! \brief Append to a dynamic string the parameters given in input, converted in XML
  * 
@@ -233,6 +263,10 @@ int xmlrpcParamFromXml( DynString *message, XmlrpcParam *param );
  *  \param param Pointer to the output parameter
  */
 void xmlrpcParamPrint( XmlrpcParam *param );
+
+XmlrpcParam * xmlrpcParamClone( XmlrpcParam *param );
+
+int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source);
 
 /*! @}*/
 
