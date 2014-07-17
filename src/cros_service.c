@@ -100,9 +100,12 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
           loadFromStringMsg(srv_req, srv->request);
         }
 
-        srv->response->package = srv->package;
-        srv->response->root_dir = srv->root_dir;
-        loadFromStringMsg(srv_res, srv->response);
+        if(strlen(srv_res) != 0)
+        {
+          srv->response->package = srv->package;
+          srv->response->root_dir = srv->root_dir;
+          loadFromStringMsg(srv_res, srv->response);
+        }
 
         free(srv_text);
     }
@@ -203,16 +206,15 @@ void cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md
   if(srv->request->plain_text != NULL)
   {
     getMD5Txt(srv->request, &buffer);
+    MD5_Update(&md5_t,buffer.data,buffer.len - 1);
+    dynStringClear(&buffer);
   }
 
-  if(buffer.len != 0)
+  if(srv->response->plain_text != NULL)
   {
-      MD5_Update(&md5_t,buffer.data,buffer.len - 1);
-      dynStringClear(&buffer);
+    getMD5Txt(srv->response, &buffer);
+    MD5_Update(&md5_t,buffer.data,buffer.len - 1);
   }
-
-  getMD5Txt(srv->response, &buffer);
-  MD5_Update(&md5_t,buffer.data,buffer.len - 1);
 
   unsigned char* result = (unsigned char*) malloc(16);
   MD5_Final(result, &md5_t);
@@ -225,7 +227,11 @@ void cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md
   {
     cRosMessageBuildFromDef(request, srv->request);
   }
-  cRosMessageBuildFromDef(response, srv->response);
+
+  if(srv->response->plain_text != NULL)
+  {
+    cRosMessageBuildFromDef(response, srv->response);
+  }
 }
 
 void cRosServiceFree(cRosService* service)

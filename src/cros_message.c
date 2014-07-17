@@ -533,17 +533,19 @@ void cRosMessageInit(cRosMessage *message)
     message->fields = NULL;
     message->n_fields = 0;
     message->msgDef = NULL;
-    message->md5sum = (char*) malloc(33);// 32 chars + '\0';
-    *message->md5sum = '\0';
+
+    message->md5sum = (char*) calloc(33,1); // 32 chars + '\0';
 }
 
 cRosMessage * cRosMessageNew()
 {
   cRosMessage *ret = (cRosMessage *)calloc(1, sizeof(cRosMessage));
+
   if (ret == NULL)
     return NULL;
 
-  ret->md5sum = (char*) calloc(1, 33); // 32 chars + '\0';
+  cRosMessageInit(ret);
+
   if (ret->md5sum == NULL)
   {
     free(ret);
@@ -587,7 +589,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
         {
             //printf("%s\n", new_line);
             char* iterator = new_line;
-            int char_found = 0;
+            int comment_char_found = 0;
             int char_count = 0;
 
             //strip comments
@@ -595,22 +597,33 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
             {
                 if(((char)*iterator) == *CHAR_COMMENT)
                 {
-                    char_found = 1;
+                    comment_char_found = 1;
                     break;
                 }
-                iterator++;
                 char_count++;
+                iterator++;
             }
 
             // ignore empty lines
-            if(char_found && char_count == 0)
+            if(comment_char_found)
             {
+              if(char_count == 0)
+              {
                 new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
                 continue;
+              }
+              else
+              {
+                //remove spaces among the message entry and the comment
+                while(*(new_line + char_count - 1) == ' ')
+                {
+                 char_count--;
+                }
+              }
             }
 
-            char* msg_entry = (char*) malloc(char_count + 1); // type/name
-            strcpy(msg_entry, new_line);
+            char* msg_entry = (char*) calloc(char_count + 1, sizeof(char)); // type/name
+            strncpy(msg_entry, new_line,char_count);
             char* entry_type = NULL;
             char* entry_name = NULL;
             char* entry_const_val = NULL;
@@ -621,7 +634,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
             while(*(msg_entry_itr++) != ' ');
             *(msg_entry_itr - 1) = '\0';
 
-            entry_name = (char*) malloc(strlen(msg_entry_itr) + 1);
+            entry_name = (char*) calloc(strlen(msg_entry_itr) + 1, sizeof(char));
             strcpy(entry_name, msg_entry_itr);
             entry_type = base_msg_type(entry_type);
 
@@ -701,7 +714,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
                 {
                   if(strstr(entry_type,"/") == NULL)
                   {
-                      current->type_s = (char*) malloc(strlen(msg->package)+ 1 + strlen(entry_type) + 1);
+                      current->type_s = (char*) calloc(strlen(msg->package)+ 1 + strlen(entry_type) + 1, sizeof(char));
                       memcpy(current->type_s, msg->package, strlen(msg->package)+ 1);
                       strcat(current->type_s,"/");
                       strcat(current->type_s,entry_type);
@@ -780,13 +793,13 @@ int loadFromFileMsg(char* filename, cRosMessageDef* msg)
             it++;
         }
 
-        msg->root_dir = (char*) malloc (strlen(file_tokenized)+1); msg->root_dir[0] = '\0';
+        msg->root_dir = (char*) calloc (strlen(file_tokenized)+1, sizeof(char)); msg->root_dir[0] = '\0';
         strcpy(msg->root_dir,file_tokenized);
 
-        msg->package = (char*) malloc (strlen(token_pack)+1); msg->package[0] = '\0';
+        msg->package = (char*) calloc (strlen(token_pack)+1, sizeof(char)); msg->package[0] = '\0';
         strcpy(msg->package,token_pack);
 
-        msg->name = (char*) malloc (strlen(token_name)+1); msg->name[0] = '\0';
+        msg->name = (char*) calloc (strlen(token_name)+1, sizeof(char)); msg->name[0] = '\0';
         strcpy(msg->name,token_name);
 
         loadFromStringMsg(msg_text, msg);
@@ -803,28 +816,26 @@ void build_time_field(cRosMessageField* field)
   cRosMessageInit(time);
   time->fields = (cRosMessageField**) calloc(2,sizeof(cRosMessageField*));
   time->n_fields = 2;
-  cRosMessageField** fields_it = time->fields;
 
   //int32 sec
-  cRosMessageField* sec = calloc(1, sizeof(cRosMessageField));
-  cRosMessageFieldInit(sec);
+  cRosMessageField* sec = cRosMessageFieldNew();
 
-  sec->name = "sec";
+  sec->name = calloc(strlen("secs")+1, sizeof(char));
+  strncpy(sec->name,"secs", strlen("secs"));
   sec->type = CROS_STD_MSGS_INT32;
   sec->size = 4;
 
-  *fields_it = sec;
-  fields_it++;
+  time->fields[0] = sec;
 
   //int32 nsec
-  cRosMessageField* nsec = calloc(1, sizeof(cRosMessageField));
-  cRosMessageFieldInit(nsec);
+  cRosMessageField* nsec = cRosMessageFieldNew();
 
-  nsec->name = "nsec";
+  nsec->name = calloc(strlen("nsecs")+1, sizeof(char));
+  strncpy(nsec->name,"nsecs", strlen("nsecs"));
   nsec->type = CROS_STD_MSGS_INT32;
   nsec->size = 4;
 
-  *fields_it = nsec;
+  time->fields[1] = nsec;
 
   field->size = 8;
   field->data.as_msg = time;
@@ -832,45 +843,43 @@ void build_time_field(cRosMessageField* field)
 
 void build_header_field(cRosMessageField* field)
 {
-  cRosMessage* header = calloc(1, sizeof(cRosMessage));
-  cRosMessageInit(header);
+  cRosMessage* header = cRosMessageNew();
   header->fields = (cRosMessageField**) calloc(3,sizeof(cRosMessageField*));
   header->n_fields = 3;
-  cRosMessageField** fields_it = header->fields;
 
   //uint32 seq
-  cRosMessageField* sequence_id = calloc(1, sizeof(cRosMessageField));
-  cRosMessageFieldInit(sequence_id);
+  cRosMessageField* sequence_id = cRosMessageFieldNew();
 
-  sequence_id->name = "seq";
+  sequence_id->name = calloc(strlen("seq")+1, sizeof(char));
+  strncpy(sequence_id->name,"seq", strlen("seq"));
   sequence_id->type = CROS_STD_MSGS_UINT32;
   sequence_id->size = 4;
 
-  *fields_it = sequence_id;
-  fields_it++;
+  header->fields[0] = sequence_id;
 
   // time stamp
   // Two-integer timestamp that is expressed as:
   // * stamp.secs: seconds (stamp_secs) since epoch
   // * stamp.nsecs: nanoseconds since stamp_secs
-  cRosMessageField* time_stamp = calloc(1, sizeof(cRosMessageField));
-  cRosMessageFieldInit(time_stamp);
-  time_stamp->type = CROS_STD_MSGS_UINT32;
+  cRosMessageField* time_stamp = cRosMessageFieldNew();
+  time_stamp->name = calloc(strlen("stamp")+1, sizeof(char));
+  strncpy(time_stamp->name,"stamp", strlen("stamp"));
+  time_stamp->type = CROS_CUSTOM_TYPE;
   build_time_field(time_stamp);
 
-  *fields_it = time_stamp;
-  fields_it++;
+  header->fields[1] = time_stamp;
 
   //string frame_id
-  cRosMessageField* frame_id = calloc(1, sizeof(cRosMessageField));
-  cRosMessageFieldInit(frame_id);
-  frame_id->name = "frame_id";
+  cRosMessageField* frame_id = cRosMessageFieldNew();
+  frame_id->name = calloc(strlen("frame_id")+1, sizeof(char));
+  strncpy(frame_id->name,"frame_id", strlen("frame_id"));
   frame_id->type = CROS_STD_MSGS_STRING;
 
-  *fields_it = frame_id;
+  header->fields[2] = frame_id;
 
   field->data.as_msg = header;
 }
+
 void cRosMessageBuild(cRosMessage* message, const char* message_path)
 {
   DynString output;
@@ -942,6 +951,10 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
         field->size = getMessageTypeSizeOf(field->type);
         break;
       }
+      case CROS_STD_MSGS_STRING:
+      {
+        break;
+      }
       case CROS_STD_MSGS_TIME:
       {
         build_time_field(field);
@@ -957,36 +970,61 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
         build_header_field(field);
         break;
       }
-      default:
+      case CROS_CUSTOM_TYPE:
       {
-        field->data.as_msg = malloc(sizeof(cRosMessage));
-        cRosMessageInit((cRosMessage*)field->data.as_msg);
-        char* path = calloc(strlen(msg_def->root_dir) +
-                            strlen("/") +
-                            strlen(field_def_itr->type_s) +
-                            strlen(".msg") + 1, // '\0'
-                            sizeof(char));
-        strcat(path, msg_def->root_dir);
-        strcat(path, "/");
-        strcat(path, field_def_itr->type_s);
-        strcat(path, ".msg");
-        cRosMessageBuild((cRosMessage*) field->data.as_msg, path);
+        if(!field_def_itr->is_array)
+        {
+          field->data.as_msg = malloc(sizeof(cRosMessage));
+          cRosMessageInit((cRosMessage*)field->data.as_msg);
+          char* path = calloc(strlen(msg_def->root_dir) +
+                              strlen("/") +
+                              strlen(field_def_itr->type_s) +
+                              strlen(".msg") + 1, // '\0'
+                              sizeof(char));
+          strcat(path, msg_def->root_dir);
+          strcat(path, "/");
+          strcat(path, field_def_itr->type_s);
+          strcat(path, ".msg");
+          cRosMessageBuild((cRosMessage*) field->data.as_msg, path);
+        }
         break;
       }
     }
+
 
     if(field_def_itr->is_array)
     {
       field->is_array = field_def_itr->is_array;
       if (field_def_itr->array_size == -1)
       {
-        field->data.as_array = calloc(1,field->size);
+        if(field->type != CROS_CUSTOM_TYPE)
+        {
+          if(field->type == CROS_STD_MSGS_STRING)
+          {
+            field->data.as_array = calloc(1,sizeof(char*));
+          }
+          else
+          {
+            field->data.as_array = calloc(1,field->size);
+          }
+        }
+        else
+        {
+          field->data.as_msg_array = calloc(1,sizeof(cRosMessage*));
+        }
         field->array_size = 0;
         field->array_capacity = 1;
       }
       else
       {
+        if(field->type != CROS_CUSTOM_TYPE)
+        {
         field->data.as_array = calloc(field_def_itr->array_size,field->size);
+        }
+        else
+        {
+          field->data.as_msg_array = calloc(field_def_itr->array_size,sizeof(cRosMessage*));
+        }
         field->array_size = field_def_itr->array_size;
         field->array_capacity = field_def_itr->array_size;
         field->is_fixed_array = 1;
@@ -1136,16 +1174,16 @@ void cRosMessageFieldFree(cRosMessageField *field)
 cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field_name)
 {
   cRosMessageField* matching_field = NULL;
-  cRosMessageField** fields_itr = message->fields;
 
-  while(fields_itr != NULL && matching_field == NULL)
+  int i;
+  for(i = 0; i < message->n_fields; i++)
   {
-    cRosMessageField* curr_field = *fields_itr;
+    cRosMessageField* curr_field = message->fields[i];
     if(strcmp(curr_field->name, field_name) == 0)
     {
       matching_field = curr_field;
+      break;
     }
-    fields_itr++;
   }
 
   return matching_field;
@@ -1281,7 +1319,7 @@ int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val
   if(field->array_capacity == field->array_size)
   {
     void* new_location;
-    new_location = realloc(field->data.as_string, 2 * field->array_capacity * sizeof(char));
+    new_location = realloc(field->data.as_string_array, 2 * field->array_capacity * sizeof(char*));
     if(new_location != NULL)
     {
       field->data.as_array = new_location;
@@ -1543,7 +1581,6 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
       case CROS_STD_MSGS_BOOL:
       case CROS_STD_MSGS_TIME:
       case CROS_STD_MSGS_DURATION:
-      case CROS_STD_MSGS_HEADER:
       case CROS_STD_MSGS_CHAR:
       case CROS_STD_MSGS_BYTE:
       {
@@ -1570,7 +1607,15 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
         }
         else
         {
-          dynBufferPushBackBuf(buffer,(unsigned char*)field->data.as_string,field->size);
+          if(field->size > 0)
+          {
+            dynBufferPushBackInt32(buffer, strlen(field->data.as_string));
+            dynBufferPushBackBuf(buffer,(unsigned char*)field->data.as_string,strlen(field->data.as_string));
+          }
+          else
+          {
+            dynBufferPushBackInt32(buffer, 0);
+          }
         }
 
         break;
@@ -1590,7 +1635,12 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
         }
         else
         {
+          //uint32_t size = dynBufferGetSize(buffer);
+          //dynBufferPushBackInt32(buffer,0);
           cRosMessageSerialize(field->data.as_msg, buffer);
+          //uint32_t new_size = dynBufferGetSize(buffer);
+          //uint32_t msg_size = new_size - size - sizeof(uint32_t);
+          //*((uint32_t*) (buffer->data + size)) = msg_size;
         }
         break;
       }

@@ -5,6 +5,7 @@
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
 #include "cros_api_call.h"
+#include "cros_log.h"
 
 /*! \defgroup cros_node cROS Node */
 
@@ -20,7 +21,7 @@
 #define CN_MAX_SUBSCRIBED_TOPICS 5
 
 /*! Max num service providers */
-#define CN_MAX_SERVICE_PROVIDERS 7
+#define CN_MAX_SERVICE_PROVIDERS 8
 
 /*! Max num serving XMLRPC connections */
 #define CN_MAX_XMLRPC_SERVER_CONNECTIONS 5
@@ -147,6 +148,10 @@ struct CrosNode
 
   char *message_root_path;      //! Directory with the message register
 
+  CrosLogLevel log_level;
+  CrosLogQueue* log_queue;
+  uint32_t log_last_id;
+
   unsigned int next_call_id;
   ApiCallQueue master_api_queue;
   ApiCallQueue slave_api_queue;
@@ -187,6 +192,8 @@ struct CrosNode
  *  \return A string with the resource name.
  */
 char* cRosNamespaceBuild(CrosNode* node, const char* resource_name);
+
+void cRosGetMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *topic_type);
 
 /*! \brief Dynamically create a CrosNode instance. This is the right way to create a CrosNode object. 
  *         Once finished, the CrosNode should be released using cRosNodeDestroy()
@@ -237,6 +244,7 @@ void cRosNodeDoEventsLoop( CrosNode *n );
  */
 void cRosNodeStart( CrosNode *n, unsigned char *exit );
 
+CrosNode* cRosNodeGetCurrent();
 /*! @}*/
 
 #endif

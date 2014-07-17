@@ -201,7 +201,7 @@ int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char
                               SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context)
 {
   char path[256];
-  getMsgFilePath(node, path, 256, topic_type);
+  cRosGetMsgFilePath(node, path, 256, topic_type);
   ProviderContext *nodeContext = newProviderContext(path, CROS_SUBSCRIBER);
   nodeContext->api_callback = callback;
   nodeContext->status_callback = status_callback;
@@ -229,7 +229,7 @@ int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char 
                              PublisherApiCallback callback, NodeStatusCallback status_callback, void *context)
 {
   char path[256];
-  getMsgFilePath(node, path, 256, topic_type);
+  cRosGetMsgFilePath(node, path, 256, topic_type);
   ProviderContext *nodeContext = newProviderContext(path, CROS_PUBLISHER);
   nodeContext->api_callback = callback;
   nodeContext->status_callback = status_callback;

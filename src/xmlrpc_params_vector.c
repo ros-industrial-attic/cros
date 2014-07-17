@@ -3,6 +3,7 @@
 
 #include "xmlrpc_params_vector.h"
 #include "cros_defs.h"
+#include "cros_log.h"
 
 enum { XMLRPC_VECTOR_INIT_SIZE = 4, XMLRPC_VECTOR_GROW_RATE = 2 };
 
@@ -88,18 +89,18 @@ int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 
   if ( param == NULL )
   {
-    PRINT_ERROR ( "xmlrpcParamVectorPushBack() : Invalid new param\n" );
+    ROS_ERROR ( "xmlrpcParamVectorPushBack() : Invalid new param\n" );
     return -1;
   }
 
   if ( p_vec->data == NULL )
   {
-    PRINT_DEBUG ( "xmlrpcParamVectorPushBack() : allocate memory for the first time\n" );
+    ROS_DEBUG ( "xmlrpcParamVectorPushBack() : allocate memory for the first time\n" );
     p_vec->data = ( XmlrpcParam * ) malloc ( XMLRPC_VECTOR_INIT_SIZE * sizeof ( XmlrpcParam ) );
 
     if ( p_vec->data == NULL )
     {
-      PRINT_ERROR ( "xmlrpcParamVectorPushBack() : Can't allocate memory\n" );
+      ROS_ERROR ( "xmlrpcParamVectorPushBack() : Can't allocate memory\n" );
       return -1;
     }
 
@@ -109,12 +110,12 @@ int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 
   while ( p_vec->size == p_vec->max )
   {
-    PRINT_DEBUG ( "xmlrpcParamVectorPushBack() : reallocate memory\n" );
+    ROS_DEBUG ( "xmlrpcParamVectorPushBack() : reallocate memory\n" );
     XmlrpcParam *new_p_vec = ( XmlrpcParam * ) realloc ( p_vec->data,
                              ( XMLRPC_VECTOR_GROW_RATE* p_vec->max ) * sizeof ( XmlrpcParam ) );
     if ( new_p_vec == NULL )
     {
-      PRINT_ERROR ( "xmlrpcParamVectorPushBack() : Can't allocate more memory\n" );
+      ROS_ERROR ( "xmlrpcParamVectorPushBack() : Can't allocate more memory\n" );
       return -1;
     }
     p_vec->max *= XMLRPC_VECTOR_GROW_RATE;
@@ -140,7 +141,7 @@ XmlrpcParam *xmlrpcParamVectorAt ( XmlrpcParamVector *p_vec, int pos )
 
   if ( pos < 0 || pos >= p_vec->size )
   {
-    PRINT_ERROR ( "xmlrpcParamVectorAt() : index out of range\n" );
+    ROS_ERROR ( "xmlrpcParamVectorAt() : index out of range\n" );
     return NULL;
   }
 

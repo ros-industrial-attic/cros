@@ -17,6 +17,8 @@
 #include "cros_node_api.h"
 #include "cros_tcpros.h"
 
+static CrosNode* current_node;
+
 static void initPublisherNode(PublisherNode *node);
 static void initSubscriberNode(SubscriberNode *node);
 static void initServiceProviderNode(ServiceProviderNode *node);
@@ -65,7 +67,7 @@ static void openXmlrpcListnerSocket( CrosNode *n )
   else
   {
     n->xmlrpc_port = tcpIpSocketGetPort( &(n->xmlrpc_listner_proc.socket) );
-    PRINT_DEBUG ( "openXmlrpcListnerSocket () : Accepting xmlrpc connections at port %d\n", n->xmlrpc_port );
+    ROS_DEBUG ( "openXmlrpcListnerSocket () : Accepting xmlrpc connections at port %d\n", n->xmlrpc_port );
   }
 }
 
@@ -82,7 +84,7 @@ static void openRpcrosListnerSocket( CrosNode *n )
   else
   {
     n->rpcros_port = tcpIpSocketGetPort( &(n->rpcros_listner_proc.socket) );
-    PRINT_DEBUG ( "openRpcrosListnerSocket() : Accepting rcpros connections at port %d\n", n->rpcros_port );
+    ROS_DEBUG ( "openRpcrosListnerSocket() : Accepting rcpros connections at port %d\n", n->rpcros_port );
   }
 }
 
@@ -99,7 +101,7 @@ static void openTcprosListnerSocket( CrosNode *n )
   else
   {
     n->tcpros_port = tcpIpSocketGetPort( &(n->tcpros_listner_proc.socket) );
-    PRINT_DEBUG ( "openTcprosListnerSocket() : Accepting tcpros connections at port %d\n", n->tcpros_port );
+    ROS_DEBUG ( "openTcprosListnerSocket() : Accepting tcpros connections at port %d\n", n->tcpros_port );
   }
 }
 
@@ -279,7 +281,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
 
   if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_WRITING )
   {
-    PRINT_DEBUG ( "doWithXmlrpcClientSocket() : writing\n" );
+    ROS_DEBUG ( "doWithXmlrpcClientSocket() : writing\n" );
 
     if( !xmlrpc_client_proc->socket.connected )
     {
@@ -310,7 +312,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
 
       if( conn_state == TCPIPSOCKET_IN_PROGRESS )
       {
-        PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Wait: connection is established asynchronously\n" );
+        ROS_DEBUG ( "doWithXmlrpcClientSocket() : Wait: connection is established asynchronously\n" );
         // Wait: connection is established asynchronously
         return;
       }
@@ -335,7 +337,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
         break;
 
       case TCPIPSOCKET_IN_PROGRESS:
-        PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Write in progress...\n" );
+        ROS_DEBUG ( "doWithXmlrpcClientSocket() : Write in progress...\n" );
         break;
 
       case TCPIPSOCKET_DISCONNECTED:
@@ -348,7 +350,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
   }
   else if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_READING )
   {
-    PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Reading()\n" );
+    ROS_DEBUG ( "doWithXmlrpcClientSocket() : Reading()\n" );
     TcpIpSocketState sock_state = tcpIpSocketReadString( &xmlrpc_client_proc->socket,
                                                          &xmlrpc_client_proc->message );
     //printf("%s\n", xmlrpc_client_proc->message.data);
@@ -389,7 +391,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
     switch ( parser_state )
     {
       case XMLRPC_PARSER_DONE:
-        PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
+        ROS_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
 
         int rc = cRosApiParseResponse( n, i );
         if (rc != 0)
@@ -424,7 +426,7 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
 
   if( server_proc->state == XMLRPC_PROCESS_STATE_READING )
   {
-    PRINT_DEBUG ( "doWithXmlrpcServerSocket() : Reading() index %d \n", i );
+    ROS_DEBUG ( "doWithXmlrpcServerSocket() : Reading() index %d \n", i );
     TcpIpSocketState sock_state = tcpIpSocketReadString( &(server_proc->socket), 
                                                          &(server_proc->message) );
     XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
@@ -459,7 +461,7 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
     {
       case XMLRPC_PARSER_DONE:
 
-        PRINT_DEBUG ( "doWithXmlrpcServerSocket() : Done read() and parse() with no error\n" );
+        ROS_DEBUG ( "doWithXmlrpcServerSocket() : Done read() and parse() with no error\n" );
         int rc = cRosApiParseRequestPrepareResponse( n, i );
         if (rc == -1)
         {
@@ -479,7 +481,7 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
   }
   else if( server_proc->state == XMLRPC_PROCESS_STATE_WRITING )
   {
-    PRINT_DEBUG ( "doWithXmlrpcServerSocket() : writing() index %d \n", i );
+    ROS_DEBUG ( "doWithXmlrpcServerSocket() : writing() index %d \n", i );
     TcpIpSocketState sock_state =  tcpIpSocketWriteString( &(server_proc->socket), 
                                                            &(server_proc->message) );
     switch ( sock_state )
@@ -530,13 +532,13 @@ static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
         }
         case TCPIPSOCKET_IN_PROGRESS:
         {
-          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Wait: connection is established asynchronously\n" );
+          ROS_DEBUG ( "doWithXmlrpcClientSocket() : Wait: connection is established asynchronously\n" );
           // Wait: connection is established asynchronously
           break;
         }
         case TCPIPSOCKET_FAILED:
         {
-          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : error\n" );
+          ROS_DEBUG ( "doWithXmlrpcClientSocket() : error\n" );
           handleTcprosClientError( n, client_idx);
           break;
         }
@@ -741,7 +743,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
 
   if( server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER)
   {
-    PRINT_DEBUG ( "doWithTcprosServerSocket() : Reading header index %d \n", i );
+    ROS_DEBUG ( "doWithTcprosServerSocket() : Reading header index %d \n", i );
     tcprosProcessClear( server_proc, 0);
     TcpIpSocketState sock_state = tcpIpSocketReadBuffer( &(server_proc->socket), 
                                                          &(server_proc->packet) );
@@ -760,7 +762,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
-        PRINT_INFO( "doWithTcprosServerSocket() : Client disconnected\n" );
+        ROS_INFO( "doWithTcprosServerSocket() : Client disconnected\n" );
         handleTcprosServerError( n, i );
         break;
     }
@@ -769,7 +771,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
     {
       case TCPROS_PARSER_DONE:
                                
-        PRINT_DEBUG ( "doWithTcprosServerSocket() : Done read() and parse() with no error\n" );
+        ROS_DEBUG ( "doWithTcprosServerSocket() : Done read() and parse() with no error\n" );
         tcprosProcessClear( server_proc, 0);
         cRosMessagePreparePublicationHeader( n, i );
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
@@ -779,7 +781,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
         
       case TCPROS_PARSER_ERROR:
       default:
-        PRINT_INFO( "doWithTcprosServerSocket() : Parser error\n" );
+        ROS_INFO( "doWithTcprosServerSocket() : Parser error\n" );
         handleTcprosServerError( n, i );
         break;
     }
@@ -787,7 +789,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
   else if( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING ||
            server_proc->state == TCPROS_PROCESS_STATE_WRITING )
   {
-    PRINT_DEBUG ( "doWithTcprosServerSocket() : writing() index %d \n", i );
+    ROS_DEBUG ( "doWithTcprosServerSocket() : writing() index %d \n", i );
     if( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING )
     {
       tcprosProcessClear( server_proc, 0 );
@@ -800,7 +802,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
-        PRINT_DEBUG ( "doWithTcprosServerSocket() : Done write() with no error\n" );
+        ROS_DEBUG ( "doWithTcprosServerSocket() : Done write() with no error\n" );
         tcprosProcessClear( server_proc, 0);
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WAIT_FOR_WRITING );
         break;
@@ -811,7 +813,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
-        PRINT_INFO( "doWithTcprosServerSocket() : Client disconnected\n" );
+        ROS_INFO( "doWithTcprosServerSocket() : Client disconnected\n" );
         handleTcprosServerError(n, i);
         break;
     }
@@ -912,7 +914,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
     }
     case TCPROS_PROCESS_STATE_WRITING_HEADER:
     {
-      PRINT_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
+      ROS_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
 
       cRosMessagePrepareServiceProviderHeader( n, i );
 
@@ -922,7 +924,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
+          ROS_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
           if(server_proc->probe)
           {
             tcprosProcessClear( server_proc, 1 );
@@ -973,7 +975,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
             tcprosProcessClear( server_proc, 0);
             if (msg_size == 0)
             {
-              PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done read() with no error\n" );
+              ROS_DEBUG ( "doWithRpcrosServerSocket() : Done read() with no error\n" );
               cRosMessagePrepareServiceResponsePacket(n, i);
               tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING);
               goto write_msg;
@@ -999,7 +1001,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
     read_msg:
     case TCPROS_PROCESS_STATE_READING:
     {
-      PRINT_DEBUG ( "doWithRpcrosServerSocket() : reading() index %d \n", i );
+      ROS_DEBUG ( "doWithRpcrosServerSocket() : reading() index %d \n", i );
 
       size_t n_reads;
       TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(server_proc->socket),
@@ -1013,7 +1015,7 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
           server_proc->left_to_recv -= n_reads;
           if (server_proc->left_to_recv == 0)
           {
-              PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done read() with no error\n" );
+              ROS_DEBUG ( "doWithRpcrosServerSocket() : Done read() with no error\n" );
               cRosMessagePrepareServiceResponsePacket(n, i);
               tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
           }
@@ -1036,15 +1038,23 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
     write_msg:
     case TCPROS_PROCESS_STATE_WRITING:
     {
-      PRINT_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
+      ROS_DEBUG ( "doWithRpcrosServerSocket() : writing() index %d \n", i );
 
-      TcpIpSocketState sock_state =  tcpIpSocketWriteBuffer( &(server_proc->socket),
-                                                            &(server_proc->packet) );
+      TcpIpSocketState sock_state;
 
+      //If the rpc response is empty, e.g. log procedures
+      //if(server_proc->packet.size > 0)
+      //{
+        sock_state =  tcpIpSocketWriteBuffer( &(server_proc->socket), &(server_proc->packet) );
+      //}
+      //else
+      //{
+      //sock_state = TCPIPSOCKET_DONE;
+      //}
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
+          ROS_DEBUG ( "doWithRpcrosServerSocket() : Done write() with no error\n" );
           tcprosProcessClear( server_proc, 1 );
           tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE);
           break;
@@ -1072,6 +1082,156 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
       assert(0);
     }
   }
+}
+
+/*
+ * Services, publisher and support functions for the logging feature
+ */
+static CrosLogLevel stringToLogLevel(const char* level_str)
+{
+  if(strncmp("Info",level_str, strlen(level_str)) == 0)
+  {
+    return CROS_LOGLEVEL_INFO;
+  }
+  else if(strncmp("Debug",level_str, strlen(level_str)) == 0)
+  {
+    return CROS_LOGLEVEL_DEBUG;
+  }
+  else if(strncmp("Warn",level_str, strlen(level_str)) == 0)
+  {
+    return CROS_LOGLEVEL_WARN;
+  }
+  else if(strncmp("Error",level_str, strlen(level_str)) == 0)
+  {
+    return CROS_LOGLEVEL_ERROR;
+  }
+  else // Fatal
+  {
+    return CROS_LOGLEVEL_FATAL;
+  }
+}
+
+static char* LogLevelToString(CrosLogLevel log_level)
+{
+  char* ret = NULL;
+
+  switch(log_level)
+  {
+    case CROS_LOGLEVEL_INFO:
+    {
+      ret = calloc(strlen("INFO") + 1, sizeof(char));
+      strncpy(ret, "INFO",strlen("INFO"));
+      return ret;
+    }
+    case CROS_LOGLEVEL_DEBUG:
+    {
+      ret = calloc(strlen("DEBUG") + 1, sizeof(char));
+      strncpy(ret, "DEBUG",strlen("DEBUG"));
+      return ret;
+    }
+    case CROS_LOGLEVEL_WARN:
+    {
+      ret = calloc(strlen("WARN") + 1, sizeof(char));
+      strncpy(ret, "WARN",strlen("WARN"));
+      return  ret;
+    }
+    case CROS_LOGLEVEL_ERROR:
+    {
+      ret = calloc(strlen("ERROR") + 1, sizeof(char));
+      strncpy(ret, "ERROR",strlen("ERROR"));
+      return ret;
+    }
+    case CROS_LOGLEVEL_FATAL:
+    {
+      ret = calloc(strlen("FATAL") + 1, sizeof(char));
+      strncpy(ret, "FATAL",strlen("FATAL"));
+      return ret;
+    }
+  }
+}
+
+static CallbackResponse callback_pub_log(cRosMessage *message, void* data_context)
+{
+  CrosNode* node = (CrosNode*) data_context;
+  CrosLogQueue* queue = node->log_queue;
+
+  if(!cRosLogQueueIsEmpty(queue))
+  {
+    CrosLog* log = cRosLogQueueDequeue(queue);
+
+    cRosMessageField* header_field = cRosMessageGetField(message, "header");
+    cRosMessage* header_msg = header_field->data.as_msg;
+    cRosMessageField* seq_id = cRosMessageGetField(header_msg, "seq");
+    seq_id->data.as_uint32 = node->log_last_id++;
+    cRosMessageField* time_field = cRosMessageGetField(header_msg, "stamp");
+    cRosMessage* time_msg = time_field->data.as_msg;
+    cRosMessageField* time_secs = cRosMessageGetField(time_msg, "secs");
+    time_secs->data.as_uint32 = log->secs;
+    cRosMessageField* time_nsecs = cRosMessageGetField(time_msg, "nsecs");
+    time_nsecs->data.as_uint32 = log->nsecs;
+    cRosMessageSetFieldValueString(cRosMessageGetField(header_msg, "frame_id"), "0");
+
+
+    cRosMessageField* level = cRosMessageGetField(message, "level");
+    level->data.as_uint8 = log->level;
+
+    cRosMessageField* name = cRosMessageGetField(message, "name"); //name of the node
+    cRosMessageSetFieldValueString(name, node->name);
+
+    cRosMessageField* msg = cRosMessageGetField(message, "msg"); //message
+    cRosMessageSetFieldValueString(msg, log->msg);
+
+    cRosMessageField* file = cRosMessageGetField(message, "file"); //file the message came from
+    cRosMessageSetFieldValueString(file, log->file);
+
+    cRosMessageField* function = cRosMessageGetField(message, "function"); //function the message came from
+    cRosMessageSetFieldValueString(function, log->function);
+
+    cRosMessageField* line = cRosMessageGetField(message, "line"); //line the message came from
+    line->data.as_uint32 = log->line;
+
+    cRosMessageField* topics = cRosMessageGetField(message, "topics"); //topic names that the node publishes
+    int i;
+    for(i = 0; i < log->n_pubs; i++)
+    {
+      cRosMessageFieldArrayPushBackString(topics, log->pubs[i]);
+    }
+
+    cRosLogFree(log);
+  }
+  return 0;
+}
+
+static CallbackResponse callback_srv_set_logger_level(cRosMessage *request, cRosMessage *response, void* context)
+{
+  cRosMessageField* level = cRosMessageGetField(request, "level");
+  const char* level_str = level->data.as_string;
+  CrosNode* node = (CrosNode*) context;
+  node->log_level = stringToLogLevel(level_str);
+  return 0;
+}
+
+static CallbackResponse callback_srv_get_loggers(cRosMessage *request, cRosMessage *response, void* context)
+{
+  cRosMessageField* loggers = cRosMessageGetField(response, "loggers");
+
+  cRosMessage* logger_msg = cRosMessageNew();
+
+  CrosNode* node = (CrosNode*) context;
+  char path[256];
+
+  cRosGetMsgFilePath(node, path, 256, "roscpp/Logger");
+  cRosMessageBuild(logger_msg,path);
+
+  cRosMessageField* logger = cRosMessageGetField(logger_msg, "name");
+  cRosMessageSetFieldValueString(logger, "ros.robox");
+  cRosMessageField* level = cRosMessageGetField(logger_msg, "level");
+  char* str_level = LogLevelToString(node->log_level);
+  cRosMessageSetFieldValueString(level, str_level);
+  free(str_level);
+
+  cRosMessageFieldArrayPushBackMsg(loggers,logger_msg);
+  return 0;
 }
 
 int checkNamespaceFormat(const char* namespace)
@@ -1214,6 +1374,7 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
   strcpy ( new_n->roscore_host, roscore_host );
   strcpy ( new_n->message_root_path, message_root_path );
 
+  new_n->log_level = CROS_LOGLEVEL_INFO;
   new_n->xmlrpc_port = 0;
   new_n->tcpros_port = 0;
   new_n->roscore_port = roscore_port;
@@ -1279,6 +1440,33 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
   openXmlrpcListnerSocket( new_n );
   openTcprosListnerSocket( new_n );
   openRpcrosListnerSocket( new_n );
+
+
+  new_n->log_queue = cRosLogQueueNew();
+  new_n-> log_last_id = 0;
+
+  /*
+   * Registering logging callback
+   */
+
+  int rc = 0;
+
+  rc = cRosApiRegisterPublisher(new_n,"/rosout","rosgraph_msgs/Log", 100,
+                                  callback_pub_log, NULL, new_n);
+    if (rc == -1)
+      return NULL;
+
+  rc = cRosApiRegisterServiceProvider(new_n,"~get_loggers","roscpp/GetLoggers",
+                                      callback_srv_get_loggers, NULL, (void*) new_n);
+  if (rc == -1)
+    return NULL;
+
+  rc = cRosApiRegisterServiceProvider(new_n,"~set_logger_level","roscpp/SetLoggerLevel",
+                                      callback_srv_set_logger_level, NULL, (void*) new_n);
+  if (rc == -1)
+    return NULL;
+
+  current_node = new_n;
 
   return new_n;
 }
@@ -1356,7 +1544,7 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
   strcpy ( pub_topic_type, topic_type );
   strcpy ( pub_md5sum, md5sum );
 
-  PRINT_INFO ( "Publishing topic %s type %s \n", pub_topic_name, pub_topic_type );
+  ROS_INFO ( "Publishing topic %s type %s \n", pub_topic_name, pub_topic_type );
 
   int pubidx = -1;
   int it = 0;
@@ -1423,7 +1611,7 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
   strncat ( srv_serviceresponse_type, "Response", strlen("Response") +1 );
   strncpy ( srv_md5sum, md5sum, strlen(md5sum) + 1 );
 
-  PRINT_INFO ( "Registering service %s type %s \n", srv_service_name, srv_service_type);
+  ROS_INFO ( "Registering service %s type %s \n", srv_service_name, srv_service_type);
 
   int serviceidx = -1;
   int it = 0;
@@ -1485,7 +1673,7 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
   strcpy ( pub_topic_type, topic_type );
   strcpy ( pub_md5sum, md5sum );
 
-  PRINT_INFO ( "Subscribing to topic %s type %s \n", pub_topic_name, pub_topic_type );
+  ROS_INFO ( "Subscribing to topic %s type %s \n", pub_topic_name, pub_topic_type );
 
   int subidx = node->n_subs;
   int it = 0;
@@ -1916,7 +2104,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   {
     if (errno == EINTR)
     {
-      PRINT_INFO("cRosNodeDoEventsLoop() : select() returned EINTR\n");
+      ROS_INFO("cRosNodeDoEventsLoop() : select() returned EINTR\n");
     }
     else
     {
@@ -1926,7 +2114,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   }
   else if( n_set == 0 )
   {
-    PRINT_DEBUG ("cRosNodeDoEventsLoop() : select() timeout\n");
+    ROS_DEBUG ("cRosNodeDoEventsLoop() : select() timeout\n");
 
     uint64_t cur_time = cRosClockGetTimeMs();
 
@@ -1936,7 +2124,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD;
 
       /* Prepare to ping roscore ... */
-      PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
+      ROS_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
 
       RosApiCall *call = newRosApiCall();
       if (call == NULL)
@@ -1960,7 +2148,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
              cur_time - n->xmlrpc_client_proc[0].last_change_time > CN_IO_TIMEOUT )
     {
       /* Timeout between I/O operations... close the socket and re-advertise */
-      PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC client I/O timeout\n");
+      ROS_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC client I/O timeout\n");
       handleXmlrpcClientError( n, 0 );
     }
 
@@ -1978,7 +2166,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
                cur_time - n->tcpros_server_proc[i].last_change_time > CN_IO_TIMEOUT )
       {
         /* Timeout between I/O operations */
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS server I/O timeout\n");
+        ROS_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS server I/O timeout\n");
         handleTcprosServerError( n, i );
       }
     }
@@ -1986,7 +2174,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   else
   {
 
-    PRINT_DEBUG ( "cRosNodeDoEventsLoop() : select() unblocked\n" );
+    ROS_DEBUG ( "cRosNodeDoEventsLoop() : select() unblocked\n" );
 
     for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++ )
     {
@@ -2014,7 +2202,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       }
       else if( FD_ISSET( xmlrpc_listner_fd, &r_fds) )
       {
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC listner ready\n" );
+        ROS_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC listner ready\n" );
         if( tcpIpSocketAccept( &(n->xmlrpc_listner_proc.socket), 
             &(n->xmlrpc_server_proc[next_xmlrpc_server_i].socket) ) == TCPIPSOCKET_DONE &&
             tcpIpSocketSetReuse( &(n->xmlrpc_server_proc[next_xmlrpc_server_i].socket) ) && 
@@ -2070,7 +2258,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       }
       else if( FD_ISSET( tcpros_listner_fd, &r_fds) )
       {
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
+        ROS_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
         if( tcpIpSocketAccept( &(n->tcpros_listner_proc.socket), 
             &(n->tcpros_server_proc[next_tcpros_server_i].socket) ) == TCPIPSOCKET_DONE &&
             tcpIpSocketSetReuse( &(n->tcpros_server_proc[next_tcpros_server_i].socket) ) && 
@@ -2110,7 +2298,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       }
       else if( next_rpcros_server_i >= 0 && FD_ISSET( rpcros_listner_fd, &r_fds) )
       {
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
+        ROS_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
         if( tcpIpSocketAccept( &(n->rpcros_listner_proc.socket),
             &(n->rpcros_server_proc[next_rpcros_server_i].socket) ) == TCPIPSOCKET_DONE &&
             tcpIpSocketSetReuse( &(n->rpcros_server_proc[next_rpcros_server_i].socket) ) &&
@@ -2418,7 +2606,7 @@ int enqueueSlaveApiCallInternal(CrosNode *node, RosApiCall *call)
   return callid;
 }
 
-void getMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *topic_type)
+void cRosGetMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *topic_type)
 {
   snprintf(buffer, bufsize, "%s/%s.msg", node->message_root_path, topic_type);
 }
@@ -2426,4 +2614,9 @@ void getMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *to
 void getSrvFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *service_type)
 {
   snprintf(buffer, bufsize, "%s/%s.srv", node->message_root_path, service_type);
+}
+
+CrosNode* cRosNodeGetCurrent()
+{
+  return current_node;
 }

@@ -9,6 +9,7 @@
 
 #include "tcpip_socket.h"
 #include "cros_defs.h"
+#include "cros_log.h"
 
 #define TCPIP_SOCKET_READ_BUFFER_SIZE 1024
 
@@ -163,7 +164,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
     if ( s->is_nonblocking && 
        ( errno == EINPROGRESS || errno == EALREADY ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketConnect() : connection in progress\n");
+      ROS_DEBUG ( "tcpIpSocketConnect() : connection in progress\n");
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else
@@ -174,7 +175,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
     }
   }
 
-  PRINT_DEBUG ( "tcpIpSocketConnect() : connection done\n");
+  ROS_DEBUG ( "tcpIpSocketConnect() : connection done\n");
   
   s->port = port;
   s->adr = adr;
@@ -278,7 +279,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     if ( s->is_nonblocking && 
        ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketAccept() : Accept in progress\n");
+      ROS_DEBUG ( "tcpIpSocketAccept() : Accept in progress\n");
       state = TCPIPSOCKET_IN_PROGRESS;
     }
     else
@@ -326,12 +327,12 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
     else if ( s->is_nonblocking && 
               ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : write in progress, %d remaining bytes\n", data_size );
+      ROS_DEBUG ( "tcpIpSocketWriteBuffer() : write in progress, %d remaining bytes\n", data_size );
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else if ( errno == ENOTCONN || errno == ECONNRESET )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : socket disconnectd\n" );
+      ROS_DEBUG ( "tcpIpSocketWriteBuffer() : socket disconnectd\n" );
       s->connected = 0;
       return  TCPIPSOCKET_DISCONNECTED;
     }
@@ -371,12 +372,12 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
     else if ( s->is_nonblocking && 
               ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteString() : write in progress, %d remaining bytes\n", data_size );
+      ROS_DEBUG ( "tcpIpSocketWriteString() : write in progress, %d remaining bytes\n", data_size );
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else if ( errno == ENOTCONN || errno == ECONNRESET )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteString() : socket disconnectd\n" );
+      ROS_DEBUG ( "tcpIpSocketWriteString() : socket disconnectd\n" );
       s->connected = 0;
       return  TCPIPSOCKET_DISCONNECTED;
     }
@@ -418,13 +419,13 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   int reads = recv ( s->fd, read_buf, max_size, 0);
   if ( reads == 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
+    ROS_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
   else if ( reads > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", reads );
+    ROS_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", reads );
     dynBufferPushBackBuf ( d_buf, read_buf, reads );
     state = TCPIPSOCKET_DONE;
     *n_reads = reads;
@@ -432,12 +433,12 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   else if ( s->is_nonblocking && 
             ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read in progress\n" );
+    ROS_DEBUG ( "tcpIpSocketReadBufferEx() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
   else if ( errno == ENOTCONN || errno == ECONNRESET )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
+    ROS_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
@@ -470,25 +471,25 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
 
   if ( n_read == 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
+    ROS_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
   else if ( n_read > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : read %d bytes \n", n_read );
+    ROS_DEBUG ( "tcpIpSocketReadString() : read %d bytes \n", n_read );
     dynStringPushBackStrN ( d_str, read_buf, n_read );
     state = TCPIPSOCKET_DONE;
   }
   else if ( s->is_nonblocking && 
             ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : read in progress\n" );
+    ROS_DEBUG ( "tcpIpSocketReadString() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
   else if ( errno == ENOTCONN || errno == ECONNRESET )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
+    ROS_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }

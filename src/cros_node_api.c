@@ -160,7 +160,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
     {
       case CROS_API_REGISTER_PUBLISHER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : registerPublisher response \n" );
+        ROS_DEBUG ( "cRosApiParseResponse() : registerPublisher response \n" );
         if( checkResponseValue( &client_proc->response ) )
           ret = 0;
 
@@ -168,7 +168,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_REGISTER_SERVICE:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : registerService response \n" );
+        ROS_DEBUG ( "cRosApiParseResponse() : registerService response \n" );
 
         if( checkResponseValue( &client_proc->response ) )
           ret = 0;
@@ -177,7 +177,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_REGISTER_SUBSCRIBER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
+        ROS_DEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         //Get the next subscriber without a topic host
@@ -233,7 +233,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_GET_PID:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+        ROS_DEBUG ( "cRosApiParseResponse() : ping response \n" );
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         if( checkResponseValue( &client_proc->response ) )
@@ -262,7 +262,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_SERVICE:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+        ROS_DEBUG ( "cRosApiParseResponse() : ping response \n" );
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         if( checkResponseValue( &client_proc->response ) )
@@ -278,7 +278,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_PUBLISHER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+        ROS_DEBUG ( "cRosApiParseResponse() : ping response \n" );
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
@@ -293,7 +293,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_SUBSCRIBER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+        ROS_DEBUG ( "cRosApiParseResponse() : ping response \n" );
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
@@ -369,7 +369,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
             tcpIpSocketOpen(&(tcpros_proc->socket));
           }
 
-          PRINT_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
+          ROS_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
           xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
 
           //set the process to open the socket with the desired host
@@ -390,7 +390,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
 int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
-  PRINT_DEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
+  ROS_DEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
 
   XmlrpcProcess *server_proc = &(n->xmlrpc_server_proc[server_idx]);
 
@@ -415,7 +415,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_PUBLISHER_UPDATE:
     {
-      PRINT_INFO("publisherUpdate()\n");
+      ROS_INFO("publisherUpdate()\n");
       // TODO Store the subscribed node name
       XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
 
