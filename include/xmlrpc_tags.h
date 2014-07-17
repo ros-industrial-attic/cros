@@ -53,6 +53,10 @@ static XmlrpcTagStrDim XMLRPC_DATA_TAG = { "<data>", 6 };
 static XmlrpcTagStrDim XMLRPC_DATA_ETAG = { "</data>", 7 };
 static XmlrpcTagStrDim XMLRPC_STRUCT_TAG = { "<struct>", 8 };
 static XmlrpcTagStrDim XMLRPC_STRUCT_ETAG = { "</struct>", 9 };
+static XmlrpcTagStrDim XMLRPC_MEMBER_TAG = { "<member>", 8 };
+static XmlrpcTagStrDim XMLRPC_MEMBER_ETAG = { "</member>", 9 };
+static XmlrpcTagStrDim XMLRPC_NAME_TAG = { "<name>", 6 };
+static XmlrpcTagStrDim XMLRPC_NAME_ETAG = { "</name>", 7 };
 
 /*! @}*/
 
