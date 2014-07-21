@@ -1172,6 +1172,10 @@ static char* LogLevelToString(CrosLogLevel log_level)
       strncpy(ret, "FATAL",strlen("FATAL"));
       return ret;
     }
+    default:
+    {
+      assert(0);
+    }
   }
 }
 
