@@ -753,61 +753,60 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
 
 int loadFromFileMsg(char* filename, cRosMessageDef* msg)
 {
+    FILE *f = fopen(filename, "rb");
+    if (f == NULL)
+      return -1;
+
     char* file_tokenized = (char*) calloc(strlen(filename)+1, sizeof(char));
     strcpy(file_tokenized, filename);
     char* token_pack;
     char* token_root = NULL;
     char* token_name = NULL;
 
-    FILE *f = fopen(filename, "rb");
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *msg_text = malloc(fsize + 1);
+    fread(msg_text, fsize, 1, f);
+    fclose(f);
 
-    if(f != NULL)
+    msg_text[fsize] = '\0';
+    char* tok = strtok(file_tokenized,"/.");
+
+    while(tok != NULL)
     {
-        fseek(f, 0, SEEK_END);
-        long fsize = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        char *msg_text = malloc(fsize + 1);
-        fread(msg_text, fsize, 1, f);
-        fclose(f);
-
-        msg_text[fsize] = '\0';
-        char* tok = strtok(file_tokenized,"/.");
-
-        while(tok != NULL)
-        {
-            if(strcmp(tok, "msg") != 0)
-            {
-                token_root = token_pack;
-                token_pack = token_name;
-                token_name = tok ;
-            }
-            tok = strtok(NULL,"/.");
-        }
-
-        //build up the root path
-        char* it = file_tokenized;
-        while(it != token_root)
-        {
-            if(*it == '\0')
-                *it='/';
-            it++;
-        }
-
-        msg->root_dir = (char*) calloc (strlen(file_tokenized)+1, sizeof(char)); msg->root_dir[0] = '\0';
-        strcpy(msg->root_dir,file_tokenized);
-
-        msg->package = (char*) calloc (strlen(token_pack)+1, sizeof(char)); msg->package[0] = '\0';
-        strcpy(msg->package,token_pack);
-
-        msg->name = (char*) calloc (strlen(token_name)+1, sizeof(char)); msg->name[0] = '\0';
-        strcpy(msg->name,token_name);
-
-        loadFromStringMsg(msg_text, msg);
-        free(msg_text);
+      if(strcmp(tok, "msg") != 0)
+      {
+        token_root = token_pack;
+        token_pack = token_name;
+        token_name = tok ;
+      }
+      tok = strtok(NULL,"/.");
     }
 
+    //build up the root path
+    char* it = file_tokenized;
+    while(it != token_root)
+    {
+      if(*it == '\0')
+      *it='/';
+      it++;
+    }
+
+    msg->root_dir = (char*) calloc (strlen(file_tokenized)+1, sizeof(char)); msg->root_dir[0] = '\0';
+    strcpy(msg->root_dir,file_tokenized);
+
+    msg->package = (char*) calloc (strlen(token_pack)+1, sizeof(char)); msg->package[0] = '\0';
+    strcpy(msg->package,token_pack);
+
+    msg->name = (char*) calloc (strlen(token_name)+1, sizeof(char)); msg->name[0] = '\0';
+    strcpy(msg->name,token_name);
+
+    loadFromStringMsg(msg_text, msg);
+    free(msg_text);
+
     free(file_tokenized);
-    return EXIT_SUCCESS;
+    return 0;
 }
 
 void build_time_field(cRosMessageField* field)
@@ -880,18 +879,24 @@ void build_header_field(cRosMessageField* field)
   field->data.as_msg = header;
 }
 
-void cRosMessageBuild(cRosMessage* message, const char* message_path)
+int cRosMessageBuild(cRosMessage* message, const char* message_path)
 {
-  DynString output;
-  dynStringInit(&output);
-
   cRosMessageDef* msg_def = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
   initCrosMsg(msg_def);
   char* message_path_cpy = calloc(strlen(message_path) + 1, sizeof(char));
   strcpy(message_path_cpy,message_path);
-  loadFromFileMsg(message_path_cpy,msg_def);
+  int rc = loadFromFileMsg(message_path_cpy,msg_def);
+  if (rc == -1)
+  {
+    free(message_path_cpy);
+    free(msg_def);
+    return -1;
+  }
+
   message->msgDef = msg_def;
   cRosMessageBuildFromDef(message,msg_def);
+
+  return 0;
 }
 
 void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
@@ -1056,6 +1061,9 @@ void cRosMessageFieldDefFree(msgFieldDef* msg_field)
 
 void cRosMessageDefFree(cRosMessageDef *msgDef)
 {
+  if (msgDef == NULL)
+    return;
+
   free(msgDef->name);
   msgDef->name = NULL;
   free(msgDef->package);

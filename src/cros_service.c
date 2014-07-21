@@ -186,7 +186,7 @@ void cRosServiceBuild(cRosService* service, const char* filepath)
   cRosServiceBuildInner(&service->request, &service->response, service->md5sum, filepath);
 }
 
-void cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5sum, const char* filepath)
+int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5sum, const char* filepath)
 {
   cRosSrvDef* srv = (cRosSrvDef*) malloc(sizeof(cRosSrvDef));
   initCrosSrv(srv);
@@ -194,7 +194,13 @@ void cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md
   *copy_filepath = '\0';
   strcpy(copy_filepath,filepath);
 
-  loadFromFileSrv(copy_filepath,srv);
+  int rc = loadFromFileSrv(copy_filepath,srv);
+  if (rc != 0)
+  {
+    free(srv);
+    free(copy_filepath);
+    return -1;
+  }
 
   unsigned char* res = NULL;
   DynString buffer;
@@ -232,6 +238,8 @@ void cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md
   {
     cRosMessageBuildFromDef(response, srv->response);
   }
+
+  return 0;
 }
 
 void cRosServiceFree(cRosService* service)

@@ -90,6 +90,7 @@ static ProviderContext * newProviderContext(const char *provider_path, ProviderT
   if (context->md5sum == NULL)
     goto clean;
 
+  int rc;
   switch(type)
   {
     case CROS_SUBSCRIBER:
@@ -98,7 +99,10 @@ static ProviderContext * newProviderContext(const char *provider_path, ProviderT
       if (context->incoming == NULL)
         goto clean;
 
-      cRosMessageBuild(context->incoming, provider_path);
+      rc = cRosMessageBuild(context->incoming, provider_path);
+      if (rc != 0)
+        goto clean;
+
       strcpy(context->md5sum, context->incoming->md5sum);
       context->message_definition = context->incoming->msgDef->plain_text;
       break;
@@ -109,7 +113,10 @@ static ProviderContext * newProviderContext(const char *provider_path, ProviderT
       if (context->outgoing == NULL)
         goto clean;
 
-      cRosMessageBuild(context->outgoing, provider_path);
+      rc = cRosMessageBuild(context->outgoing, provider_path);
+      if (rc != 0)
+        goto clean;
+
       strcpy(context->md5sum, context->outgoing->md5sum);
       context->message_definition = context->outgoing->msgDef->plain_text;
       break;
@@ -123,7 +130,10 @@ static ProviderContext * newProviderContext(const char *provider_path, ProviderT
       if (context->outgoing == NULL)
         goto clean;
 
-      cRosServiceBuildInner(context->incoming, context->outgoing, context->md5sum, provider_path);
+      rc = cRosServiceBuildInner(context->incoming, context->outgoing, context->md5sum, provider_path);
+      if (rc != 0)
+        goto clean;
+
       break;
     }
     default:
@@ -187,6 +197,9 @@ int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, con
   char path[256];
   getSrvFilePath(node, path, 256, service_type);
   ProviderContext *nodeContext = newProviderContext(path, CROS_SERVICE_PROVIDER);
+  if (nodeContext == NULL)
+    return -1;
+
   nodeContext->api_callback = callback;
   nodeContext->status_callback = status_callback;
   nodeContext->context = context;
@@ -215,6 +228,9 @@ int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char
   char path[256];
   cRosGetMsgFilePath(node, path, 256, topic_type);
   ProviderContext *nodeContext = newProviderContext(path, CROS_SUBSCRIBER);
+  if (nodeContext == NULL)
+    return -1;
+
   nodeContext->api_callback = callback;
   nodeContext->status_callback = status_callback;
   nodeContext->context = context;
@@ -243,6 +259,9 @@ int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char 
   char path[256];
   cRosGetMsgFilePath(node, path, 256, topic_type);
   ProviderContext *nodeContext = newProviderContext(path, CROS_PUBLISHER);
+  if (nodeContext == NULL)
+    return -1;
+
   nodeContext->api_callback = callback;
   nodeContext->status_callback = status_callback;
   nodeContext->context = context;

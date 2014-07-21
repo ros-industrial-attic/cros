@@ -1483,18 +1483,24 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
 
   rc = cRosApiRegisterPublisher(new_n,"/rosout","rosgraph_msgs/Log", 100,
                                   callback_pub_log, NULL, new_n);
-    if (rc == -1)
-      return NULL;
+  if (rc == -1)
+  {
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering rosout\n" );
+  }
 
   rc = cRosApiRegisterServiceProvider(new_n,"~get_loggers","roscpp/GetLoggers",
                                       callback_srv_get_loggers, NULL, (void*) new_n);
   if (rc == -1)
-    return NULL;
+  {
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers\n" );
+  }
 
   rc = cRosApiRegisterServiceProvider(new_n,"~set_logger_level","roscpp/SetLoggerLevel",
                                       callback_srv_set_logger_level, NULL, (void*) new_n);
   if (rc == -1)
-    return NULL;
+  {
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers\n" );
+  }
 
   current_node = new_n;
 

@@ -95,7 +95,7 @@ cRosMessage * cRosMessageNew();
 
 void cRosMessageInit(cRosMessage *message);
 
-void cRosMessageBuild(cRosMessage* message, const char* message_path);
+int cRosMessageBuild(cRosMessage* message, const char* message_path);
 
 void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
 
