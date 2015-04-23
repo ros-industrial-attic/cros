@@ -17,29 +17,14 @@ endif()
 set(LINK_FLAGS_DEBUG_DEBUG "-pg")
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O1")
 
-include_directories ( include )
-#link_directories ( ${OpenCV_LIB_DIR} )
+include_directories (include)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src CROSLIB_SRCS)
 
 add_library(cros STATIC ${CROSLIB_SRCS} )
 
-add_executable( test_node test_node.c )
-target_link_libraries( test_node cros )
-
-add_executable( greek_node greek_node.c )
-target_link_libraries( greek_node cros )
-
-add_executable( greek_node2 greek_node2.c )
-target_link_libraries( greek_node2 cros )
-
-add_executable( parameters parameters.c )
-target_link_libraries( parameters cros )
+add_subdirectory(samples)
 
 set_target_properties(cros PROPERTIES ARCHIVE_OUTPUT_DIRECTORY lib)
-set_target_properties(test_node PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
-set_target_properties(greek_node PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
-set_target_properties(greek_node2 PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
-set_target_properties(parameters PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 
 find_package(Doxygen)
 if (NOT DOXYGEN_FOUND)
