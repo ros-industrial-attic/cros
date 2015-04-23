@@ -1,0 +1,29 @@
+# Launch a ROS master node
+$ roscore
+
+# Enumerate active topics
+$ rostopic list
+
+# Enumerate publishers and subscribers on the topic /test
+$ rostopic info /test
+
+# Register a publisher on the topic /test, publishing a "Hello world" string with frequency 1
+$ rostopic pub /test std_msgs/String "Hello world" -r1
+
+# Register an echo subscriber on the topic /test
+$ rostopic echo /test
+
+# Run a ROS node registered with catkin
+$ rosrun <pacakge> <nodename>
+
+# Run sample "gripperstatus_talker" node
+$ rosrun robox gripperstatus_talker
+
+# Request a service
+$ rosservice call <nome_servizio> <arguments>
+
+# Sample service "add_two_ints" request
+$ rosservice call /add_two_ints 1 2
+
+# Sample publisher with internal fields defined
+$ rostopic pub /test cros_testbed/Test "{header: { frame_id: /base_link}}"

@@ -1,1 +1,2 @@
 * rosgraph_msgs/Log.msg: standard message type for ROS logs
+* ROS_QUIKSTART: some sample official ROS command samples
