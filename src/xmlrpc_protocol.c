@@ -173,9 +173,9 @@ static XmlrpcParserState parseXmlrpcMessageBody ( const char *body, int body_len
   }
   
   if( *type == XMLRPC_MESSAGE_REQUEST )
-    ROS_DEBUG("Received request message, method : %s\n", dynStringGetData( method ));
+    PRINT_DEBUG("Received request message, method : %s\n", dynStringGetData( method ));
   else if ( *type == XMLRPC_MESSAGE_RESPONSE )
-    ROS_DEBUG("Received response message\n");
+    PRINT_DEBUG("Received response message\n");
   
   return parseXmlrpcMessageParams ( c, body_len - i, params );
 }
@@ -303,7 +303,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
 
   if ( body_init == NULL )
   {
-    ROS_DEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
+    PRINT_DEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
     return XMLRPC_PARSER_INCOMPLETE;
   }
   else if ( body_len_init == NULL )
@@ -321,7 +321,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
 
   if ( body_len > (int)strlen ( body_init ) )
   {
-    ROS_DEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
+    PRINT_DEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
     return XMLRPC_PARSER_INCOMPLETE;
   }
 
@@ -343,7 +343,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
     *port = atoi(strtok_r(NULL,":",&progress));
   }
 
-  ROS_DEBUG ( "parseXmlrpcMessage() : body len : %d\n", body_len );
+  PRINT_DEBUG ( "parseXmlrpcMessage() : body len : %d\n", body_len );
 
   return parseXmlrpcMessageBody ( body_init, body_len, type, method, params );
 

@@ -5,7 +5,6 @@
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
 #include "cros_api_call.h"
-#include "cros_log.h"
 
 /*! \defgroup cros_node cROS Node */
 
@@ -146,6 +145,46 @@ struct ParameterSubscription
   NodeStatusCallback status_callback;
 };
 
+typedef struct CrosLog CrosLog;
+typedef struct CrosLogNode CrosLogNode;
+typedef struct CrosLogQueue CrosLogQueue;
+
+struct CrosLog
+{
+  uint8_t level;    //! debug level
+  char* name;       //! name of the node
+  char* msg;        //! message
+  char* file;       //! file the message came from
+  char* function;   //! function the message came from
+  uint32_t line;    //! line the message came from
+  char** pubs;    //! topic names that the node publishes
+  uint32_t secs;
+  uint32_t nsecs;
+  size_t n_pubs;
+};
+
+struct CrosLogNode
+{
+  CrosLog *call;
+  CrosLogNode* next;
+};
+
+struct CrosLogQueue
+{
+  CrosLogNode* head;
+  CrosLogNode* tail;
+  size_t count;
+};
+
+typedef enum CrosLogLevel //!Logging levels
+{
+  CROS_LOGLEVEL_DEBUG = 1,
+  CROS_LOGLEVEL_INFO = 2,
+  CROS_LOGLEVEL_WARN = 4,
+  CROS_LOGLEVEL_ERROR = 8,
+  CROS_LOGLEVEL_FATAL = 16
+} CrosLogLevel;
+
 /*! \brief CrosNode object. Don't modify its internal members: use
  *         the related functions instead */
 typedef struct CrosNode CrosNode;
@@ -263,8 +302,6 @@ void cRosNodeDoEventsLoop( CrosNode *n );
  *  It is an utiility function that call cRosNodeDoEventsLoop() inside a endless cycle
  */
 void cRosNodeStart( CrosNode *n, unsigned char *exit );
-
-CrosNode* cRosNodeGetCurrent();
 
 XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/

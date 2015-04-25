@@ -42,18 +42,18 @@ int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
 
   if ( new_str == NULL )
   {
-    ROS_ERROR ( "dynStringPushBackStrN() : Invalid new string\n" );
+    PRINT_ERROR ( "dynStringPushBackStrN() : Invalid new string\n" );
     return -1;
   }
 
   if ( d_str->data == NULL )
   {
-    ROS_DEBUG ( "dynStringPushBackStrN() : allocate memory for the first time\n" );
+    PRINT_DEBUG ( "dynStringPushBackStrN() : allocate memory for the first time\n" );
     d_str->data = ( char * ) malloc ( DYNSTRING_INIT_SIZE * sizeof ( char ) );
 
     if ( d_str->data == NULL )
     {
-      ROS_ERROR ( "dynStringPushBackStrN() : Can't allocate memory\n" );
+      PRINT_ERROR ( "dynStringPushBackStrN() : Can't allocate memory\n" );
       return -1;
     }
 
@@ -64,12 +64,12 @@ int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
 
   while ( d_str->len + n + 1 > d_str->max )
   {
-    ROS_DEBUG ( "dynStringPushBackStrN() : reallocate memory\n" );
+    PRINT_DEBUG ( "dynStringPushBackStrN() : reallocate memory\n" );
     char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) * 
                                                                           sizeof ( char ) );
     if ( n_d_str == NULL )
     {
-      ROS_ERROR ( "dynStringPushBackStrN() : Can't allocate more memory\n" );
+      PRINT_ERROR ( "dynStringPushBackStrN() : Can't allocate more memory\n" );
       return -1;
     }
     d_str->max *= DYNSTRING_GROW_RATE;
@@ -89,12 +89,12 @@ int dynStringPushBackChar ( DynString *d_str, const char c )
 
   if ( d_str->data == NULL )
   {
-    ROS_DEBUG ( "dynStringPushBackChar() : allocate memory for the first time\n" );
+    PRINT_DEBUG ( "dynStringPushBackChar() : allocate memory for the first time\n" );
     d_str->data = ( char * ) malloc ( DYNSTRING_INIT_SIZE * sizeof ( char ) );
 
     if ( d_str->data == NULL )
     {
-      ROS_ERROR ( "dynStringPushBackChar() : Can't allocate memory\n" );
+      PRINT_ERROR ( "dynStringPushBackChar() : Can't allocate memory\n" );
       return -1;
     }
 
@@ -105,12 +105,12 @@ int dynStringPushBackChar ( DynString *d_str, const char c )
 
   if ( d_str->len + 1 > d_str->max )
   {
-    ROS_DEBUG ( "dynStringPushBackChar() : reallocate memory\n" );
+    PRINT_DEBUG ( "dynStringPushBackChar() : reallocate memory\n" );
     char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) * 
                                                         sizeof ( char ) );
     if ( n_d_str == NULL )
     {
-      ROS_ERROR ( "dynStringPushBackChar() : Can't allocate more memory\n" );
+      PRINT_ERROR ( "dynStringPushBackChar() : Can't allocate more memory\n" );
       return -1;
     }
     d_str->max *= DYNSTRING_GROW_RATE;
@@ -130,19 +130,19 @@ int dynStringPatch ( DynString *d_str, const char *new_str, int pos )
 
   if ( new_str == NULL )
   {
-    ROS_ERROR ( "dynStringPatch() : Invalid new string\n" );
+    PRINT_ERROR ( "dynStringPatch() : Invalid new string\n" );
     return -1;
   }
 
   if ( d_str->data == NULL )
   {
-    ROS_ERROR ( "dynStringPatch() : Empty dynamic string (NULL data)\n" );
+    PRINT_ERROR ( "dynStringPatch() : Empty dynamic string (NULL data)\n" );
     return -1;
   }
 
   if ( pos >= d_str->len )
   {
-    ROS_ERROR ( "dynStringPatch() : The starting position for the copy must be smaller \
+    PRINT_ERROR ( "dynStringPatch() : The starting position for the copy must be smaller \
                   than the current dynamic string lenght\n" );
     return -1;
   }
@@ -152,12 +152,12 @@ int dynStringPatch ( DynString *d_str, const char *new_str, int pos )
 
   while ( str_final_len + 1 > d_str->max )
   {
-    ROS_DEBUG ( "dynStringPatch() : reallocate memory\n" );
+    PRINT_DEBUG ( "dynStringPatch() : reallocate memory\n" );
     char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) * 
                                                         sizeof ( char ) );
     if ( n_d_str == NULL )
     {
-      ROS_ERROR ( "dynStringPatch() : Can't allocate more memory\n" );
+      PRINT_ERROR ( "dynStringPatch() : Can't allocate more memory\n" );
       return -1;
     }
     d_str->max *= DYNSTRING_GROW_RATE;

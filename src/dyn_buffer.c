@@ -35,18 +35,18 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
 
   if ( new_buf == NULL || n < 0 )
   {
-    ROS_ERROR ( "dynBufferPushBackBuf() : Invalid new buffer\n" );
+    PRINT_ERROR ( "dynBufferPushBackBuf() : Invalid new buffer\n" );
     return -1;
   }
 
   if ( d_buf->data == NULL )
   {
-    ROS_DEBUG ( "dynBufferPushBackBuf() : allocate memory for the first time\n" );
+    PRINT_DEBUG ( "dynBufferPushBackBuf() : allocate memory for the first time\n" );
     d_buf->data = ( unsigned char * ) malloc ( DYNBUFFER_INIT_SIZE * sizeof ( unsigned char ) );
 
     if ( d_buf->data == NULL )
     {
-      ROS_ERROR ( "dynBufferPushBackBuf() : Can't allocate memory\n" );
+      PRINT_ERROR ( "dynBufferPushBackBuf() : Can't allocate memory\n" );
       return -1;
     }
 
@@ -56,12 +56,12 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
 
   while ( d_buf->size + n > d_buf->max )
   {
-    ROS_DEBUG ( "dynBufferPushBackBuf() : reallocate memory\n" );
+    PRINT_DEBUG ( "dynBufferPushBackBuf() : reallocate memory\n" );
     unsigned char *new_d_buf = ( unsigned char * ) realloc ( d_buf->data, ( DYNBUFFER_GROW_RATE * d_buf->max ) * 
                                                                              sizeof ( unsigned char ) );
     if ( new_d_buf == NULL )
     {
-      ROS_ERROR ( "dynBufferPushBackBuf() : Can't allocate more memory\n" );
+      PRINT_ERROR ( "dynBufferPushBackBuf() : Can't allocate more memory\n" );
       return -1;
     }
     d_buf->max *= DYNBUFFER_GROW_RATE;

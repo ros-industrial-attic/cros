@@ -126,14 +126,13 @@ int cRosLogQueueIsEmpty(CrosLogQueue *queue)
   return queue->count == 0;
 }
 
-void cRosLogPrint(CrosLogLevel level,         // debug level
+void cRosLogPrint(CrosNode* node,
+                  CrosLogLevel level,         // debug level
                   const char* file,     // file the message came from
                   const char* function, // function the message came from
                   uint32_t line,
                   const char* msg, ...)      // message
 {
-
-  CrosNode* node = cRosNodeGetCurrent();
   char* log_msg = NULL;
   va_list args;
   va_start(args,msg);

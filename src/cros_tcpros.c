@@ -89,13 +89,13 @@ static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flag
 
   *flags = 0x0;
 
-  ROS_DEBUG("readSubcriptioHeader() : Header len=%d\n",bytes_to_read);
+  PRINT_DEBUG("readSubcriptioHeader() : Header len=%d\n",bytes_to_read);
 
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( packet );
 
-    ROS_DEBUG("readSubcriptioHeader() : Field len=%d\n",field_len);
+    PRINT_DEBUG("readSubcriptioHeader() : Field len=%d\n",field_len);
 
     const char *field = (const char *)dynBufferGetCurrentData( packet );
     if( field_len )
@@ -149,7 +149,7 @@ static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flag
       else if ( field_len > (uint32_t)TCPROS_TCP_NODELAY_TAG.dim &&
           strncmp ( field, TCPROS_TCP_NODELAY_TAG.str, TCPROS_TCP_NODELAY_TAG.dim ) == 0 )
       {
-        ROS_INFO("readSubcriptioHeader() WARNING : TCPROS_TCP_NODELAY_TAG not implemented\n");
+        PRINT_INFO("readSubcriptioHeader() WARNING : TCPROS_TCP_NODELAY_TAG not implemented\n");
         field += TCPROS_TCP_NODELAY_TAG.dim;
         p->tcp_nodelay = (*field == '1')?1:0;
         *flags |= TCPROS_TCP_NODELAY_FLAG;
@@ -158,7 +158,7 @@ static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flag
       else if ( field_len > (uint32_t)TCPROS_LATCHING_TAG.dim &&
           strncmp ( field, TCPROS_LATCHING_TAG.str, TCPROS_LATCHING_TAG.dim ) == 0 )
       {
-        ROS_INFO("readSubcriptioHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
+        PRINT_INFO("readSubcriptioHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
         field += TCPROS_LATCHING_TAG.dim;
         p->latching = (*field == '1')?1:0; 
         *flags |= TCPROS_LATCHING_FLAG;
@@ -167,13 +167,13 @@ static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flag
       else if ( field_len > (uint32_t)TCPROS_ERROR_TAG.dim &&
           strncmp ( field, TCPROS_ERROR_TAG.str, TCPROS_ERROR_TAG.dim ) == 0 )
       {
-        ROS_INFO("readSubcriptioHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
+        PRINT_INFO("readSubcriptioHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
         *flags |= TCPROS_ERROR_FLAG;
         dynBufferMovePoseIndicator( packet, field_len );
       }
       else
       {
-        ROS_ERROR("readSubcriptioHeader() : unknown field\n");
+        PRINT_ERROR("readSubcriptioHeader() : unknown field\n");
         *flags = 0x0;
         break;
       }
@@ -194,13 +194,13 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
 
   *flags = 0x0;
 
-  ROS_DEBUG("readPublicationHeader() : Header len=%d\n",bytes_to_read);
+  PRINT_DEBUG("readPublicationHeader() : Header len=%d\n",bytes_to_read);
 
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( packet );
 
-    ROS_DEBUG("readPublicationHeader() : Field len=%d\n",field_len);
+    PRINT_DEBUG("readPublicationHeader() : Field len=%d\n",field_len);
 
     const char *field = (const char *)dynBufferGetCurrentData( packet );
     if( field_len )
@@ -244,7 +244,7 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
       else if ( field_len > (uint32_t)TCPROS_LATCHING_TAG.dim &&
           strncmp ( field, TCPROS_LATCHING_TAG.str, TCPROS_LATCHING_TAG.dim ) == 0 )
       {
-        ROS_INFO("readPublicationHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
+        PRINT_INFO("readPublicationHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
         field += TCPROS_LATCHING_TAG.dim;
         p->latching = (*field == '1')?1:0;
         *flags |= TCPROS_LATCHING_FLAG;
@@ -264,13 +264,13 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
       else if ( field_len > (uint32_t)TCPROS_ERROR_TAG.dim &&
           strncmp ( field, TCPROS_ERROR_TAG.str, TCPROS_ERROR_TAG.dim ) == 0 )
       {
-        ROS_INFO("readPublicationHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
+        PRINT_INFO("readPublicationHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
         *flags |= TCPROS_ERROR_FLAG;
         dynBufferMovePoseIndicator( packet, field_len );
       }
       else
       {
-        ROS_ERROR("readPublicationHeader() : unknown field\n");
+        PRINT_ERROR("readPublicationHeader() : unknown field\n");
         *flags = 0x0;
         break;
       }
@@ -300,7 +300,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
   
   if( TCPROS_SUBCRIPTION_HEADER_FLAGS != ( header_flags&TCPROS_SUBCRIPTION_HEADER_FLAGS) )
   {
-    ROS_FATAL("cRosMessageParseSubcriptionHeader() : Missing fields\n");
+    PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Missing fields\n");
     ret = TCPROS_PARSER_ERROR;
   }
   else
@@ -326,7 +326,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
 
     if( ! topic_found )
     {
-      ROS_FATAL("cRosMessageParseSubcriptionHeader() : Wrong service, type or md5sum\n");
+      PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Wrong service, type or md5sum\n");
       server_proc->topic_idx = -1;
       ret = TCPROS_PARSER_ERROR;
     }
@@ -356,7 +356,7 @@ TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx
 
   if( TCPROS_PUBLICATION_HEADER_FLAGS != ( header_flags&TCPROS_PUBLICATION_HEADER_FLAGS) )
   {
-    ROS_FATAL("cRosMessageParsePublicationHeader() : Missing fields\n");
+    PRINT_ERROR("cRosMessageParsePublicationHeader() : Missing fields\n");
     ret = TCPROS_PARSER_ERROR;
   }
   else
@@ -379,7 +379,7 @@ TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx
 
     if( ! subscriber_found )
     {
-      ROS_ERROR("cRosMessageParsePublicationHeader() : Wrong topic, type or md5sum\n");
+      PRINT_ERROR("cRosMessageParsePublicationHeader() : Wrong topic, type or md5sum\n");
       ret = TCPROS_PARSER_ERROR;
     }
   }
@@ -467,13 +467,13 @@ static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flag
 
   *flags = 0x0;
 
-  ROS_DEBUG("readServiceCallHeader() : Header len=%d\n",bytes_to_read);
+  PRINT_DEBUG("readServiceCallHeader() : Header len=%d\n",bytes_to_read);
 
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( packet );
 
-    ROS_DEBUG("readServiceCallHeader() : Field len=%d\n",field_len);
+    PRINT_DEBUG("readServiceCallHeader() : Field len=%d\n",field_len);
 
     const char *field = (const char *)dynBufferGetCurrentData( packet );
 
@@ -522,7 +522,7 @@ static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flag
       else if ( field_len > (uint32_t)TCPROS_PERSISTENT_TAG.dim &&
           strncmp ( field, TCPROS_PERSISTENT_TAG.str, TCPROS_PERSISTENT_TAG.dim ) == 0 )
       {
-        ROS_INFO("readPublicationHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
+        PRINT_INFO("readPublicationHeader() WARNING : TCPROS_LATCHING_TAG not implemented\n");
         field += TCPROS_PERSISTENT_TAG.dim;
         p->persistent = (*field == '1')?1:0;
         *flags |= TCPROS_PERSISTENT_FLAG;
@@ -540,13 +540,13 @@ static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flag
       else if ( field_len > (uint32_t)TCPROS_ERROR_TAG.dim &&
           strncmp ( field, TCPROS_ERROR_TAG.str, TCPROS_ERROR_TAG.dim ) == 0 )
       {
-        ROS_INFO("readServiceCallHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
+        PRINT_INFO("readServiceCallHeader() WARNING : TCPROS_ERROR_TAG not implemented\n");
         *flags |= TCPROS_ERROR_FLAG;
         dynBufferMovePoseIndicator( packet, field_len );
       }
       else
       {
-        ROS_ERROR("readServiceCallHeader() : unknown field\n");
+        PRINT_ERROR("readServiceCallHeader() : unknown field\n");
         *flags = 0x0;
         break;
       }
@@ -605,13 +605,13 @@ TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_i
   }
   else
   {
-    ROS_ERROR("cRosMessageParseServiceCallerHeader() : Missing fields\n");
+    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Missing fields\n");
     ret = TCPROS_PARSER_ERROR;
   }
 
   if( ! service_found )
   {
-    ROS_ERROR("cRosMessageParseServiceCallerHeader() : Wrong service, type or md5sum\n");
+    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Wrong service, type or md5sum\n");
     server_proc->service_idx = -1;
     ret = TCPROS_PARSER_ERROR;
   }

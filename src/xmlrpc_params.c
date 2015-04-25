@@ -126,7 +126,7 @@ static void binaryToXml ( void *val, DynString *message )
   exit ( EXIT_FAILURE );
 }
 
-int paramFromXml ( DynString *message, XmlrpcParam *param,  ParamContainerType container)
+int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType container)
 {
   PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", is_array?"TRUE":"FALSE" );
 
@@ -284,7 +284,7 @@ int arrayFromXml(DynString *message, XmlrpcParam *param)
 
   dynStringSetPoseIndicator ( message, i);
 
-  while (paramFromXml ( message, param, PARAM_CONTAINER_ARRAY ) != -1);
+  while (paramFromXml (message, param, PARAM_CONTAINER_ARRAY ) != -1);
 
   c = dynStringGetCurrentData ( message );
   i = dynStringGetPoseIndicatorOffset ( message );
@@ -316,12 +316,12 @@ int structFromXml(DynString *message, XmlrpcParam *param)
 {
   PRINT_VDEBUG ( "structFromXml()\n" );
 
-  while (paramFromXml ( message, param, PARAM_CONTAINER_STRUCT ) != -1);
+  while (paramFromXml (message, param, PARAM_CONTAINER_STRUCT ) != -1);
 
   return 0;
 }
 
-int paramValueFromXml ( DynString *message, XmlrpcParam *param,  ParamContainerType container)
+int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType container)
 {
   const char *c = dynStringGetCurrentData ( message );
   int len = dynStringGetLen ( message );
@@ -430,7 +430,7 @@ int paramValueFromXml ( DynString *message, XmlrpcParam *param,  ParamContainerT
     }
   }
 
-  ROS_DEBUG( "paramFromXml() : Param type %d \n", p_type );
+  PRINT_DEBUG("paramFromXml() : Param type %d \n", p_type );
     
   // Update pose indicator (useful in case it is an array parameter)
   dynStringSetPoseIndicator ( message, i );
@@ -780,7 +780,7 @@ XmlrpcParam * arrayAddElem ( XmlrpcParam *param )
 
   if ( param->array_n_elem == param->array_max_elem )
   {
-    ROS_DEBUG ( "arrayAddElem() : reallocate memory\n" );
+    PRINT_DEBUG ( "arrayAddElem() : reallocate memory\n" );
     XmlrpcParam *new_param = ( XmlrpcParam * ) realloc ( param->data.as_array,
                              ( XMLRPC_ARRAY_GROW_RATE * param->array_max_elem ) * sizeof ( XmlrpcParam ) );
     if ( new_param == NULL )
@@ -830,7 +830,7 @@ void xmlrpcParamSetBool ( XmlrpcParam *param, int val )
 
   param->type = XMLRPC_PARAM_BOOL;
   param->data.as_bool = ( ( val != 0 ) ?1:0 );
-  ROS_DEBUG( "xmlrpcSetBool() : Set: %s\n", param->data.as_bool?"TRUE":"FALSE" );
+  PRINT_DEBUG( "xmlrpcSetBool() : Set: %s\n", param->data.as_bool?"TRUE":"FALSE" );
 }
 
 void xmlrpcParamSetInt ( XmlrpcParam *param, int32_t val )
@@ -839,7 +839,7 @@ void xmlrpcParamSetInt ( XmlrpcParam *param, int32_t val )
 
   param->type = XMLRPC_PARAM_INT;
   param->data.as_int = val;
-  ROS_DEBUG( "xmlrpcSetInt() : Set: %d\n", param->data.as_int );
+  PRINT_DEBUG( "xmlrpcSetInt() : Set: %d\n", param->data.as_int );
 }
 
 void xmlrpcParamSetDouble ( XmlrpcParam *param, double val )
@@ -848,7 +848,7 @@ void xmlrpcParamSetDouble ( XmlrpcParam *param, double val )
 
   param->type = XMLRPC_PARAM_DOUBLE;
   param->data.as_double = val;
-  ROS_DEBUG ( "xmlrpcSetDouble() : Set: %f\n", param->data.as_double );
+  PRINT_DEBUG ( "xmlrpcSetDouble() : Set: %f\n", param->data.as_double );
 }
 
 void xmlrpcParamSetString ( XmlrpcParam *param, const char *val )
@@ -889,7 +889,7 @@ void xmlrpcParamSetStringN ( XmlrpcParam *param, const char *val, int n )
   }
   param->data.as_string[i] = '\0';
   
-  ROS_DEBUG ( "xmlrpcSetStringN() : Set: %s\n", param->data.as_string );
+  PRINT_DEBUG ( "xmlrpcSetStringN() : Set: %s\n", param->data.as_string );
 }
 
 int xmlrpcParamArrayGetSize( XmlrpcParam *param )
