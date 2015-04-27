@@ -24,9 +24,11 @@ $ cmake ..
 $ make
 ```
 
-You will find a static library (libcros.a) inside the build/lib directory, and
+You will find a static library (*libcros.a*) inside the *build/lib* directory, and
 some test executables that  makes use of the libcros library inside the
-build/bin directory.
+*build/bin* directory. The entrypoint sample to learn how to use cROS is
+*samples/ros_api.c*, which shows a non trivial example of a ROS node with
+publishers/subcribers and calls to ROS services.
 
 If you want to build the create the library documentation, type: (you'll need
 Doxygen)
@@ -35,6 +37,10 @@ Doxygen)
 $ make docs
 ```
 
-You'll find the html documentation inside the docs/html directory. To browse
+You'll find the html documentation inside the *docs/html* directory. To browse
 the documentation, open with a web browser the index.html file.
 
+### Licensing
+
+cROS is licensed under the GNU Lesser General Public License v3.0. For more
+licensing options and for paid support please write an email to cros@it-robotics.it.
