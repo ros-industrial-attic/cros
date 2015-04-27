@@ -287,7 +287,7 @@ static CallbackResponse int32_sub_callback(DynBuffer *buffer, void* data_context
 
 static CallbackResponse int64_sub_callback(DynBuffer *buffer, void* data_context)
 {
-  printf("Read: %li\n", *(int64_t *)buffer->data);
+  printf("Read: %lli\n", *(int64_t *)buffer->data);
   fflush(stdout);
   return 0;
 }
@@ -322,7 +322,7 @@ static CallbackResponse uint32_sub_callback(DynBuffer *buffer, void* data_contex
 
 static CallbackResponse uint64_sub_callback(DynBuffer *buffer, void* data_context)
 {
-  printf("Read: %lu\n", *(uint64_t *)buffer->data);
+  printf("Read: %llu\n", *(uint64_t *)buffer->data);
   fflush(stdout);
   return 0;
 }
@@ -377,7 +377,7 @@ static CallbackResponse counter_callback(DynBuffer *buffer, void* data_context)
 static CallbackResponse clock_callback(DynBuffer *buffer, void* data_context)
 {
   uint64_t cur_timer = cRosClockGetTimeMs();
-  snprintf(message_buffer_clock, 100, "Time elapsed since start of node execution : %ld msec",
+  snprintf(message_buffer_clock, 100, "Time elapsed since start of node execution : %lld msec",
           cur_timer - start_timer );
   size_t len = strlen(message_buffer_clock);
   dynBufferPushBackUInt32( buffer, (uint32_t)len );

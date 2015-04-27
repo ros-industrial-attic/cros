@@ -1,0 +1,5 @@
+int32 arm
+int32 rad
+int32 velocity
+---
+bool positioned

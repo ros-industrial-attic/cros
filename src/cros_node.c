@@ -16,6 +16,7 @@
 #include "cros_defs.h"
 #include "cros_node_api.h"
 #include "cros_tcpros.h"
+#include "cros_log.h"
 
 static void initPublisherNode(PublisherNode *node);
 static void initSubscriberNode(SubscriberNode *node);
@@ -2212,7 +2213,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   {
     if (errno == EINTR)
     {
-      PRINT_INFO(n, "cRosNodeDoEventsLoop() : select() returned EINTR\n");
+      PRINT_INFO("cRosNodeDoEventsLoop() : select() returned EINTR\n");
     }
     else
     {
