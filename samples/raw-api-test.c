@@ -495,7 +495,7 @@ static CallbackResponse manyStrings_sub_callback(DynBuffer *buffer, void* data_c
   cRosMessage manyStrings;
   cRosMessageInit(&manyStrings);
   cRosMessageBuild(&manyStrings,
-                      "/home/nico/Desktop/test_msgs/robox/StringMixes.msg");
+                      "/home/nico/Desktop/test_msgs/gripping_robot/StringMixes.msg");
   size_t buffer_offset = 0;
   cRosMessageDeserialize(&manyStrings, buffer);
   return 0;
@@ -506,7 +506,7 @@ static CallbackResponse manyPoints_sub_callback(DynBuffer *buffer, void* data_co
   cRosMessage manyPoints;
   cRosMessageInit(&manyPoints);
   cRosMessageBuild(&manyPoints,
-                      "/home/nico/Desktop/test_msgs/robox/PointMixes.msg");
+                      "/home/nico/Desktop/test_msgs/gripping_robot/PointMixes.msg");
   size_t buffer_offset = 0;
   cRosMessageDeserialize(&manyPoints, buffer);
   return 0;
@@ -533,7 +533,7 @@ static CallbackResponse manyStrings_pub_callback(DynBuffer *buffer, void* data_c
   cRosMessage* manyStrings = calloc(1,sizeof(cRosMessage));
   cRosMessageInit(manyStrings);
   cRosMessageBuild(manyStrings,
-                      "/home/nico/Desktop/test_msgs/robox/StringMixes.msg");
+                      "/home/nico/Desktop/test_msgs/gripping_robot/StringMixes.msg");
 
   cRosMessageField* limitedStrings = cRosMessageGetField(manyStrings,"limitedStrings");
 
@@ -555,7 +555,7 @@ static CallbackResponse manyPoints_pub_callback(DynBuffer *buffer, void* data_co
   cRosMessage manyPoints;
   cRosMessageInit(&manyPoints);
   cRosMessageBuild(&manyPoints,
-                      "/home/nico/Desktop/test_msgs/robox/PointMixes.msg");
+                      "/home/nico/Desktop/test_msgs/gripping_robot/PointMixes.msg");
 
   cRosMessageField* limitedPoints = cRosMessageGetField(&manyPoints,"limitedPoints");
 
@@ -686,18 +686,18 @@ int main(int argc, char **argv)
                                  "uint32[] AlarmCodes\n"
                                  "uint32 Configuration\n\n";
 
-  rc = cRosNodeRegisterSubscriber(node, gripperjointstatus_def, "/gripperstatus", "robox/GripperStatus",
+  rc = cRosNodeRegisterSubscriber(node, gripperjointstatus_def, "/gripperstatus", "gripping_robot/GripperStatus",
                                   "bba69b1f07d275244b4a697ef69e1b2e", gripperstatus_callback, NULL, NULL);
   if (rc == -1)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterSubscriber(node, "/gripperjointstate", "robox/GripperJointState",
+  rc = cRosApiRegisterSubscriber(node, "/gripperjoints", "gripping_robot/GripperJoints",
                                  gripperjointstate_callbacknewapi, getNodeStatusCallback, NULL);
   if (rc == -1)
     return EXIT_FAILURE;
 
 /*
-  rc = cRosNodeRegisterSubscriber(node, "float64[9] Position\n\n", "/gripperjointstate", "robox/GripperJointState",
+  rc = cRosNodeRegisterSubscriber(node, "float64[9] Position\n\n", "/gripperjoints", "gripping_robot/GripperJoints",
                                   "8351d4f138c16ac67e83ce06ead5a2f3", gripperjointstate_callback, NULL, NULL);
   if (rc == -1)
     return EXIT_FAILURE;
@@ -721,7 +721,7 @@ int main(int argc, char **argv)
 
   cRosService serviceClamps;
   cRosServiceInit(&serviceClamps);
-  cRosServiceBuild(&serviceClamps,"/home/nico/Desktop/test_msgs/robox/close_clamps.srv");
+  cRosServiceBuild(&serviceClamps,"/home/nico/Desktop/test_msgs/gripping_robot/CloseGripper.srv");
 
   cRosMessage msgPoint;
 
@@ -730,12 +730,12 @@ int main(int argc, char **argv)
   cRosMessage msgStringMixes;
 
   cRosMessageInit(&msgStringMixes);
-  cRosMessageBuild(&msgStringMixes,"/home/nico/Desktop/test_msgs/robox/StringMixes.msg");
+  cRosMessageBuild(&msgStringMixes,"/home/nico/Desktop/test_msgs/gripping_robot/StringMixes.msg");
 
   cRosMessage msgPointMixes;
 
   cRosMessageInit(&msgPointMixes);
-  cRosMessageBuild(&msgPointMixes,"/home/nico/Desktop/test_msgs/robox/PointMixes.msg");
+  cRosMessageBuild(&msgPointMixes,"/home/nico/Desktop/test_msgs/gripping_robot/PointMixes.msg");
 
   rc = cRosNodeRegisterPublisher ( node, msgPoint.msgDef->plain_text, "/point_test", "geometry_msgs/Point",
                                    msgPoint.md5sum, 1000, point_pub_callback, NULL, NULL);
@@ -743,13 +743,13 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
 
 
-  rc = cRosNodeRegisterPublisher ( node, msgPointMixes.msgDef->plain_text, "/many_points", "robox/PointMixes",
+  rc = cRosNodeRegisterPublisher ( node, msgPointMixes.msgDef->plain_text, "/many_points", "gripping_robot/PointMixes",
                                     msgPointMixes.md5sum, 1000, manyPoints_pub_callback, NULL, NULL);
   if (rc == -1)
     return EXIT_FAILURE;
 
 
-  rc = cRosNodeRegisterPublisher ( node, msgStringMixes.msgDef->plain_text, "/many_strings", "robox/StringMixes",
+  rc = cRosNodeRegisterPublisher ( node, msgStringMixes.msgDef->plain_text, "/many_strings", "gripping_robot/StringMixes",
                                    msgStringMixes.md5sum, 1000, manyStrings_pub_callback, NULL, NULL);
 #endif
 

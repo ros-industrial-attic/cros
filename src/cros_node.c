@@ -1252,7 +1252,7 @@ static CallbackResponse callback_srv_get_loggers(cRosMessage *request, cRosMessa
   cRosMessageBuild(logger_msg,path);
 
   cRosMessageField* logger = cRosMessageGetField(logger_msg, "name");
-  cRosMessageSetFieldValueString(logger, "ros.robox");
+  cRosMessageSetFieldValueString(logger, "ros.cros_node");
   cRosMessageField* level = cRosMessageGetField(logger_msg, "level");
   char* str_level = LogLevelToString(node->log_level);
   cRosMessageSetFieldValueString(level, str_level);

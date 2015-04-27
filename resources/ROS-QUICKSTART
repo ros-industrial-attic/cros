@@ -17,7 +17,7 @@ $ rostopic echo /test
 $ rosrun <pacakge> <nodename>
 
 # Run sample "gripperstatus_talker" node
-$ rosrun robox gripperstatus_talker
+$ rosrun gripping_robot gripperstatus_talker
 
 # Request a service
 $ rosservice call <nome_servizio> <arguments>
