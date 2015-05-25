@@ -327,17 +327,17 @@ Publisher Example
 
 */
 
-  rc = cRosApiRegisterServiceProvider(node,"/close_clamps","gripping_robot/CloseGripper",
+  rc = cRosApiRegisterServiceProvider(node,"/close_gripper","gripping_robot/CloseGripper",
                                       callback_srv_close_gripper, NULL, NULL);
   if (rc == -1)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterServiceProvider(node,"/open_clamps","gripping_robot/OpenGripper",
+  rc = cRosApiRegisterServiceProvider(node,"/open_gripper","gripping_robot/OpenGripper",
                                       callback_srv_open_gripper, NULL, NULL);
   if (rc == -1)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterServiceProvider(node,"/park_configuration","gripping_robot/RestPosition",
+  rc = cRosApiRegisterServiceProvider(node,"/rest_position","gripping_robot/RestPosition",
                                       callback_srv_rest, NULL, NULL);
   if (rc == -1)
     return EXIT_FAILURE;
