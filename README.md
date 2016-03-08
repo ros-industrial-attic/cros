@@ -42,5 +42,5 @@ the documentation, open with a web browser the index.html file.
 
 ### Licensing
 
-cROS is licensed under the GNU Lesser General Public License v3.0. For more
+cROS is licensed under the BSD license. For more
 licensing options and for paid support please write an email to cros@it-robotics.it.
