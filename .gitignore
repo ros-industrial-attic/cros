@@ -14,3 +14,4 @@ release/
 docs/
 gmon.out
 *~
+.idea/
