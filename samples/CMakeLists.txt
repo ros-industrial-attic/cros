@@ -8,3 +8,6 @@ target_link_libraries(parameters-test cros)
 
 add_executable(api-test api-test.c)
 target_link_libraries(api-test cros)
+
+add_executable(ros-i-trajectory-test ros-i-trajectory-test.c)
+target_link_libraries(ros-i-trajectory-test cros)
