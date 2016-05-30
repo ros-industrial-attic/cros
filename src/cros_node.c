@@ -2,8 +2,6 @@
 #include <malloc.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/select.h>
 #include <signal.h>
 #include <assert.h>
 #include <errno.h>
@@ -355,21 +353,27 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
+        {
         handleApiCallAttempt(n, xmlrpc_client_proc->current_call);
         xmlrpcProcessClear(xmlrpc_client_proc, 0);
         xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_READING );
         break;
+        }
 
       case TCPIPSOCKET_IN_PROGRESS:
+		{
         PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Write in progress...\n" );
         break;
+        }
 
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
+        {
         PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure writing request\n");
         handleXmlrpcClientError( n, i );
         break;
+        }
     }
   }
   else if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_READING )
@@ -384,6 +388,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
+        {
         parser_state = parseXmlrpcMessage( &xmlrpc_client_proc->message,
                                            &xmlrpc_client_proc->message_type,
                                            NULL,
@@ -391,11 +396,13 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
                                            xmlrpc_client_proc->host,
                                            &xmlrpc_client_proc->port);
         break;
+        }
 
       case TCPIPSOCKET_IN_PROGRESS:
         break;
 
       case TCPIPSOCKET_DISCONNECTED:
+        {
         parser_state = parseXmlrpcMessage( &xmlrpc_client_proc->message,
                                            &xmlrpc_client_proc->message_type,
                                            NULL,
@@ -404,17 +411,21 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
                                            &xmlrpc_client_proc->port);
         disconnected = 1;
         break;
+    }
 
       case TCPIPSOCKET_FAILED:
       default:
+        {
         PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure reading response\n" );
         handleXmlrpcClientError( n, i );
         break;
+        }
     }
 
     switch ( parser_state )
     {
       case XMLRPC_PARSER_DONE:
+{
         PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
 
         int rc = cRosApiParseResponse( n, i );
@@ -428,16 +439,21 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
           closeXmlrpcProcess(xmlrpc_client_proc);
         }
         break;
+        }
 
       case XMLRPC_PARSER_INCOMPLETE:
+        {
         if (disconnected)
           handleXmlrpcClientError( n, i );
         break;
+        }
 
       case XMLRPC_PARSER_ERROR:
       default:
+        {
         handleXmlrpcClientError( n, i );
         break;
+        }
     }
   }
 }
@@ -484,6 +500,7 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
     switch ( parser_state )
     {
       case XMLRPC_PARSER_DONE:
+        {
 
         PRINT_DEBUG ( "doWithXmlrpcServerSocket() : Done read() and parse() with no error\n" );
         int rc = cRosApiParseRequestPrepareResponse( n, i );
@@ -494,13 +511,16 @@ static void doWithXmlrpcServerSocket( CrosNode *n, int i )
         }
         xmlrpcProcessChangeState( server_proc, XMLRPC_PROCESS_STATE_WRITING );
         break;
+        }
       case XMLRPC_PARSER_INCOMPLETE:
         break;
 
       case XMLRPC_PARSER_ERROR:
       default:
+        {
         handleXmlrpcServerError( n, i );
         break;
+        }
     }
   }
   else if( server_proc->state == XMLRPC_PROCESS_STATE_WRITING )

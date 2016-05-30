@@ -1,14 +1,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <ctype.h>
 #include <assert.h>
 
 #include "cros_message.h"
 #include "cros_message_internal.h"
-#include "tcpros_tags.h"
 #include "cros_defs.h"
 #include "md5.h"
+
+#define SPLIT_REGEX "/."
+#define DIR_SEPARATOR_CHAR '/'
+#define DIR_SEPARATOR_STR "/"
 
 static void * arrayFieldValueAt(cRosMessageField *field, int position, size_t element_size);
 static const char * getMessageTypeDeclarationConst(msgConst *msgConst);
@@ -66,12 +68,12 @@ int is_valid_msg_type(char* type_statement)
     while(*base_itr != '\0')
     {
         if((*base_itr == ']') ||
-            (*base_itr == '/' && slash_found))
+            (*base_itr == DIR_SEPARATOR_CHAR && slash_found))
         {
             free(base);
             return 0;
         }
-        if(*base_itr == '/')
+        if(*base_itr == DIR_SEPARATOR_CHAR)
             slash_found = 1;
         base_itr++;
     }
@@ -131,7 +133,7 @@ int containsDep(msgDep* iterator, char* depName)
     memcpy(dep,depName, strlen(depName)+1);
     char* pack = dep;
     char* name = dep;
-    while(*name != '/') name++;
+    while(*name != DIR_SEPARATOR_CHAR) name++;
     *(name++) = '\0';
 
     int found = 0;
@@ -214,7 +216,7 @@ int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                     memcpy(dep,base_type, strlen(base_type)+1);
                     char* pack = dep;
                     char* name = dep;
-                    while(*name != '/') name++;
+                    while(*name != DIR_SEPARATOR_CHAR) name++;
                     *(name++) = '\0';
                     currentDep->msg->name = name;
                     currentDep->msg->package = pack;
@@ -231,9 +233,9 @@ int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                                             strlen(currentDep->msg->package) + 1 +
                                             strlen(currentDep->msg->name) + 4 + 1);
                 memcpy(path, msg->root_dir, strlen(msg->root_dir) + 1);
-                strcat(path, "/");
+                strcat(path, DIR_SEPARATOR_STR);
                 strcat(path, currentDep->msg->package);
-                strcat(path, "/");
+                strcat(path, DIR_SEPARATOR_STR);
                 strcat(path,currentDep->msg->name);
                 strcat(path,".msg");
 
@@ -418,7 +420,7 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
             DynString filename_dep;
             dynStringInit(&filename_dep);
             dynStringPushBackStr(&filename_dep,msg->root_dir);
-            dynStringPushBackStr(&filename_dep,"/");
+            dynStringPushBackStr(&filename_dep,DIR_SEPARATOR_STR);
             dynStringPushBackStr(&filename_dep, type_decl);
             dynStringPushBackStr(&filename_dep,".msg");
 
@@ -472,6 +474,7 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
     while(fields_it->next != NULL)
     {
         const char *type_decl = getMessageTypeDeclarationField(fields_it);
+
         if(isBuiltinMessageType(fields_it->type))
         {
             dynStringPushBackStr(buffer, type_decl);
@@ -497,7 +500,7 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
             DynString filename_dep;
             dynStringInit(&filename_dep);
             dynStringPushBackStr(&filename_dep,msg->root_dir);
-            dynStringPushBackStr(&filename_dep,"/");
+            dynStringPushBackStr(&filename_dep,DIR_SEPARATOR_STR);
             dynStringPushBackStr(&filename_dep,base_msg_type(type_decl));
             dynStringPushBackStr(&filename_dep,".msg");
 
@@ -592,7 +595,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
             int comment_char_found = 0;
             int char_count = 0;
 
-            //strip comments
+            //strip comments and new line
             while(((char)*iterator) != '\0')
             {
                 if(((char)*iterator) == *CHAR_COMMENT)
@@ -771,7 +774,7 @@ int loadFromFileMsg(char* filename, cRosMessageDef* msg)
     fclose(f);
 
     msg_text[fsize] = '\0';
-    char* tok = strtok(file_tokenized,"/.");
+    char* tok = strtok(file_tokenized,SPLIT_REGEX);
 
     while(tok != NULL)
     {
@@ -781,7 +784,7 @@ int loadFromFileMsg(char* filename, cRosMessageDef* msg)
         token_pack = token_name;
         token_name = tok ;
       }
-      tok = strtok(NULL,"/.");
+      tok = strtok(NULL,SPLIT_REGEX);
     }
 
     //build up the root path
@@ -789,7 +792,7 @@ int loadFromFileMsg(char* filename, cRosMessageDef* msg)
     while(it != token_root)
     {
       if(*it == '\0')
-      *it='/';
+      *it=DIR_SEPARATOR_CHAR;
       it++;
     }
 
@@ -982,12 +985,12 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
           field->data.as_msg = malloc(sizeof(cRosMessage));
           cRosMessageInit((cRosMessage*)field->data.as_msg);
           char* path = calloc(strlen(msg_def->root_dir) +
-                              strlen("/") +
+                              strlen(DIR_SEPARATOR_STR) +
                               strlen(field_def_itr->type_s) +
                               strlen(".msg") + 1, // '\0'
                               sizeof(char));
           strcat(path, msg_def->root_dir);
-          strcat(path, "/");
+          strcat(path, DIR_SEPARATOR_STR);
           strcat(path, field_def_itr->type_s);
           strcat(path, ".msg");
           cRosMessageBuild((cRosMessage*) field->data.as_msg, path);
@@ -1761,12 +1764,12 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
             cRosMessageInit(msg);
             char* msgPath = calloc(
                             strlen(message->msgDef->root_dir) +
-                            strlen("/") +
+                            strlen(DIR_SEPARATOR_STR) +
                             strlen(field->type_s) +
                             strlen(".msg") + 1,
                             sizeof(char));
             strcat(msgPath, message->msgDef->root_dir);
-            strcat(msgPath, "/");
+            strcat(msgPath, DIR_SEPARATOR_STR);
             strcat(msgPath, field->type_s);
             strcat(msgPath,".msg");
             cRosMessageBuild(msg,msgPath);
