@@ -27,7 +27,7 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
     char* file_tokenized = (char*) malloc(strlen(filename)+1);
     file_tokenized[0] = '\0';
     strcpy(file_tokenized, filename);
-    char* token_pack;
+    char* token_pack = NULL;
     char* token_root = NULL;
     char* token_name = NULL;
 

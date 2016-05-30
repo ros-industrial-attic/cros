@@ -759,7 +759,7 @@ int loadFromFileMsg(char* filename, cRosMessageDef* msg)
 
     char* file_tokenized = (char*) calloc(strlen(filename)+1, sizeof(char));
     strcpy(file_tokenized, filename);
-    char* token_pack;
+    char* token_pack = NULL;
     char* token_root = NULL;
     char* token_name = NULL;
 
