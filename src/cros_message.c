@@ -855,6 +855,11 @@ void build_time_field(cRosMessageField* field)
   field->data.as_msg = time;
 }
 
+void build_duration_field(cRosMessageField* field)
+{
+  build_time_field(field);
+}
+
 void build_header_field(cRosMessageField* field)
 {
   cRosMessage* header = cRosMessageNew();
@@ -982,7 +987,7 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
       }
       case CROS_STD_MSGS_DURATION:
       {
-        // TODO
+        build_duration_field(field);
         break;
       }
       case CROS_STD_MSGS_HEADER:
@@ -1603,7 +1608,6 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
       case CROS_STD_MSGS_FLOAT64:
       case CROS_STD_MSGS_BOOL:
       case CROS_STD_MSGS_TIME:
-      case CROS_STD_MSGS_DURATION:
       case CROS_STD_MSGS_CHAR:
       case CROS_STD_MSGS_BYTE:
       {
@@ -1612,6 +1616,14 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
           dynBufferPushBackBuf(buffer, field->data.as_array, size * field->array_size);
         else
           dynBufferPushBackBuf(buffer, field->data.opaque, size);
+        break;
+      }
+      case CROS_STD_MSGS_DURATION:
+      {
+        cRosMessageField* timefromstart_secs = cRosMessageGetField(field->data.as_msg, "secs");
+        cRosMessageField* timefromstart_nsecs= cRosMessageGetField(field->data.as_msg, "nsecs");
+        dynBufferPushBackBuf( buffer, timefromstart_secs->data.opaque, sizeof(int32_t));
+        dynBufferPushBackBuf( buffer, timefromstart_nsecs->data.opaque, sizeof(int32_t));
         break;
       }
       case CROS_STD_MSGS_STRING:
@@ -1693,7 +1705,6 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       case CROS_STD_MSGS_BOOL:
       case CROS_STD_MSGS_TIME:
       case CROS_STD_MSGS_DURATION:
-      case CROS_STD_MSGS_HEADER:
       case CROS_STD_MSGS_CHAR:
       case CROS_STD_MSGS_BYTE:
       {
@@ -1766,9 +1777,42 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         }
         break;
       }
+      case CROS_STD_MSGS_HEADER:
+      {
+        build_header_field(field);
+        cRosMessage* header = field->data.as_msg;
+
+        //uint32 seq
+
+        uint32_t seq = *((uint32_t*)dynBufferGetCurrentData(buffer));
+        dynBufferMovePoseIndicator(buffer, 4);
+        //printf("Read: seq=%u , ", seq);
+        header->fields[0]->data.as_uint32 = seq;
+        
+        //time stamp
+        cRosMessage* timestamp = header->fields[1]->data.as_msg;
+        uint32_t stamp_sec = *((uint32_t*)dynBufferGetCurrentData(buffer));
+        dynBufferMovePoseIndicator(buffer, 4);
+        //printf("stamp.sec=%u , ", stamp_sec);
+        timestamp->fields[0]->data.as_uint32 = stamp_sec;        
+
+        uint32_t stamp_nsec =  *((uint32_t*)dynBufferGetCurrentData(buffer));
+        dynBufferMovePoseIndicator(buffer, 4);
+        //printf("stamp.nsec=%u , ", stamp_nsec);
+        timestamp->fields[0]->data.as_uint32 = stamp_nsec;
+
+        uint32_t strlen = *((uint32_t*)dynBufferGetCurrentData(buffer));
+        dynBufferMovePoseIndicator(buffer, 4);
+        cRosMessageField* string_field = header->fields[1];
+        string_field->data.as_string = (char*) calloc(strlen + 1, sizeof(char));
+        memcpy(string_field->data.as_string, dynBufferGetCurrentData(buffer), strlen);
+        dynBufferMovePoseIndicator(buffer, strlen);
+        //printf("frame_id=%s\n", string_field->data.as_string);  
+        //fflush(stdout);
+        break;
+      }
       default:
       {
-        // CHECK-ME
         if (field->is_array)
         {
           cRosMessageFieldArrayClear(field);
