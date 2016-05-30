@@ -16,6 +16,7 @@ endif()
 
 set(LINK_FLAGS_DEBUG_DEBUG "-pg")
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O1")
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin) 
 
 include_directories (include)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src CROSLIB_SRCS)
