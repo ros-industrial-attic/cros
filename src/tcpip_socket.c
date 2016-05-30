@@ -11,7 +11,7 @@
 #include "cros_defs.h"
 #include "cros_log.h"
 
-#define TCPIP_SOCKET_READ_BUFFER_SIZE 1024
+#define TCPIP_SOCKET_READ_BUFFER_SIZE 2048
 
 void tcpIpSocketInit ( TcpIpSocket *s )
 {

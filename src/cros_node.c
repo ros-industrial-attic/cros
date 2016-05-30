@@ -702,7 +702,8 @@ static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
           if (client_proc->left_to_recv == 0)
           {
             const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
-            uint32_t msg_size = (uint32_t)*data;
+            uint32_t msg_size = 0;
+            ROS_TO_HOST_UINT32(*((uint32_t *)data), msg_size);
             tcprosProcessClear( client_proc, 0);
             client_proc->left_to_recv = msg_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING);
