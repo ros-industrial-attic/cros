@@ -478,6 +478,18 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
         if(isBuiltinMessageType(fields_it->type))
         {
             dynStringPushBackStr(buffer, type_decl);
+            if(fields_it->is_array)
+            {
+              dynStringPushBackStr(buffer,"[");
+              if(fields_it->array_size != -1)
+              {
+                char num[15];
+                sprintf(num, "%d",fields_it->array_size);
+                dynStringPushBackStr(buffer,num);
+              }
+              dynStringPushBackStr(buffer,"]");
+            }
+
             dynStringPushBackStr(buffer," ");
             dynStringPushBackStr(buffer,fields_it->name);
             dynStringPushBackStr(buffer,"\n");
@@ -1688,6 +1700,7 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         size_t size = getMessageTypeSizeOf(field->type);
         if (field->is_array)
         {
+          cRosMessageFieldArrayClear(field);
           size_t curr_data_size = field->array_size;
           if (field->is_fixed_array)
           {
@@ -1701,9 +1714,13 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
             int i;
             for(i = 0; i < array_size; i++)
             {
-              arrayFieldValuePushBack(field, dynBufferGetCurrentData(buffer), size);
+              double d = *((double*) dynBufferGetCurrentData(buffer));
+              //printf("%.8f ", d);
+              arrayFieldValuePushBack(field, (const void*) &d, size); //dynBufferGetCurrentData(buffer), size);
+              //printf("%.8f - ", *cRosMessageFieldArrayAtFloat64(field, i));
               dynBufferMovePoseIndicator(buffer, size);
             }
+            //printf("\n");
           }
         }
         else
@@ -1719,6 +1736,7 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         // CHECK-ME
         if (field->is_array)
         {
+          cRosMessageFieldArrayClear(field);
           size_t curr_data_size = field->array_size;
           if(!field->is_fixed_array)
           {
@@ -1731,8 +1749,11 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
           {
             size_t element_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
             dynBufferMovePoseIndicator(buffer, 4);
-            cRosMessageFieldArrayPushBackString(field, (char *)dynBufferGetCurrentData(buffer));
+            char* tmp_string = (char*) calloc(element_size + 1, sizeof(char));
+            memcpy(tmp_string, dynBufferGetCurrentData(buffer), element_size);
+            cRosMessageFieldArrayPushBackString(field, tmp_string);
             dynBufferMovePoseIndicator(buffer, element_size);
+            free(tmp_string);
           }
         }
         else
@@ -1750,6 +1771,7 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         // CHECK-ME
         if (field->is_array)
         {
+          cRosMessageFieldArrayClear(field);
           size_t curr_data_size = field->array_size;
           if(!field->is_fixed_array)
           {
