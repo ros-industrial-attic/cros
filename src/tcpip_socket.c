@@ -11,6 +11,10 @@
 #include "cros_defs.h"
 #include "cros_log.h"
 
+#ifndef SOL_TCP
+#define SOL_TCP IPPROTO_TCP
+#endif
+
 #define TCPIP_SOCKET_READ_BUFFER_SIZE 2048
 
 void tcpIpSocketInit ( TcpIpSocket *s )
@@ -110,11 +114,13 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
   }
 
   val = idle;
+#ifndef __APPLE__
   if ( setsockopt ( s->fd, SOL_TCP, TCP_KEEPIDLE, &val, sizeof ( val ) ) != 0 )
   {
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with SO_KEEPALIVE option failed \n" );
     return 0;
   }
+#endif
 
   val = interval;
   if ( setsockopt ( s->fd, SOL_TCP, TCP_KEEPINTVL, &val, sizeof ( val ) ) != 0 )

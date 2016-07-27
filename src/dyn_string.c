@@ -1,5 +1,7 @@
 #include <string.h>
-#include <malloc.h>
+#ifndef __APPLE__
+  #include <malloc.h>
+#endif
 
 #include "dyn_string.h"
 #include "cros_defs.h"

@@ -1,5 +1,7 @@
 #include <stdio.h>
-#include <malloc.h>
+#ifndef __APPLE__
+  #include <malloc.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -2016,6 +2018,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
     int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
+    if (xmlrpc_client_fd < 0)
+    {
+      printf("WARNING %i skipping xmlrpc client with negative fd\n", i);
+      continue;
+    }
     fd_set *fdset = NULL;
     if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
     {
