@@ -2018,7 +2018,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
     int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
-    if ( xmlrpc_client_fd < 0 ) continue;
     fd_set *fdset = NULL;
     if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
     {
@@ -2036,8 +2035,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       if(!n->xmlrpc_client_proc[i].socket.open)
         openXmlrpcClientSocket(n, i);
 
-      FD_SET( xmlrpc_client_fd, fdset);
-      FD_SET( xmlrpc_client_fd, &err_fds);
+      if( xmlrpc_client_fd >= 0 )
+      {
+        FD_SET( xmlrpc_client_fd, fdset);
+        FD_SET( xmlrpc_client_fd, &err_fds);
+      }
     }
   }
 
@@ -2048,7 +2050,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   for( i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++ )
   {
     int server_fd = tcpIpSocketGetFD( &(n->xmlrpc_server_proc[i].socket) );
-    if ( server_fd < 0 ) continue;
 
     if( next_xmlrpc_server_i < 0 &&
         n->xmlrpc_server_proc[i].state == XMLRPC_PROCESS_STATE_IDLE )
@@ -2057,14 +2058,20 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     }
     else if( n->xmlrpc_server_proc[i].state == XMLRPC_PROCESS_STATE_READING )
     {
-      FD_SET( server_fd, &r_fds);
-      FD_SET( server_fd, &err_fds);
+      if( server_fd >= 0 )
+      {
+        FD_SET( server_fd, &r_fds);
+        FD_SET( server_fd, &err_fds);
+      }
       if( server_fd > nfds ) nfds = server_fd;
     }
     else if( n->xmlrpc_server_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
     {
-      FD_SET( server_fd, &w_fds);
-      FD_SET( server_fd, &err_fds);
+      if( server_fd >= 0 )
+      {
+        FD_SET( server_fd, &w_fds);
+        FD_SET( server_fd, &err_fds);
+      }
       if( server_fd > nfds ) nfds = server_fd;
     }
   }
@@ -2072,8 +2079,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   /* If one XMLRPC server is active at least, add to the select() the listener socket */
   if( next_xmlrpc_server_i >= 0)
   {
-    FD_SET( xmlrpc_listner_fd, &r_fds);
-    FD_SET( xmlrpc_listner_fd, &err_fds);
+    if( xmlrpc_listner_fd >= 0 )
+    {
+      FD_SET( xmlrpc_listner_fd, &r_fds);
+      FD_SET( xmlrpc_listner_fd, &err_fds);
+    }
     if( xmlrpc_listner_fd > nfds ) nfds = xmlrpc_listner_fd;
   }
 
@@ -2097,8 +2107,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     }
     else if(n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER)
     {
-      FD_SET( tcpros_client_fd, &w_fds);
-      FD_SET( tcpros_client_fd, &err_fds);
+      if( tcpros_client_fd >= 0 )
+      {
+        FD_SET( tcpros_client_fd, &w_fds);
+        FD_SET( tcpros_client_fd, &err_fds);
+      }
       if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
     }
     else if(n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
@@ -2106,8 +2119,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
             n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_SIZE ||
             n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING)
     {
-      FD_SET( tcpros_client_fd, &r_fds);
-      FD_SET( tcpros_client_fd, &err_fds);
+      if( tcpros_client_fd >= 0 )
+      {
+        FD_SET( tcpros_client_fd, &r_fds);
+        FD_SET( tcpros_client_fd, &err_fds);
+      }
       if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
     }
   }
@@ -2117,7 +2133,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
   {
     int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
-    if ( server_fd < 0 ) continue;
 
     if( next_tcpros_server_i < 0 &&
         n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_IDLE )
@@ -2126,20 +2141,27 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     }
     else if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER )
     {
-      FD_SET( server_fd, &r_fds);
-      FD_SET( server_fd, &err_fds);
+      if( server_fd >= 0 )
+      {
+        FD_SET( server_fd, &r_fds);
+        FD_SET( server_fd, &err_fds);
+      }
       if( server_fd > nfds ) nfds = server_fd;
     }
     else if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_START_WRITING ||
              n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING )
     {
-      FD_SET( server_fd, &w_fds);
-      FD_SET( server_fd, &err_fds);
+      if( server_fd >= 0 )
+      {
+        FD_SET( server_fd, &w_fds);
+        FD_SET( server_fd, &err_fds);
+      }
       if( server_fd > nfds ) nfds = server_fd;
     }
     else if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING )
     {
-      FD_SET( server_fd, &err_fds);
+      if( server_fd >= 0 )
+        FD_SET( server_fd, &err_fds);
       if( server_fd > nfds ) nfds = server_fd;
     }
   }
@@ -2147,8 +2169,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   /* If one TCPROS server is available at least, add to the select() the listner socket */
   if( next_tcpros_server_i >= 0)
   {
-    FD_SET( tcpros_listner_fd, &r_fds);
-    FD_SET( tcpros_listner_fd, &err_fds);
+    if( tcpros_listner_fd >= 0 )
+    {
+      FD_SET( tcpros_listner_fd, &r_fds);
+      FD_SET( tcpros_listner_fd, &err_fds);
+    }
     if( tcpros_listner_fd > nfds ) nfds = tcpros_listner_fd;
   }
 
@@ -2190,7 +2215,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   for( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++ )
   {
     int server_fd = tcpIpSocketGetFD( &(n->rpcros_server_proc[i].socket) );
-    if ( server_fd < 0 ) continue;
 
     if( next_rpcros_server_i < 0 &&
         n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_IDLE )
@@ -2202,20 +2226,27 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
              n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_SIZE ||
              n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_READING)
     {
-      FD_SET( server_fd, &r_fds);
-      FD_SET( server_fd, &err_fds);
+      if ( server_fd >= 0 )
+      {
+        FD_SET( server_fd, &r_fds);
+        FD_SET( server_fd, &err_fds);
+      }
       if( server_fd > nfds ) nfds = server_fd;
     }
     else if( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER ||
              n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING )
     {
-      FD_SET( server_fd, &w_fds);
-      FD_SET( server_fd, &err_fds);
+      if ( server_fd >= 0 )
+      {
+        FD_SET( server_fd, &w_fds);
+        FD_SET( server_fd, &err_fds);
+      }
       if( server_fd > nfds ) nfds = server_fd;
     }
     else if( n->rpcros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING )
     {
-      FD_SET( server_fd, &err_fds);
+      if ( server_fd >= 0 )
+        FD_SET( server_fd, &err_fds);
       if( server_fd > nfds ) nfds = server_fd;
     }
   }
@@ -2223,8 +2254,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   /* If one RPCROS server is available at least, add to the select() the listner socket */
   if( next_rpcros_server_i >= 0)
   {
-    FD_SET( rpcros_listner_fd, &r_fds);
-    FD_SET( rpcros_listner_fd, &err_fds);
+    if ( rpcros_listner_fd >= 0 )
+    {
+      FD_SET( rpcros_listner_fd, &r_fds);
+      FD_SET( rpcros_listner_fd, &err_fds);
+    }
     if( rpcros_listner_fd > nfds ) nfds = rpcros_listner_fd;
   }
 
@@ -2291,7 +2325,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
-      if ( server_fd < 0 ) continue;
       if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
             n->tcpros_server_proc[i].wake_up_time_ms <= cur_time )
       {
@@ -2316,7 +2349,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++ )
     {
       int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
-      if( xmlrpc_client_fd < 0 ) continue;
 
       if( FD_ISSET(xmlrpc_client_fd, &err_fds) )
       {
@@ -2353,7 +2385,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     for( i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->xmlrpc_server_proc[i].socket) );
-      if ( server_fd < 0 ) continue;
       if( FD_ISSET(server_fd, &err_fds) )
       {
         PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC server error\n" );
@@ -2415,7 +2446,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
-      if ( server_fd < 0 ) continue;
       if( FD_ISSET(server_fd, &err_fds) )
       {
         PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS server error\n" );
@@ -2453,7 +2483,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     for( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++ )
     {
       int server_fd = tcpIpSocketGetFD( &(n->rpcros_server_proc[i].socket) );
-      if ( server_fd < 0 ) continue;
       if( FD_ISSET(server_fd, &err_fds) )
       {
         PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS server error\n" );
