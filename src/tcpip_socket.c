@@ -1,10 +1,15 @@
-#include <unistd.h>
+#ifdef _WIN32 || _WIN64
+#  include <ws2tcpip.h>
+#  include <WinSock2.h>
+#else
+#  include <unistd.h>
+#  include <sys/socket.h>
+#  include <netinet/tcp.h>
+#  include <errno.h>
+#endif
 #include <stdio.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
 #include <string.h>
 #include <fcntl.h>
-#include <errno.h>
 #include <stdlib.h>
 
 #include "tcpip_socket.h"
@@ -16,7 +21,12 @@
 void tcpIpSocketInit ( TcpIpSocket *s )
 {
   PRINT_VDEBUG ( "tcpIpSocketInit()\n" );
+  
+#ifdef _WIN32 || _WIN64
+  s->fd = INVALID_SOCKET;
+#else
   s->fd = -1;
+#endif
   s->port = 0;
   memset ( & ( s->adr ), 0, sizeof ( struct sockaddr_in ) );
   s->open = 0;
@@ -32,12 +42,30 @@ int tcpIpSocketOpen ( TcpIpSocket *s )
     return 1;
 
   s->fd = socket ( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+
+#ifdef _WIN32 || _WIN64
+
+  if ( s->fd == INVALID_SOCKET )
+  {
+    PRINT_ERROR ( "tcpIpSocketOpen() : Can't open a socket. %ld\n", WSAGetLastError());
+    WSACleanup();
+  }
+  else
+  {
+    s->open = 1;
+  }
+
+  return ( s->fd != INVALID_SOCKET );
+
+#else
   if ( s->fd == -1 )
     PRINT_ERROR ( "tcpIpSocketOpen() : Can't open a socket\n" );
   else
     s->open = 1;
 
   return ( s->fd != -1 );
+#endif
+   
 }
 
 void tcpIpSocketClose ( TcpIpSocket *s )
@@ -46,7 +74,15 @@ void tcpIpSocketClose ( TcpIpSocket *s )
   if ( !s->open )
     return;
 
+#ifdef _WIN32 || _WIN64
+  if( closesocket ( s->fd ) == SOCKET_ERROR)
+  {
+    int iResult = WSAGetLastError();
+    printf("closesocket() failed with error code %d\n", iResult);
+  }
+#else
   close ( s->fd );
+#endif
   tcpIpSocketInit ( s );
 }
 
@@ -60,7 +96,13 @@ int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
     return 0;
   }
 
+#ifdef _WIN32 || _WIN64
+  unsigned long on = 1;
+  int ret = ioctlsocket  ( s->fd, FIONBIO, &on );
+#else
   int ret = fcntl ( s->fd, F_SETFL, O_NONBLOCK );
+#endif
+
   if ( ret == 0 )
   {
     s->is_nonblocking = 1;
@@ -109,6 +151,8 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
     return 0;
   }
 
+#ifdef _WIN32 || _WIN64
+#else
   val = idle;
   if ( setsockopt ( s->fd, SOL_TCP, TCP_KEEPIDLE, &val, sizeof ( val ) ) != 0 )
   {
@@ -129,6 +173,7 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPCNT option failed \n" );
     return 0;
   }
+#endif
 
   return 1;
 }
@@ -158,18 +203,31 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
     s->connected = 0;
     return TCPIPSOCKET_FAILED;
   }
-  
-  if ( connect ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) ) == -1 )
+
+  if ( connect ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) ) == SOCKET_ERROR )
   {
-    if ( s->is_nonblocking && 
-       ( errno == EINPROGRESS || errno == EALREADY ) )
+
+#ifdef _WIN32 || _WIN64
+    int result = WSAGetLastError();
+    if ( s->is_nonblocking && ( result == WSAEISCONN) )
+    {
+      PRINT_DEBUG ( "tcpIpSocketConnect() : already connected\n");
+    }
+    else if ( s->is_nonblocking && ( result == WSAEINPROGRESS || result == WSAEWOULDBLOCK || result == WSAEALREADY) )
+#else
+    if ( s->is_nonblocking && ( errno == EINPROGRESS || errno == EALREADY ) )
+#endif
     {
       PRINT_DEBUG ( "tcpIpSocketConnect() : connection in progress\n");
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else
     {
+#ifdef _WIN32 || _WIN64
+      PRINT_ERROR ( "tcpIpSocketConnect() : Connect failed, result %d\n", result );
+#else
       PRINT_ERROR ( "tcpIpSocketConnect() : Connect failed, errno %d\n", errno );
+#endif
       s->connected = 0;
       return TCPIPSOCKET_FAILED;
     }
@@ -192,7 +250,11 @@ int tcpIpSocketDisconnect ( TcpIpSocket *s )
     return 1;
 
   s->connected = 0;
-  if ( shutdown ( s->fd, SHUT_RDWR ) == -1 )
+#ifdef _WIN32 || _WIN64
+  if ( shutdown ( s->fd, SD_BOTH ) == SOCKET_ERROR )
+#else
+  if ( shutdown ( s->fd, SHUT_RDWR ) == SOCKET_ERROR )
+#endif
   {
     PRINT_ERROR ( "tcpIpSocketDisconnect() : shutdown failed\n" );
     return 0;
@@ -227,13 +289,13 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port
     }
 
 
-    if ( bind ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) ) == -1 )
+    if ( bind ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) ) == SOCKET_ERROR )
     {
       PRINT_ERROR ( "tcpIpSocketBindListen() : Bind failed\n" );
       return 0;
     }
 
-    if ( listen ( s->fd, backlog ) == -1 )
+    if ( listen ( s->fd, backlog ) == SOCKET_ERROR )
     {
       PRINT_ERROR ( "tcpIpSocketBindListen() : Listen failed\n" );
       return 0;
@@ -241,7 +303,7 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port
 
     struct sockaddr sa;
     socklen_t sa_len = sizeof( struct sockaddr );
-    if ( getsockname(s->fd, (struct sockaddr *)&sa, &sa_len) == -1 )
+    if ( getsockname(s->fd, (struct sockaddr *)&sa, &sa_len) == SOCKET_ERROR )
     {
       PRINT_ERROR ( "tcpIpSocketBindListen() : getsockname() failed\n" );
       return 0;
@@ -276,8 +338,12 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
 
   if ( new_fd == -1 )
   {
-    if ( s->is_nonblocking && 
-       ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#ifdef _WIN32 || _WIN64
+    int result = WSAGetLastError();
+    if ( s->is_nonblocking && ( result == WSAEINPROGRESS || result == WSAEWOULDBLOCK) )
+#else
+    if ( s->is_nonblocking && ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#endif
     {
       PRINT_DEBUG ( "tcpIpSocketAccept() : Accept in progress\n");
       state = TCPIPSOCKET_IN_PROGRESS;
@@ -316,21 +382,30 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
 
   while ( data_size > 0 )
   {
-    int n_written = send ( s->fd, ( void * ) data, data_size, 0 );
-
+    int n_written = send ( s->fd, (const char *)data, data_size, 0 );
+#ifdef _WIN32 || _WIN64
+    int result = WSAGetLastError();
+#endif
     if ( n_written > 0 )
     {
       dynBufferMovePoseIndicator ( d_buf, n_written );
       data = dynBufferGetCurrentData ( d_buf );
       data_size = dynBufferGetRemainingDataSize ( d_buf );
     }
-    else if ( s->is_nonblocking && 
-              ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#ifdef _WIN32 || _WIN64
+    else if ( s->is_nonblocking && ( result == WSAEWOULDBLOCK || result == WSAEINPROGRESS ) )
+#else
+    else if ( s->is_nonblocking && ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#endif
     {
       PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : write in progress, %d remaining bytes\n", data_size );
       return TCPIPSOCKET_IN_PROGRESS;
     }
+#ifdef _WIN32 || _WIN64
+    else if ( errno == WSAENOTCONN || errno == WSAECONNRESET )
+#else
     else if ( errno == ENOTCONN || errno == ECONNRESET )
+#endif
     {
       PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : socket disconnectd\n" );
       s->connected = 0;
@@ -361,7 +436,11 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
 
   while ( data_size > 0 )
   {
-    int n_written = send ( s->fd, ( void * ) data, data_size, 0 );
+    int n_written = send ( s->fd, (const char *)data, data_size, 0 );
+    
+#ifdef _WIN32 || _WIN64
+    int result = WSAGetLastError();
+#endif
 
     if ( n_written > 0 )
     {
@@ -369,13 +448,20 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
       data = dynStringGetCurrentData ( d_str );
       data_size = dynStringGetRemainingDataSize ( d_str );
     }
-    else if ( s->is_nonblocking && 
-              ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#ifdef _WIN32 || _WIN64
+    else if ( s->is_nonblocking &&  ( result == WSAEWOULDBLOCK || result == WSAEINPROGRESS ) )
+#else
+    else if ( s->is_nonblocking &&  ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#endif
     {
       PRINT_DEBUG ( "tcpIpSocketWriteString() : write in progress, %d remaining bytes\n", data_size );
       return TCPIPSOCKET_IN_PROGRESS;
     }
+#ifdef _WIN32 || _WIN64
+    else if ( result == WSAENOTCONN || result == WSAECONNRESET )
+#else
     else if ( errno == ENOTCONN || errno == ECONNRESET )
+#endif
     {
       PRINT_DEBUG ( "tcpIpSocketWriteString() : socket disconnectd\n" );
       s->connected = 0;
@@ -416,7 +502,12 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   }
 
   TcpIpSocketState state = TCPIPSOCKET_UNKNOWN;
-  int reads = recv ( s->fd, read_buf, max_size, 0);
+  int reads = recv ( s->fd, (char *)read_buf, max_size, 0);
+
+#ifdef _WIN32 || _WIN64
+    int result = WSAGetLastError();
+#endif
+
   if ( reads == 0 )
   {
     PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
@@ -430,13 +521,20 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
     state = TCPIPSOCKET_DONE;
     *n_reads = reads;
   }
-  else if ( s->is_nonblocking && 
-            ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#ifdef _WIN32 || _WIN64
+  else if ( s->is_nonblocking && ( result == WSAEWOULDBLOCK || result == WSAEINPROGRESS ) )
+#else
+  else if ( s->is_nonblocking && ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#endif
   {
     PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
+#ifdef _WIN32 || _WIN64
+  else if ( result == WSAENOTCONN || result == WSAECONNRESET )
+#else
   else if ( errno == ENOTCONN || errno == ECONNRESET )
+#endif
   {
     PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
@@ -469,6 +567,10 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
 
   int n_read = recv ( s->fd, read_buf, TCPIP_SOCKET_READ_BUFFER_SIZE , 0 );
 
+#ifdef _WIN32 || _WIN64
+    int result = WSAGetLastError();
+#endif
+
   if ( n_read == 0 )
   {
     PRINT_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
@@ -481,13 +583,20 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
     dynStringPushBackStrN ( d_str, read_buf, n_read );
     state = TCPIPSOCKET_DONE;
   }
-  else if ( s->is_nonblocking && 
-            ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#ifdef _WIN32 || _WIN64
+  else if ( s->is_nonblocking && ( result == WSAEWOULDBLOCK || result == WSAEINPROGRESS ) )
+#else
+  else if ( s->is_nonblocking && ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+#endif
   {
     PRINT_DEBUG ( "tcpIpSocketReadString() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
+#ifdef _WIN32 || _WIN64
+  else if ( result == WSAENOTCONN || result == WSAECONNRESET )
+#else
   else if ( errno == ENOTCONN || errno == ECONNRESET )
+#endif
   {
     PRINT_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
     s->connected = 0;

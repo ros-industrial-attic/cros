@@ -6,6 +6,9 @@
 #include <assert.h>
 #include <errno.h>
 #include <ctype.h>
+#ifdef _WIN32 || _WIN64
+#  include <process.h>
+#endif
 
 #include "cros_node.h"
 #include "cros_api.h"
@@ -15,6 +18,9 @@
 #include "cros_node_api.h"
 #include "cros_tcpros.h"
 #include "cros_log.h"
+#ifdef _WIN32 || _WIN64
+#  include "c99_support.h"
+#endif
 
 static void initPublisherNode(PublisherNode *node);
 static void initSubscriberNode(SubscriberNode *node);
@@ -40,7 +46,7 @@ static void openXmlrpcClientSocket( CrosNode *n, int i )
       !tcpIpSocketSetNonBlocking( &(n->xmlrpc_client_proc[i].socket) ) )
   {
     PRINT_ERROR("openXmlrpcClientSocket() at index %d failed", i);
-    exit( EXIT_FAILURE );
+    system("pause"); //exit( EXIT_FAILURE );
   }
 }
 
@@ -51,7 +57,7 @@ static void openTcprosClientSocket( CrosNode *n, int i )
       !tcpIpSocketSetNonBlocking( &(n->tcpros_client_proc[i].socket) ) )
   {
     PRINT_ERROR("openTcprosClientSocket() at index %d failed", i);
-    exit( EXIT_FAILURE );
+    system("pause"); //exit( EXIT_FAILURE );
   }
 }
 
@@ -63,7 +69,7 @@ static void openXmlrpcListnerSocket( CrosNode *n )
       !tcpIpSocketBindListen( &(n->xmlrpc_listner_proc.socket), n->host, 0, CN_MAX_XMLRPC_SERVER_CONNECTIONS ) )
   {
     PRINT_ERROR("openXmlrpcListnerSocket() failed");
-    exit( EXIT_FAILURE );
+    system("pause"); //exit( EXIT_FAILURE );
   }
   else
   {
@@ -80,7 +86,7 @@ static void openRpcrosListnerSocket( CrosNode *n )
       !tcpIpSocketBindListen( &(n->rpcros_listner_proc.socket), n->host, 0, CN_MAX_RPCROS_SERVER_CONNECTIONS ) )
   {
     PRINT_ERROR("openRpcrosListnerSocket() failed");
-    exit( EXIT_FAILURE );
+    system("pause"); //exit( EXIT_FAILURE );
   }
   else
   {
@@ -97,7 +103,7 @@ static void openTcprosListnerSocket( CrosNode *n )
       !tcpIpSocketBindListen( &(n->tcpros_listner_proc.socket), n->host, 0, CN_MAX_TCPROS_SERVER_CONNECTIONS ) )
   {
     PRINT_ERROR("openTcprosListnerSocket() failed");
-    exit( EXIT_FAILURE );
+    system("pause"); //exit( EXIT_FAILURE );
   }
   else
   {
@@ -1164,31 +1170,31 @@ static char* LogLevelToString(CrosLogLevel log_level)
   {
     case CROS_LOGLEVEL_INFO:
     {
-      ret = calloc(strlen("INFO") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("INFO") + 1, sizeof(char));
       strncpy(ret, "INFO",strlen("INFO"));
       return ret;
     }
     case CROS_LOGLEVEL_DEBUG:
     {
-      ret = calloc(strlen("DEBUG") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("DEBUG") + 1, sizeof(char));
       strncpy(ret, "DEBUG",strlen("DEBUG"));
       return ret;
     }
     case CROS_LOGLEVEL_WARN:
     {
-      ret = calloc(strlen("WARN") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("WARN") + 1, sizeof(char));
       strncpy(ret, "WARN",strlen("WARN"));
       return  ret;
     }
     case CROS_LOGLEVEL_ERROR:
     {
-      ret = calloc(strlen("ERROR") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("ERROR") + 1, sizeof(char));
       strncpy(ret, "ERROR",strlen("ERROR"));
       return ret;
     }
     case CROS_LOGLEVEL_FATAL:
     {
-      ret = calloc(strlen("FATAL") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("FATAL") + 1, sizeof(char));
       strncpy(ret, "FATAL",strlen("FATAL"));
       return ret;
     }
@@ -1283,9 +1289,9 @@ static CallbackResponse callback_srv_get_loggers(cRosMessage *request, cRosMessa
   return 0;
 }
 
-int checkNamespaceFormat(const char* namespace)
+int checkNamespaceFormat(const char *ns)
 {
-  const char* it_ns = namespace;
+  const char* it_ns = ns;
 
   if(*it_ns == '~')
     it_ns++;
@@ -1321,12 +1327,12 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
   {
     if(resource_name[0] == '/')
     {
-      resolved_name = calloc(strlen(resource_name) + 1, sizeof(char));
+      resolved_name = (char *)calloc(strlen(resource_name) + 1, sizeof(char));
       strncat(resolved_name, resource_name,strlen(resource_name));
     }
     else
     {
-      resolved_name = calloc(strlen(resource_name) + strlen("/") + 1, sizeof(char));
+      resolved_name = (char *)calloc(strlen(resource_name) + strlen("/") + 1, sizeof(char));
       strncat(resolved_name, "/",strlen("/"));
       strncat(resolved_name, resource_name,strlen(resource_name));
     }
@@ -1341,7 +1347,7 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
         //global namespace
        if(node != NULL || 1)
        {
-         resolved_name = calloc(strlen(resource_name) + 1,
+         resolved_name = (char *)calloc(strlen(resource_name) + 1,
                                 sizeof(char));
          strncat(resolved_name,resource_name,strlen(resource_name));
        }
@@ -1352,7 +1358,7 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
          //private namespace
         if(node != NULL || 1)
         {
-          resolved_name = calloc(strlen(node_name) +
+          resolved_name = (char *)calloc(strlen(node_name) +
                                  strlen("/") +
                                  strlen(resource_name) + 1,
                                  sizeof(char));
@@ -1367,12 +1373,12 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
         //the resource has a name that is not global or private
         if(node != NULL || 1)
         {
-          char* node_namespace = calloc(strlen(node_name) + 1, sizeof(char));
+          char* node_namespace = (char *)calloc(strlen(node_name) + 1, sizeof(char));
           strcpy(node_namespace, node_name);
           char* it = node_namespace + strlen(node_name);
           while(*(it--) != '/');
           *(it + 2) = '\0';
-          resolved_name = calloc(strlen(node_namespace) + strlen(resource_name) + 1,sizeof(char));
+          resolved_name = (char *)calloc(strlen(node_namespace) + strlen(resource_name) + 1,sizeof(char));
           strncat(resolved_name,node_namespace,strlen(node_namespace));
           strncat(resolved_name,resource_name,strlen(resource_name));
         }
@@ -1383,12 +1389,15 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
   return resolved_name;
 }
 
-CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
-                          char *message_root_path, uint64_t const *select_timeout_ms)
+CrosNode *cRosNodeCreate (const char* node_name, const char *node_host, const char *roscore_host, unsigned short roscore_port,
+                          const char *message_root_path, uint64_t const *select_timeout_ms)
 {
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
 
+#ifdef _WIN32 || _WIN64
+#else
   signal(SIGPIPE, SIG_IGN);
+#endif
   
   if(node_name == NULL || node_host == NULL || roscore_host == NULL )
   {
@@ -1475,7 +1484,12 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
     new_n->select_timeout = UINT64_MAX;
   else
     new_n->select_timeout = *select_timeout_ms;
+#ifdef _WIN32 || _WIN64
+  new_n->pid = (int)_getpid();
+#else
   new_n->pid = (int)getpid();
+#endif
+
 
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
@@ -2015,6 +2029,58 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   /* If active (not idle state), add to the select() the XMLRPC clients */
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
+
+#ifdef _WIN32 || _WIN64
+
+    fd_set *fdset = NULL;
+    XmlrpcProcess* client_proc = &(n->xmlrpc_client_proc[i]);
+    if( client_proc->state == XMLRPC_PROCESS_STATE_WRITING )
+    {
+      fdset = &w_fds;
+    }
+    else if( client_proc->state == XMLRPC_PROCESS_STATE_READING )
+    {
+      fdset = &r_fds;
+    }
+
+    if (fdset != NULL)
+    {
+      if(!client_proc->socket.open)
+      {
+        openXmlrpcClientSocket(n, i);
+      }
+      if(!client_proc->socket.connected)
+      {
+        RosApiCall *call = client_proc->current_call;
+        assert(call != NULL);
+        if (i == 0 || isRosMasterApi(call->method))
+        {
+          tcpIpSocketConnect( &(client_proc->socket),
+                              n->roscore_host, n->roscore_port );
+        }
+        else // Is slave api
+        {
+          if (call->provider_idx == -1)
+          {
+            tcpIpSocketConnect(&client_proc->socket,
+                                call->host, call->port);
+          }
+          else // It's client xmlrpc to be invoked from a subscriber
+          {
+            SubscriberNode *sub = &n->subs[call->provider_idx];
+            tcpIpSocketConnect(&client_proc->socket,
+                               sub->topic_host, sub->topic_port);
+          }
+        }
+      }
+      SOCKET xmlrpc_client_fd = tcpIpSocketGetFD( &(client_proc->socket) );
+      if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
+      FD_SET( xmlrpc_client_fd, fdset);
+      FD_SET( xmlrpc_client_fd, &err_fds);
+    }
+
+#else
+
     int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
     fd_set *fdset = NULL;
     if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
@@ -2036,6 +2102,9 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       FD_SET( xmlrpc_client_fd, fdset);
       FD_SET( xmlrpc_client_fd, &err_fds);
     }
+
+#endif
+
   }
 
   //printf("FD_SET COUNT. R: %d W: %d\n", r_count, w_count);
@@ -2083,6 +2152,50 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   int next_tcpros_client_i = -1;
   for(i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++)
   {
+
+#ifdef _WIN32 || _WIN64
+
+    TcprosProcess* tcpros_client = &(n->tcpros_client_proc[i]);
+    fd_set* fdset = NULL;
+    if( next_tcpros_client_i < 0 &&
+        i != 0 && //the zero-index is reserved to the roscore communications
+        tcpros_client->state == TCPROS_PROCESS_STATE_IDLE )
+    {
+      next_tcpros_client_i = i;
+    }
+    else if(tcpros_client->state == TCPROS_PROCESS_STATE_WRITING_HEADER)
+    {
+      fdset = &w_fds;
+    }
+    else if(tcpros_client->state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
+            tcpros_client->state == TCPROS_PROCESS_STATE_READING_HEADER ||
+            tcpros_client->state == TCPROS_PROCESS_STATE_READING_SIZE ||
+            tcpros_client->state == TCPROS_PROCESS_STATE_READING)
+    {
+      fdset = &r_fds;
+    }
+    if(fdset != NULL)
+    {
+      if(!tcpros_client->socket.open)
+      {
+        openTcprosClientSocket(n, i);
+      }
+      if(!tcpros_client->socket.connected &&
+          tcpros_client->topic_idx >= 0 )
+      {
+      SubscriberNode *sub = &(n->subs[tcpros_client->topic_idx]);
+      tcprosProcessClear( tcpros_client, 0 );
+      tcpIpSocketConnect( &(tcpros_client->socket),
+                          sub->topic_host, sub->tcpros_port );
+      }
+      SOCKET tcpros_client_fd = tcpIpSocketGetFD( &(tcpros_client->socket) );
+      FD_SET( tcpros_client_fd, fdset);
+      FD_SET( tcpros_client_fd, &err_fds);
+      if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
+    }
+
+#else
+
     int tcpros_client_fd = tcpIpSocketGetFD( &(n->tcpros_client_proc[i].socket) );
 
     if( next_tcpros_client_i < 0 &&
@@ -2106,9 +2219,13 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       FD_SET( tcpros_client_fd, &err_fds);
       if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
     }
+
+#endif
+
   }
 
   /* Add to the select() the active TCPROS servers */
+  PRINT_VDEBUG("Add to the select() the active TCPROS servers\n");
   int next_tcpros_server_i = -1;  
   for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
   {
@@ -2180,6 +2297,8 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
 
   /* Add to the select() the active RPCROS servers */
 
+  PRINT_VDEBUG("Add to the select() the active RPCROS servers\n");
+
   int next_rpcros_server_i = -1;
 
   for( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++ )
@@ -2227,10 +2346,11 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
 #endif
 
   struct timeval tv = cRosClockGetTimeVal( timeout );
-
+  PRINT_DEBUG("r_fds: %d w_fds: %d err_fds: %d tv.secs: %d tv.usecs: %d\n",
+          r_fds.fd_count, w_fds.fd_count, err_fds.fd_count,tv.tv_sec,tv.tv_usec);
   int n_set = select(nfds + 1, &r_fds, &w_fds, &err_fds, &tv);
 
-  if (n_set == -1)
+  if (n_set == SOCKET_ERROR)
   {
     if (errno == EINTR)
     {
@@ -2238,8 +2358,9 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     }
     else
     {
-      perror("cRosNodeDoEventsLoop() ");
-      exit( EXIT_FAILURE );
+      PRINT_VDEBUG("select() returned with error %d\n", WSAGetLastError());
+      //perror("cRosNodeDoEventsLoop() ");
+      system("pause"); //exit( EXIT_FAILURE );
     }
   }
   else if( n_set == 0 )
@@ -2768,7 +2889,7 @@ int enqueueSlaveApiCall(CrosNode *node, RosApiCall *call, const char *host, int 
   }
   else
   {
-    call->host = malloc(strlen(host) + 1);
+    call->host = (char *)malloc(strlen(host) + 1);
     if (call->host == NULL)
     {
       PRINT_ERROR("enqueueSlaveApiCall() : Not enough memory\n");

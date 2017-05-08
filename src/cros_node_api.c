@@ -1,10 +1,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <netdb.h>
+#ifdef _WIN32 || _WIN64
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#else
+#  include <netdb.h>
+#  include <sys/socket.h>
+#  include <arpa/inet.h>
+#endif
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <assert.h>
 
 #include "cros_node_api.h"
@@ -12,6 +17,11 @@
 #include "cros_api_internal.h"
 #include "cros_defs.h"
 #include "xmlrpc_params.h"
+
+#ifdef _WIN32 || _WIN64
+#  include "c99_support.h"
+#  define strtok_r strtok_s
+#endif
 
 int
 lookup_host (const char *host, char *ip)
