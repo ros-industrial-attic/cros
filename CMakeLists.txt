@@ -7,15 +7,15 @@ cmake_policy(SET CMP0015 NEW)
 execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion
                 OUTPUT_VARIABLE GCC_VERSION)
 
-set(CMAKE_C_FLAGS "-Wall -Wno-unused -Wno-strict-aliasing -Wno-unused-but-set-variable")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-unused -Wno-strict-aliasing -Wno-unused-but-set-variable")
 if (GCC_VERSION VERSION_GREATER 4.8 OR GCC_VERSION VERSION_EQUAL 4.8)
-  set(CMAKE_C_FLAGS_DEBUG "-g -pg -DDEBUG -fsanitize=address")
+  set(CMAKE_C_FLAGS_DEBUG " ${CMAKE_C_FLAGS_DEBUG}-g -pg -DDEBUG -fsanitize=address")
 else()
-  set(CMAKE_C_FLAGS_DEBUG "-g -pg -DDEBUG")
+  set(CMAKE_C_FLAGS_DEBUG " ${CMAKE_C_FLAGS_DEBUG} -g -pg -DDEBUG")
 endif()
 
-set(LINK_FLAGS_DEBUG_DEBUG "-pg")
-set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O1")
+set(LINK_FLAGS_DEBUG_DEBUG " ${LINK_FLAGS_DEBUG_DEBUG} -pg")
+set(CMAKE_C_FLAGS_RELEASE " ${CMAKE_C_FLAGS_RELEASE} -DNDEBUG -O1")
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin) 
 
 include_directories (include)
@@ -38,3 +38,6 @@ else()
                           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                           COMMENT "Generating API documentation with Doxygen" VERBATIM)
 endif()
+
+install(DIRECTORY "${PROJECT_BINARY_DIR}/bin/" DESTINATION bin USE_SOURCE_PERMISSIONS)
+install(TARGETS cros DESTINATION lib)
