@@ -152,7 +152,7 @@ static CallbackResponse cRosNodePublisherCallback(DynBuffer *buffer, void* conte
   ProviderContext *context = (ProviderContext *)context_;
 
   // Cast to the appropriate public api callback and invoke it on the user context
-  PublisherApiCallback publisherApiCallback = (SubscriberApiCallback)context->api_callback;
+  PublisherApiCallback publisherApiCallback = (PublisherApiCallback)context->api_callback;
   CallbackResponse rc = publisherApiCallback(context->outgoing, context->context);
 
   cRosMessageSerialize(context->outgoing, buffer);
@@ -1513,7 +1513,7 @@ static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *respons
   int it = 0;
   for (; it < param_names->array_n_elem; it++)
   {
-    ret->parameter_names[it] = malloc(strlen(param_names->data.as_array[it].data.as_string) + 1);
+    ret->parameter_names[it] = (char *)malloc(strlen(param_names->data.as_array[it].data.as_string) + 1);
     if (ret->parameter_names[it] == NULL)
       goto clean;
 

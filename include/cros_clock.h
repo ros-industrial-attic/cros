@@ -1,7 +1,12 @@
 #ifndef _CROS_CLOCK_H_
 #define _CROS_CLOCK_H_
 
-#include <sys/time.h>
+#ifdef _WIN32 || _WIN64
+#  include <winsock.h>
+#else
+#  include <sys/time.h>
+#endif
+
 #include <stdint.h>
 
 /*! \defgroup cros_clock cROS clock

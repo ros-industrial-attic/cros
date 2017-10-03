@@ -42,7 +42,7 @@ struct cRosMessageField
 {
     char *name;
 
-    union data
+    union data_t
     {
       uint8_t opaque[8];
       int8_t as_int8;
@@ -86,8 +86,8 @@ typedef struct t_msgDef cRosMessageDef;
 struct cRosMessage
 {
     cRosMessageField **fields;
-    cRosMessageDef* msgDef;
-    char* md5sum;
+    cRosMessageDef *msgDef;
+    char *md5sum;
     int n_fields;
 };
 
@@ -95,9 +95,9 @@ cRosMessage * cRosMessageNew();
 
 void cRosMessageInit(cRosMessage *message);
 
-int cRosMessageBuild(cRosMessage* message, const char* message_path);
+int cRosMessageBuild(cRosMessage *message, const char *message_path);
 
-void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
+void cRosMessageBuildFromDef(cRosMessage *message, cRosMessageDef *msg_def );
 
 void cRosMessageFree(cRosMessage *message);
 
@@ -111,9 +111,9 @@ void cRosMessageFieldRelease(cRosMessageField *field);
 
 void cRosMessageFieldFree(cRosMessageField *field);
 
-cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field);
+cRosMessageField* cRosMessageGetField(cRosMessage *message, const char *field);
 
-int cRosMessageSetFieldValueString(cRosMessageField* field, const char* value);
+int cRosMessageSetFieldValueString(cRosMessageField *field, const char *value);
 
 int cRosMessageFieldArrayPushBackInt8(cRosMessageField *field, int8_t val);
 
@@ -175,7 +175,7 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer);
 
 void cRosMessageDeserialize(cRosMessage *message, DynBuffer *buffer);
 
-CrosMessageType getMessageType(const char* type);
+CrosMessageType getMessageType(const char *type);
 
 const char * getMessageTypeString(CrosMessageType type);
 

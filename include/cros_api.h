@@ -5,6 +5,11 @@
 #include "cros_node.h"
 #include "cros_message.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 typedef enum CrosTransportType
 {
   CROS_TRANSPORT_TCPROS,
@@ -371,5 +376,9 @@ int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, 
 int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context);
 int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context);
 int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _CROS_API_H_

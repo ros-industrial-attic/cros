@@ -9,6 +9,10 @@
 #include "cros_defs.h"
 #include "cros_log.h"
 
+#ifdef _WIN32 || _WIN64
+#  include "c99_support.h"
+#endif
+
 enum { XMLRPC_ARRAY_INIT_SIZE = 4, XMLRPC_ARRAY_GROW_RATE = 2 };
 
 typedef enum ParamContainerType
@@ -128,7 +132,7 @@ static void binaryToXml ( void *val, DynString *message )
 
 int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType container)
 {
-  PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", is_array?"TRUE":"FALSE" );
+  PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", container == PARAM_CONTAINER_ARRAY ? "TRUE" : "FALSE" );
 
   int rc;
   const char *c = dynStringGetCurrentData ( message );
@@ -708,7 +712,7 @@ int structMemberFromXml ( DynString *message, XmlrpcParam *param)
   }
 
   size_t name_len = name_end - name_begin;
-  param->member_name = malloc(name_len + 1);
+  param->member_name = (char *)malloc(name_len + 1);
   if (param->member_name == NULL)
   {
     PRINT_ERROR ( "paramMemberFromXml() : Can't allocate memory\n" );
@@ -740,7 +744,7 @@ int structMemberFromXml ( DynString *message, XmlrpcParam *param)
 
   dynStringSetPoseIndicator ( message, i);
 
-  rc = paramValueFromXml(message, param, XMLRPC_PARAM_STRUCT);
+  rc = paramValueFromXml(message, param, PARAM_CONTAINER_STRUCT);
   if (rc < 0)
     return rc;
 
@@ -1362,35 +1366,43 @@ int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
     case XMLRPC_PARAM_DOUBLE:
       break;
     case XMLRPC_PARAM_STRING:
-      dest->data.as_string = (char *)malloc(strlen(source->data.as_string) + 1);
-      if (dest->data.as_string == NULL)
-        goto clean;
-      strcpy(dest->data.as_string, source->data.as_string);
-      break;
+      {
+        dest->data.as_string = (char *)malloc(strlen(source->data.as_string) + 1);
+        if (dest->data.as_string == NULL)
+          goto clean;
+        strcpy(dest->data.as_string, source->data.as_string);
+        break;
+      }
     case XMLRPC_PARAM_ARRAY:
     case XMLRPC_PARAM_STRUCT:
-      dest->data.as_array = (XmlrpcParam *)calloc(source->array_n_elem, sizeof(XmlrpcParam));
-      if (dest->data.as_array == NULL)
-        goto clean;
-
-      int it = 0;
-      for (; it < source->array_n_elem; it++)
       {
-        int rc = xmlrpcParamCopy(&dest->data.as_array[it], &source->data.as_array[it]);
-        if (rc == -1)
+        dest->data.as_array = (XmlrpcParam *)calloc(source->array_n_elem, sizeof(XmlrpcParam));
+        if (dest->data.as_array == NULL)
           goto clean;
+
+        int it = 0;
+        for (; it < source->array_n_elem; it++)
+        {
+          int rc = xmlrpcParamCopy(&dest->data.as_array[it], &source->data.as_array[it]);
+          if (rc == -1)
+            goto clean;
+        }
+        break;
       }
-      break;
     case XMLRPC_PARAM_DATETIME:
     case XMLRPC_PARAM_BINARY:
-      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
-      assert(0);
-      break;
+      {
+        PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
+        assert(0);
+        break;
+      }
     case XMLRPC_PARAM_UNKNOWN:
       break;
     default:
-      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
-      assert(0);
+      {
+        PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
+        assert(0);
+      }
   }
 
   return 0;

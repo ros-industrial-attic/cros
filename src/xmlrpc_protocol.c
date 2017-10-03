@@ -7,6 +7,12 @@
 #include "cros_defs.h"
 #include "cros_log.h"
 
+#ifdef _WIN32 || _WIN64
+#  include "c99_support.h"
+#  define strtok_r strtok_s
+#  define strncasecmp _strnicmp
+#endif
+
 static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int params_body_len,
     XmlrpcParamVector *params )
 {

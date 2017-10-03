@@ -40,12 +40,12 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
         fseek(f, 0, SEEK_SET);
         char *srv_req = NULL;
         char *srv_res = NULL;
-        char *srv_text = malloc(fsize + 1);
+        char *srv_text = (char *)malloc(fsize + 1);
         fread(srv_text, fsize, 1, f);
         fclose(f);
 
         srv_text[fsize] = '\0';
-        srv->plain_text = malloc(strlen(srv_text) + 1);
+        srv->plain_text = (char *)malloc(strlen(srv_text) + 1);
         memcpy(srv->plain_text,srv_text,strlen(srv_text) + 1);
 
         //splitting msg_text into the request response parts
@@ -190,7 +190,7 @@ int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5
 {
   cRosSrvDef* srv = (cRosSrvDef*) malloc(sizeof(cRosSrvDef));
   initCrosSrv(srv);
-  char* copy_filepath = malloc(strlen(filepath)+1);
+  char* copy_filepath = (char *)malloc(strlen(filepath)+1);
   *copy_filepath = '\0';
   strcpy(copy_filepath,filepath);
 

@@ -20,7 +20,7 @@
 #define CN_MAX_SUBSCRIBED_TOPICS 5
 
 /*! Max num service providers */
-#define CN_MAX_SERVICE_PROVIDERS 8
+#define CN_MAX_SERVICE_PROVIDERS 10
 
 /*! Max num parameter subscriptions */
 #define CN_MAX_PARAMETER_SUBSCRIPTIONS 20
@@ -265,8 +265,8 @@ void cRosGetMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char
  * 
  *  \return A pointer to the new CrosNode on success, NULL on failure
  */
-CrosNode *cRosNodeCreate(char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
-                         char *message_root_path, uint64_t const *select_timeout_ms );
+CrosNode *cRosNodeCreate(const char *node_name, const char *node_host, const char *roscore_host, unsigned short roscore_port,
+                         const char *message_root_path, uint64_t const *select_timeout_ms );
 
 /*! \brief Release all the internal allocated memory for a CrosNode object previously crated with
  *         cRosNodeCreate()

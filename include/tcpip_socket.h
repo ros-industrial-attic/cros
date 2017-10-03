@@ -1,7 +1,11 @@
 #ifndef _TCPIP_SOCKET_H_
 #define _TCPIP_SOCKET_H_
 
-# include <arpa/inet.h>
+#ifdef _WIN32 || _WIN64
+#  include <winsock2.h>
+#else
+#  include <arpa/inet.h>
+#endif
 
 #include "dyn_string.h"
 #include "dyn_buffer.h"
