@@ -296,14 +296,17 @@ typedef void (*SearchParamCallback)(int callid, SearchParamResult *result, void 
 typedef void (*HasParamCallback)(int callid, HasParamResult *result, void *context);
 typedef void (*GetParamNamesCallback)(int callid, GetParamNamesResult *result, void *context);
 
+typedef CallbackResponse (*ServiceCallerApiCallback)(cRosMessage *request, cRosMessage *response, int call_resp_flag, void *context);
 typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *request, cRosMessage *response, void *context);
 typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void *context);
 typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void *context);
 
 // Master api: register/unregister methods
+int cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period, ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay);
+int cRosApisUnegisterServiceCaller(CrosNode *node, int svcidx);
 int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context);
 int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx);
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context);
+int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay);
 int cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
 int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context);
 int cRosApiUnregisterPublisher(CrosNode *node, int pubidx);

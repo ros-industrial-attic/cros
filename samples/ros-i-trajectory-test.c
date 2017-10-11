@@ -107,7 +107,7 @@ int main(int argc, char **argv)
     ROS_INFO(node, "cROS Node (version %.2f) created!\n", 0.9);
 
     rc = cRosApiRegisterSubscriber(node, "/arm/joint_states", "sensor_msgs/JointState",
-                                   jointstates_sub_callback, NULL, NULL);
+                                   jointstates_sub_callback, NULL, NULL, 0);
     if (rc == -1)
         return EXIT_FAILURE;
 

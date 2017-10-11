@@ -287,7 +287,7 @@ static CallbackResponse int32_sub_callback(DynBuffer *buffer, void* data_context
 
 static CallbackResponse int64_sub_callback(DynBuffer *buffer, void* data_context)
 {
-  printf("Read: %lli\n", *(int64_t *)buffer->data);
+  printf("Read: %lli\n", (long long)*(int64_t *)buffer->data);
   fflush(stdout);
   return 0;
 }
@@ -322,7 +322,7 @@ static CallbackResponse uint32_sub_callback(DynBuffer *buffer, void* data_contex
 
 static CallbackResponse uint64_sub_callback(DynBuffer *buffer, void* data_context)
 {
-  printf("Read: %llu\n", *(uint64_t *)buffer->data);
+  printf("Read: %llu\n", (long long unsigned)*(uint64_t *)buffer->data);
   fflush(stdout);
   return 0;
 }
@@ -377,8 +377,8 @@ static CallbackResponse counter_callback(DynBuffer *buffer, void* data_context)
 static CallbackResponse clock_callback(DynBuffer *buffer, void* data_context)
 {
   uint64_t cur_timer = cRosClockGetTimeMs();
-  snprintf(message_buffer_clock, 100, "Time elapsed since start of node execution : %lld msec",
-          cur_timer - start_timer );
+  snprintf(message_buffer_clock, 100, "Time elapsed since start of node execution : %llu msec",
+          (long long unsigned)(cur_timer - start_timer) );
   size_t len = strlen(message_buffer_clock);
   dynBufferPushBackUInt32( buffer, (uint32_t)len );
   dynBufferPushBackBuf(buffer, (unsigned char *)message_buffer_clock, len);
@@ -677,7 +677,7 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber(node, "string data\n\n", "/test", "std_msgs/String",
-                                  "992ce8a1687cec8c8bd883ec73ca41d1", test_subscription_callback, getNodeStatusCallback, NULL);
+                                  "992ce8a1687cec8c8bd883ec73ca41d1", test_subscription_callback, getNodeStatusCallback, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
@@ -687,23 +687,23 @@ int main(int argc, char **argv)
                                  "uint32 Configuration\n\n";
 
   rc = cRosNodeRegisterSubscriber(node, gripperjointstatus_def, "/gripperstatus", "gripping_robot/GripperStatus",
-                                  "bba69b1f07d275244b4a697ef69e1b2e", gripperstatus_callback, NULL, NULL);
+                                  "bba69b1f07d275244b4a697ef69e1b2e", gripperstatus_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosApiRegisterSubscriber(node, "/gripperjoints", "gripping_robot/GripperJoints",
-                                 gripperjointstate_callbacknewapi, getNodeStatusCallback, NULL);
+                                 gripperjointstate_callbacknewapi, getNodeStatusCallback, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
 /*
   rc = cRosNodeRegisterSubscriber(node, "float64[9] Position\n\n", "/gripperjoints", "gripping_robot/GripperJoints",
-                                  "8351d4f138c16ac67e83ce06ead5a2f3", gripperjointstate_callback, NULL, NULL);
+                                  "8351d4f138c16ac67e83ce06ead5a2f3", gripperjointstate_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber(node, "float64[] val\n\n", "/double_vector", "cros_testbed/DoubleVector",
-                                  "65ac3f59e35977c61c27adccf4c68288", doublevector_subscription_callback, NULL, NULL);
+                                  "65ac3f59e35977c61c27adccf4c68288", doublevector_subscription_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 */
@@ -850,79 +850,79 @@ int main(int argc, char **argv)
 
   // STD_MSGS Subscribers
   rc = cRosNodeRegisterSubscriber ( node, "bool data\n\n", "/bool", "std_msgs/Bool",
-                                   "8b94c1b53db61fb6aed406028ad6332a", bool_sub_callback, NULL, NULL);
+                                   "8b94c1b53db61fb6aed406028ad6332a", bool_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "byte data\n\n", "/byte", "std_msgs/Byte",
-                                   "ad736a2e8818154c487bb80fe42ce43b", byte_sub_callback, NULL, NULL);
+                                   "ad736a2e8818154c487bb80fe42ce43b", byte_sub_callback, NULL, NULL, 0);
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "char data\n\n", "/char", "std_msgs/Char",
-                                   "1bf77f25acecdedba0e224b162199717", char_sub_callback, NULL, NULL);
+                                   "1bf77f25acecdedba0e224b162199717", char_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "duration data\n\n", "/duration", "std_msgs/Duration",
-                                   "3e286caf4241d664e55f3ad380e2ae46", duration_sub_callback, NULL, NULL);
+                                   "3e286caf4241d664e55f3ad380e2ae46", duration_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, header_def, "/header", "std_msgs/Header",
-                                   "2176decaecbce78abc3b96ef049fabed", header_sub_callback, NULL, NULL);
+                                   "2176decaecbce78abc3b96ef049fabed", header_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "int16 data\n\n", "/int16", "std_msgs/Int16",
-                                   "8524586e34fbd7cb1c08c5f5f1ca0e57", int16_sub_callback, NULL, NULL);
+                                   "8524586e34fbd7cb1c08c5f5f1ca0e57", int16_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "int32 data\n\n", "/int32", "std_msgs/Int32",
-                                   "da5909fbe378aeaf85e547e830cc1bb7", int32_sub_callback, NULL, NULL);
+                                   "da5909fbe378aeaf85e547e830cc1bb7", int32_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "int64 data\n\n", "/int64", "std_msgs/Int64",
-                                   "34add168574510e6e17f5d23ecc077ef", int64_sub_callback, NULL, NULL);
+                                   "34add168574510e6e17f5d23ecc077ef", int64_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "int8 data\n\n", "/int8", "std_msgs/Int8",
-                                   "27ffa0c9c4b8fb8492252bcad9e5c57b", int8_sub_callback, NULL, NULL);
+                                   "27ffa0c9c4b8fb8492252bcad9e5c57b", int8_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "time data\n\n", "/time", "std_msgs/Time",
-                                   "cd7166c74c552c311fbcc2fe5a7bc289", time_sub_callback, NULL, NULL);
+                                   "cd7166c74c552c311fbcc2fe5a7bc289", time_sub_callback, NULL, NULL, 0);
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "uint16 data\n\n", "/uint16", "std_msgs/UInt16",
-                                   "1df79edf208b629fe6b81923a544552d", uint16_sub_callback, NULL, NULL);
+                                   "1df79edf208b629fe6b81923a544552d", uint16_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "uint32 data\n\n", "/uint32", "std_msgs/UInt32",
-                                   "304a39449588c7f8ce2df6e8001c5fce", uint32_sub_callback, NULL, NULL);
+                                   "304a39449588c7f8ce2df6e8001c5fce", uint32_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
   rc = cRosNodeRegisterSubscriber ( node, "uint64 data\n\n", "/uint64", "std_msgs/UInt64",
-                                   "1b2a79973e8bf53d7b53acb71299cb57", uint64_sub_callback, NULL, NULL);
+                                   "1b2a79973e8bf53d7b53acb71299cb57", uint64_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "uint8 data\n\n", "/uint8", "std_msgs/UInt8",
-                                   "7c8164229e7d2c17eb95e9231617fdee", uint8_sub_callback, NULL, NULL);
+                                   "7c8164229e7d2c17eb95e9231617fdee", uint8_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "float32 data\n\n", "/float32", "std_msgs/Float32",
-                                   "73fcbf46b49191e672908e50842a83d4", float32_sub_callback, NULL, NULL);
+                                   "73fcbf46b49191e672908e50842a83d4", float32_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosNodeRegisterSubscriber ( node, "float64 data\n\n", "/float64", "std_msgs/Float64",
-                                   "fdb28210bfa9d7c91146260178d9a584", float64_sub_callback, NULL, NULL);
+                                   "fdb28210bfa9d7c91146260178d9a584", float64_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 

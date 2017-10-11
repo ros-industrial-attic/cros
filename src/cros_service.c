@@ -183,10 +183,10 @@ void cRosServiceInit(cRosService* service)
 
 void cRosServiceBuild(cRosService* service, const char* filepath)
 {
-  cRosServiceBuildInner(&service->request, &service->response, service->md5sum, filepath);
+  cRosServiceBuildInner(&service->request, &service->response, NULL, service->md5sum, filepath);
 }
 
-int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5sum, const char* filepath)
+int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **message_definition, char *md5sum, const char* filepath)
 {
   cRosSrvDef* srv = (cRosSrvDef*) malloc(sizeof(cRosSrvDef));
   initCrosSrv(srv);
@@ -239,6 +239,21 @@ int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5
     cRosMessageBuildFromDef(response, srv->response);
   }
 
+  if(srv->plain_text != NULL && message_definition != NULL)
+  {
+     *message_definition=(char *)malloc((strlen(srv->plain_text)+1)*sizeof(char));
+     if(*message_definition != NULL)
+     {
+        strcpy(*message_definition,srv->plain_text);
+     }
+     else
+     {
+        free(srv);
+        free(copy_filepath);
+        return -1;
+     }
+  }
+
   return 0;
 }
 
@@ -262,7 +277,7 @@ static uint32_t getLen( DynBuffer *pkt )
   const unsigned char *data = dynBufferGetCurrentData(pkt);
   ROS_TO_HOST_UINT32(*((uint32_t *)data), len);
   dynBufferMovePoseIndicator(pkt,sizeof(uint32_t));
-  
+
   return len;
 }
 
@@ -274,7 +289,7 @@ static uint32_t pushBackField( DynBuffer *pkt, TcprosTagStrDim *tag, const char 
   HOST_TO_ROS_UINT32( field_len, out_len );
   dynBufferPushBackUInt32( pkt, out_len );
   dynBufferPushBackBuf( pkt, (const unsigned char*)tag->str, tag->dim );
-  dynBufferPushBackBuf( pkt, (const unsigned char*)val, val_len ); 
-  
+  dynBufferPushBackBuf( pkt, (const unsigned char*)val, val_len );
+
   return field_len + sizeof( uint32_t );
 }

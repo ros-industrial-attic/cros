@@ -67,8 +67,7 @@ static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int
       {
         if ( param_str_len )
         {
-          dynStringClear ( &param_str );
-          dynStringPushBackStrN ( &param_str, param_init, param_str_len );
+          dynStringReplaceWithStrN ( &param_str, param_init, param_str_len );
 
           XmlrpcParam param;
           xmlrpcParamInit(&param);
@@ -87,6 +86,7 @@ static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int
         param_str_len++;
     }
   }
+  dynStringRelease ( &param_str );
 
   return XMLRPC_PARSER_DONE;
 }
@@ -171,12 +171,12 @@ static XmlrpcParserState parseXmlrpcMessageBody ( const char *body, int body_len
     if ( dynStringPushBackStrN(method, method_name_init, method_name_size ) < 0 )
       return XMLRPC_PARSER_ERROR;
   }
-  
+
   if( *type == XMLRPC_MESSAGE_REQUEST )
     PRINT_DEBUG("Received request message, method : %s\n", dynStringGetData( method ));
   else if ( *type == XMLRPC_MESSAGE_RESPONSE )
     PRINT_DEBUG("Received response message\n");
-  
+
   return parseXmlrpcMessageParams ( c, body_len - i, params );
 }
 
@@ -213,7 +213,7 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   {
     PRINT_ERROR ( "generateXmlrpcMessage() : Unknown message type\n" );
   }
-  
+
   dynStringPushBackStr ( message, "Content-Type: text/xml\r\nContent-length: " );
 
   int content_len_init = dynStringGetLen ( message );

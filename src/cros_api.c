@@ -55,6 +55,7 @@ typedef enum ProviderType
 {
   CROS_SUBSCRIBER,
   CROS_PUBLISHER,
+  CROS_SERVICE_CALLER,
   CROS_SERVICE_PROVIDER
 } ProviderType;
 
@@ -130,7 +131,22 @@ static ProviderContext * newProviderContext(const char *provider_path, ProviderT
       if (context->outgoing == NULL)
         goto clean;
 
-      rc = cRosServiceBuildInner(context->incoming, context->outgoing, context->md5sum, provider_path);
+      rc = cRosServiceBuildInner(context->incoming, context->outgoing, NULL, context->md5sum, provider_path);
+      if (rc != 0)
+        goto clean;
+
+      break;
+    }
+    case CROS_SERVICE_CALLER:
+    {
+      context->incoming = cRosMessageNew();
+      if (context->incoming == NULL)
+        goto clean;
+      context->outgoing = cRosMessageNew();
+      if (context->outgoing == NULL)
+        goto clean;
+
+      rc = cRosServiceBuildInner(context->outgoing, context->incoming, &context->message_definition, context->md5sum, provider_path);
       if (rc != 0)
         goto clean;
 
@@ -170,6 +186,21 @@ static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* cont
   return subscriberApiCallback(context->incoming, context->context);
 }
 
+static CallbackResponse cRosNodeServiceCallerCallback(DynBuffer *request, DynBuffer *response, int call_resp_flag, void* contex_)
+{
+  ProviderContext *context = (ProviderContext *)contex_;
+  if(call_resp_flag)
+    cRosMessageDeserialize(context->incoming, response);
+
+  ServiceCallerApiCallback serviceCallerApiCallback = (ServiceCallerApiCallback)context->api_callback;
+  CallbackResponse rc = serviceCallerApiCallback(context->outgoing, context->incoming, call_resp_flag, context->context);
+
+  if(!call_resp_flag)
+     cRosMessageSerialize(context->outgoing, request);
+
+  return rc;
+}
+
 static CallbackResponse cRosNodeServiceProviderCallback(DynBuffer *request, DynBuffer *response, void* contex_)
 {
   ProviderContext *context = (ProviderContext *)contex_;
@@ -189,6 +220,37 @@ static void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
   context->status_callback(status, context->context);
   if (context->unregistering)
     freeProviderContext(context);
+}
+
+int cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period,
+                                   ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay)
+{
+  char path[256];
+  getSrvFilePath(node, path, 256, service_type);
+  ProviderContext *nodeContext = newProviderContext(path, CROS_SERVICE_CALLER);
+  if (nodeContext == NULL)
+    return -1;
+
+  nodeContext->api_callback = callback;
+  nodeContext->status_callback = status_callback;
+  nodeContext->context = context;
+
+  // NB: Pass the private ProviderContext to the private api, not the user context
+  int rc = cRosNodeRegisterServiceCaller(node, nodeContext->message_definition, service_name, service_type, nodeContext->md5sum,
+                                           loop_period, cRosNodeServiceCallerCallback, cRosNodeStatusCallback,
+                                           nodeContext, persistent, tcp_nodelay);
+  return rc;
+}
+
+int cRosApisUnegisterServiceCaller(CrosNode *node, int svcidx)
+{
+  ServiceCallerNode *service = &node->service_callers[svcidx];
+  ProviderContext *context = (ProviderContext *)service->context;
+  int rc = cRosNodeUnregisterServiceCaller(node, svcidx);
+  if (rc != -1)
+    context->unregistering = 1; // ???
+
+  return rc;
 }
 
 int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
@@ -213,9 +275,9 @@ int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, con
 
 int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx)
 {
-  ServiceProviderNode *service = &node->services[svcidx];
+  ServiceProviderNode *service = &node->service_providers[svcidx];
   ProviderContext *context = (ProviderContext *)service->context;
-  int rc = cRosNodeUnregisterSubscriber(node, svcidx);
+  int rc = cRosNodeUnregisterServiceProvider(node, svcidx);
   if (rc != -1)
     context->unregistering = 1;
 
@@ -223,7 +285,7 @@ int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx)
 }
 
 int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type,
-                              SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context)
+                              SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay)
 {
   char path[256];
   cRosGetMsgFilePath(node, path, 256, topic_type);
@@ -238,7 +300,7 @@ int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char
   // NB: Pass the private ProviderContext to the private api, not the user context
   int rc = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
                                   nodeContext->md5sum, cRosNodeSubscriberCallback,
-                                  status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
+                                  status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext, tcp_nodelay);
   return rc;
 }
 
@@ -277,7 +339,7 @@ int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
 {
   PublisherNode *pub = &node->pubs[pubidx];
   ProviderContext *context = (ProviderContext *)pub->context;
-  int rc = cRosNodeUnregisterSubscriber(node, pubidx);
+  int rc = cRosNodeUnregisterPublisher(node, pubidx);
   if (rc != -1)
     context->unregistering = 1;
 

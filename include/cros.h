@@ -1,8 +1,11 @@
-/*
- * cros.h
+/*! \file cros.h
+ *  \brief Top header file of cROS
  *
- *  Created on: 27/apr/2015
- *      Author: nico
+ *  This cROS library is an upgrade from the version of 27/apr/2015.
+ *  It now supports service calls (service clients).
+ *  \author Nico (cROS 0.9)
+ *  \author Richard R. Carrillo (of the Service-client implementation). Aging in Vision and Action lab, Institut de la Vision, Sorbonne University, Paris, France.
+ *  \date 10 Oct 2017
  */
 
 #ifndef INCLUDE_CROS_H_

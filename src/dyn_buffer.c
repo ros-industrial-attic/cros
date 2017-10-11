@@ -57,7 +57,7 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
   while ( d_buf->size + n > d_buf->max )
   {
     PRINT_DEBUG ( "dynBufferPushBackBuf() : reallocate memory\n" );
-    unsigned char *new_d_buf = ( unsigned char * ) realloc ( d_buf->data, ( DYNBUFFER_GROW_RATE * d_buf->max ) * 
+    unsigned char *new_d_buf = ( unsigned char * ) realloc ( d_buf->data, ( DYNBUFFER_GROW_RATE * d_buf->max ) *
                                                                              sizeof ( unsigned char ) );
     if ( new_d_buf == NULL )
     {
@@ -72,6 +72,16 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
   d_buf->size += n;
 
   return d_buf->size;
+}
+
+int dynBufferReplaceContent( DynBuffer *d_buf, const unsigned char *cont_buf, size_t cont_buf_len )
+{
+    size_t ret_val;
+
+    d_buf->size = d_buf->pos_offset; // Discard content beyond current position index (it will be replaced by cont_buf)
+    ret_val = dynBufferPushBackBuf(d_buf, cont_buf, cont_buf_len);
+
+    return ret_val;
 }
 
 int dynBufferPushBackInt8( DynBuffer *d_buf, int8_t val )
@@ -211,6 +221,21 @@ const unsigned char *dynBufferGetCurrentData ( DynBuffer *d_buf )
   PRINT_VDEBUG ( "dynBufferGetCurrentData()\n" );
 
   return ( const unsigned char * ) ( d_buf->data + d_buf->pos_offset );
+}
+
+int dynBufferGetCurrentContent ( unsigned char *cont_buf, DynBuffer *d_buf, size_t cont_buf_len )
+{
+   int ret_err;
+
+   if( d_buf->pos_offset + cont_buf_len > d_buf->size ) // THere is not enough content in the dynamic buffer
+      ret_err=-1;
+   else
+   {
+      memcpy(cont_buf, d_buf->data + d_buf->pos_offset, cont_buf_len);
+      ret_err=0;
+   }
+
+   return ret_err;
 }
 
 int dynBufferGetRemainingDataSize ( DynBuffer *d_buf )

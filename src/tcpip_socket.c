@@ -6,12 +6,16 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "tcpip_socket.h"
 #include "cros_defs.h"
 #include "cros_log.h"
 
 #define TCPIP_SOCKET_READ_BUFFER_SIZE 2048
+// Definitions for debug messages only:
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 void tcpIpSocketInit ( TcpIpSocket *s )
 {
@@ -73,22 +77,46 @@ int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
   }
 }
 
+int tcpIpSocketSetNoDelay ( TcpIpSocket *s )
+{
+  PRINT_VDEBUG ( "tcpIpSocketSetNoDelay()\n" );
+
+  if ( !s->open )
+  {
+    PRINT_ERROR ( "tcpIpSocketSetNoDelay() : Socket not opened\n" );
+    return 0;
+  }
+
+  int val = 1;
+  int ret = setsockopt ( s->fd, SOL_TCP, TCP_NODELAY, ( const void * ) ( &val ), sizeof ( int ) );
+
+  if ( ret == 0 )
+  {
+    return 1;
+  }
+  else
+  {
+    PRINT_ERROR ( "tcpIpSocketSetNoDelay() : setsockopt() with TCP_NODELAY failed. System error number: %i \n", errno );
+    return 0;
+  }
+}
+
 int tcpIpSocketSetReuse ( TcpIpSocket *s )
 {
   PRINT_VDEBUG ( "tcpIpSocketSetReuse()\n" );
-  
+
   if ( !s->open )
   {
     PRINT_ERROR ( "tcpIpSocketSetReuse() : Socket not opened\n" );
     return 0;
   }
-  
+
   int val = 1;
   if ( setsockopt ( s->fd, SOL_SOCKET, SO_REUSEADDR, ( const char* ) ( &val ), sizeof ( int ) ) != 0 )
   {
     PRINT_ERROR ( "tcpIpSocketSetReuse() : setsockopt() with SO_REUSEADDR option failed \n" );
     return 0;
-  }  
+  }
   return 1;
 }
 
@@ -133,9 +161,10 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
   return 1;
 }
 
+#include <string.h>
 TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned short port )
 {
-  PRINT_VDEBUG ( "tcpIpSocketConnect()\n" );
+  PRINT_VDEBUG ( "tcpIpSocketConnect():\n" );
 
   if ( !s->open )
   {
@@ -145,7 +174,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
 
   if( s->connected )
     return TCPIPSOCKET_DONE;
-  
+
   struct sockaddr_in adr;
 
   memset ( &adr, 0, sizeof ( struct sockaddr_in ) );
@@ -158,25 +187,24 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
     s->connected = 0;
     return TCPIPSOCKET_FAILED;
   }
-  
+
   if ( connect ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) ) == -1 )
   {
-    if ( s->is_nonblocking && 
+    if ( s->is_nonblocking &&
        ( errno == EINPROGRESS || errno == EALREADY ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketConnect() : connection in progress\n");
+      PRINT_DEBUG ( "tcpIpSocketConnect() : connection in progress to %s:%i through FD:%i\n", host, port, s->fd);
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else
     {
-      PRINT_ERROR ( "tcpIpSocketConnect() : Connect failed, errno %d\n", errno );
+      PRINT_ERROR ( "tcpIpSocketConnect() : Connect failed to %s:%i through FD:%i. errno=%i\n", host, port, s->fd, errno);
       s->connected = 0;
       return TCPIPSOCKET_FAILED;
     }
   }
+  PRINT_DEBUG ( "tcpIpSocketConnect() : connection done to %s:%i through FD:%i\n", host, port, s->fd);
 
-  PRINT_DEBUG ( "tcpIpSocketConnect() : connection done\n");
-  
   s->port = port;
   s->adr = adr;
   s->connected = 1;
@@ -209,7 +237,7 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port
     PRINT_ERROR ( "tcpIpSocketBindListen() : Socket not opened\n" );
     return 0;
   }
-  
+
   if ( !s->listening )
   {
     struct sockaddr_in adr;
@@ -219,7 +247,7 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port
     adr.sin_family = AF_INET;
     adr.sin_port = htons ( port );
     adr.sin_addr.s_addr = htonl(INADDR_ANY);
-    
+
     if ( inet_pton ( AF_INET, host, &adr.sin_addr ) <= 0 )
     {
       PRINT_ERROR ( "tcpIpSocketBindListen() : Can't get a valid addres from %s\n", host );
@@ -246,14 +274,14 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port
       PRINT_ERROR ( "tcpIpSocketBindListen() : getsockname() failed\n" );
       return 0;
     }
-    
+
     struct sockaddr_in *sin = (struct sockaddr_in *)&sa;
-  
+
     s->port = ntohs(sin->sin_port);
     s->adr = adr;
     s->listening = 1;
   }
-  
+
   return 1;
 }
 
@@ -262,7 +290,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
   PRINT_VDEBUG ( "tcpIpSocketAccept()\n" );
 
   TcpIpSocketState state = TCPIPSOCKET_DONE;
-  
+
   if ( !s->open || !s->listening )
   {
     PRINT_ERROR ( "tcpIpSocketAccept() : Socket not opened or not listening\n" );
@@ -276,10 +304,10 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
 
   if ( new_fd == -1 )
   {
-    if ( s->is_nonblocking && 
+    if ( s->is_nonblocking &&
        ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketAccept() : Accept in progress\n");
+      PRINT_DEBUG ( "tcpIpSocketAccept() : Accept in progress from port %i, new FD:%i\n", new_adr.sin_port, new_fd);
       state = TCPIPSOCKET_IN_PROGRESS;
     }
     else
@@ -291,7 +319,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
 
   if( new_s->open )
     tcpIpSocketClose ( new_s );
-  
+
   new_s->fd = new_fd;
   new_s->adr = new_adr;
   new_s->port = s->port;
@@ -299,6 +327,20 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
   new_s->connected = 1;
 
   return state;
+}
+
+void printTransmissionBuffer(const char *buffer, const char *msg_info, int msg_fd, int buf_len)
+{
+  int i;
+  PRINT_DEBUG(ANSI_COLOR_CYAN"\n%s (%i bytes fd: %i) ["ANSI_COLOR_RESET, msg_info, buf_len, msg_fd);
+  for(i=0;i<buf_len;i++)
+  {
+    char ch=buffer[i];
+    if(ch=='\0' || ch=='\t' || ch=='\r' || ch=='\n' || ch=='\a')
+      ch='.';
+    PRINT_DEBUG("%c",ch);
+  }
+  PRINT_DEBUG(ANSI_COLOR_CYAN"]\n"ANSI_COLOR_RESET);
 }
 
 TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
@@ -314,6 +356,9 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
     return TCPIPSOCKET_FAILED;
   }
 
+  #if CROS_DEBUG_LEVEL >= 2
+  printTransmissionBuffer((const char *)data, "tcpIpSocketWriteBuffer() : Buffer", s->fd, data_size);
+  #endif
   while ( data_size > 0 )
   {
     int n_written = send ( s->fd, ( void * ) data, data_size, 0 );
@@ -324,7 +369,7 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
       data = dynBufferGetCurrentData ( d_buf );
       data_size = dynBufferGetRemainingDataSize ( d_buf );
     }
-    else if ( s->is_nonblocking && 
+    else if ( s->is_nonblocking &&
               ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
     {
       PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : write in progress, %d remaining bytes\n", data_size );
@@ -342,7 +387,7 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
       return TCPIPSOCKET_FAILED;
     }
   }
-  
+
   return TCPIPSOCKET_DONE;
 }
 
@@ -358,7 +403,9 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
     PRINT_ERROR ( "tcpIpSocketWriteString() : Socket not connected\n" );
     return TCPIPSOCKET_FAILED;
   }
-
+  #if CROS_DEBUG_LEVEL >= 2
+  printTransmissionBuffer(data, "tcpIpSocketWriteString() : Buffer", s->fd, data_size);
+  #endif
   while ( data_size > 0 )
   {
     int n_written = send ( s->fd, ( void * ) data, data_size, 0 );
@@ -369,7 +416,7 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
       data = dynStringGetCurrentData ( d_str );
       data_size = dynStringGetRemainingDataSize ( d_str );
     }
-    else if ( s->is_nonblocking && 
+    else if ( s->is_nonblocking &&
               ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
     {
       PRINT_DEBUG ( "tcpIpSocketWriteString() : write in progress, %d remaining bytes\n", data_size );
@@ -426,11 +473,15 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   else if ( reads > 0 )
   {
     PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", reads );
+    #if CROS_DEBUG_LEVEL >= 2
+    printTransmissionBuffer((const char *)read_buf, "tcpIpSocketReadBufferEx() : Buffer", s->fd, reads);
+    #endif
+
     dynBufferPushBackBuf ( d_buf, read_buf, reads );
     state = TCPIPSOCKET_DONE;
     *n_reads = reads;
   }
-  else if ( s->is_nonblocking && 
+  else if ( s->is_nonblocking &&
             ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
   {
     PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read in progress\n" );
@@ -478,10 +529,14 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
   else if ( n_read > 0 )
   {
     PRINT_DEBUG ( "tcpIpSocketReadString() : read %d bytes \n", n_read );
+    #if CROS_DEBUG_LEVEL >= 2
+    printTransmissionBuffer(read_buf, "tcpIpSocketReadString() : Buffer", s->fd, n_read);
+    #endif
+
     dynStringPushBackStrN ( d_str, read_buf, n_read );
     state = TCPIPSOCKET_DONE;
   }
-  else if ( s->is_nonblocking && 
+  else if ( s->is_nonblocking &&
             ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
   {
     PRINT_DEBUG ( "tcpIpSocketReadString() : read in progress\n" );

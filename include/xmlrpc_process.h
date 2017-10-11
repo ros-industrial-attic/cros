@@ -18,9 +18,9 @@ typedef enum
   XMLRPC_PROCESS_STATE_WRITING
 }XmlrpcProcessState;
 
-/*! \brief The XmlrpcProcess object represents a client or server connection between 
- *         the node and the roscore node or other nodes. It is internally used to emulate the 
- *         "precess descriptor" in a multitask system (here used in a mono task system), including 
+/*! \brief The XmlrpcProcess object represents a client or server connection between
+ *         the node and the roscore node or other nodes. It is internally used to emulate the
+ *         "precess descriptor" in a multitask system (here used in a mono task system), including
  *         the process file descriptors (i.e., a socket), proecess memory and the state.
  *         NOTE: this is a cROS internal object, usually you don't need to use it.
  */
@@ -44,27 +44,27 @@ struct XmlrpcProcess
 };
 
 
-/*! \brief Initialize an XmlrpcProcess object, starting to allocate memory 
+/*! \brief Initialize an XmlrpcProcess object, starting to allocate memory
  *         and settins default values for the objects' fields
- * 
+ *
  *  \param s Pointer to XmlrpcProcess object to be initialized
  */
 void xmlrpcProcessInit( XmlrpcProcess *p );
 
 /*! \brief Release all the internally allocated memory of an XmlrpcProcess object
- * 
+ *
  *  \param s Pointer to XmlrpcProcess object to be released
  */
 void xmlrpcProcessRelease( XmlrpcProcess *p );
 
 /*! \brief Clear internal data of an XmlrpcProcess object (the internal memory IS NOT released)
- * 
+ *
  *  \param s Pointer to XmlrpcProcess object
  */
 void xmlrpcProcessClear( XmlrpcProcess *p, int fullclear);
 
 /*! \brief Change the internal state of an XmlrpcProcess object, and update its timer
- * 
+ *
  *  \param s Pointer to XmlrpcProcess object
  *  \param state The new state
  */

@@ -21,7 +21,7 @@ struct t_srvDef
 
 typedef struct t_srvDef cRosSrvDef;
 
-int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5sum, const char* filepath);
+int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **message_definition, char *md5sum, const char* filepath);
 void initCrosSrv(cRosSrvDef* srv);
 
 int getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);

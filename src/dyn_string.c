@@ -22,8 +22,10 @@ void dynStringRelease ( DynString *d_str )
   PRINT_VDEBUG ( "dynStringRelease()\n" );
 
   if ( d_str->data != NULL )
+  {
     free ( d_str->data );
-
+    d_str->data = NULL;
+  }
   d_str->len = 0;
   d_str->pos_offset = 0;
   d_str->max = 0;
@@ -65,7 +67,7 @@ int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
   while ( d_str->len + n + 1 > d_str->max )
   {
     PRINT_DEBUG ( "dynStringPushBackStrN() : reallocate memory\n" );
-    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) * 
+    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
                                                                           sizeof ( char ) );
     if ( n_d_str == NULL )
     {
@@ -81,6 +83,17 @@ int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
   d_str->data[d_str->len] = '\0';
 
   return d_str->len;
+}
+
+int dynStringReplaceWithStrN ( DynString *d_str, const char *new_str, int n )
+{
+    int new_len;
+
+    d_str->len=0; // Clear old content
+    d_str->pos_offset=0;
+    new_len = dynStringPushBackStrN ( d_str, new_str, n );
+
+    return new_len;
 }
 
 int dynStringPushBackChar ( DynString *d_str, const char c )
@@ -106,7 +119,7 @@ int dynStringPushBackChar ( DynString *d_str, const char c )
   if ( d_str->len + 1 > d_str->max )
   {
     PRINT_DEBUG ( "dynStringPushBackChar() : reallocate memory\n" );
-    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) * 
+    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
                                                         sizeof ( char ) );
     if ( n_d_str == NULL )
     {
@@ -153,7 +166,7 @@ int dynStringPatch ( DynString *d_str, const char *new_str, int pos )
   while ( str_final_len + 1 > d_str->max )
   {
     PRINT_DEBUG ( "dynStringPatch() : reallocate memory\n" );
-    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) * 
+    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
                                                         sizeof ( char ) );
     if ( n_d_str == NULL )
     {

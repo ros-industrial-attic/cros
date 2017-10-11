@@ -33,7 +33,6 @@ lookup_host (const char *host, char *ip)
       return -1;
     }
 
-  printf ("Host: %s\n", host);
   while (res)
     {
       inet_ntop (res->ai_family, res->ai_addr->sa_data, addrstr, 100);
@@ -71,7 +70,7 @@ lookup_host (const char *host, char *ip)
 static int checkResponseValue( XmlrpcParamVector *params )
 {
   XmlrpcParam *param = xmlrpcParamVectorAt( params, 0 );
-  
+
   // TODO
   if( param == NULL ||
       ( xmlrpcParamGetType( param ) != XMLRPC_PARAM_INT &&
@@ -79,9 +78,9 @@ static int checkResponseValue( XmlrpcParamVector *params )
   {
     return 0;
   }
-  
+
   int res = 0;
-  
+
   if( xmlrpcParamGetType( param ) == XMLRPC_PARAM_INT )
     res = param->data.as_int;
   else if ( xmlrpcParamGetType( param ) == XMLRPC_PARAM_ARRAY &&
@@ -93,7 +92,7 @@ static int checkResponseValue( XmlrpcParamVector *params )
     else
       res = array_param[0].data.as_int;
   }
-  
+
   return res;
 }
 
@@ -228,6 +227,72 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               break;
             }
           }
+        }
+
+        break;
+      }
+      case CROS_API_LOOKUP_SERVICE:
+      {
+        PRINT_DEBUG ( "cRosApiParseResponse() : Lookup Service response\n" );
+        //xmlrpcParamVectorPrint( &(client_proc->params) );
+
+        //Get the next service caller without a topic host
+        assert(call->provider_idx != -1);
+        int srvcalleridx = call->provider_idx;
+        ServiceCallerNode* requesting_service_caller = &(n->service_callers[srvcalleridx]);
+
+        TcprosProcess* rpcros_proc = &n->rpcros_client_proc[requesting_service_caller->client_rpcros_id];
+        rpcros_proc->service_idx = call->provider_idx;
+
+        if(checkResponseValue( &client_proc->response ) == 1)
+        {
+          ret = 0;
+          //Check if there is some publishers for the subscription
+          XmlrpcParam *param = xmlrpcParamVectorAt(&client_proc->response, 0);
+          if(xmlrpcParamArrayGetSize(param) >= 3)
+          {
+              XmlrpcParam *service_prov_host = xmlrpcParamArrayGetParamAt(param,2);
+              char* service_prov_host_string = xmlrpcParamGetString(service_prov_host);
+              //manage string for exploit informations
+              //removing the 'rosrpc://' and the last '/'
+              int dirty_string_len = strlen(service_prov_host_string);
+              char* clean_string = (char *)calloc(dirty_string_len-10+1,sizeof(char));
+              if (clean_string == NULL)
+                exit(1);
+              strncpy(clean_string,service_prov_host_string+9,dirty_string_len-10);
+              char * progress = NULL;
+              char* hostname = strtok_r(clean_string,":",&progress);
+              if(requesting_service_caller->service_host == NULL)
+              {
+                requesting_service_caller->service_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+                if (requesting_service_caller->service_host == NULL)
+                  exit(1);
+              }
+
+              int rc = lookup_host(hostname, requesting_service_caller->service_host);
+              if (rc)
+                return ret;
+
+              requesting_service_caller->service_port = atoi(strtok_r(NULL,":",&progress));
+              free(clean_string);
+
+              //need to be checked because maybe the connection went down suddenly.
+              if(!rpcros_proc->socket.open)
+              {
+                tcpIpSocketOpen(&(rpcros_proc->socket));
+              }
+
+              PRINT_DEBUG( "cRosApiParseResponse() : Lookup Service response [tcp port: %d]\n", requesting_service_caller->service_port);
+
+              //set the process to open the socket with the desired host
+              tcprosProcessChangeState(rpcros_proc, TCPROS_PROCESS_STATE_CONNECTING);
+          }
+          else
+               PRINT_ERROR ( "cRosApiParseResponse() : Invalid response from ROS master when Looking up services (Not enough parameters in response)\n");
+        }
+        else
+        {
+            tcprosProcessChangeState(rpcros_proc, TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING);
         }
 
         break;

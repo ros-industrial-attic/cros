@@ -128,7 +128,7 @@ static void binaryToXml ( void *val, DynString *message )
 
 int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType container)
 {
-  PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", is_array?"TRUE":"FALSE" );
+  //PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", is_array?"TRUE":"FALSE" );
 
   int rc;
   const char *c = dynStringGetCurrentData ( message );
@@ -431,7 +431,7 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
   }
 
   PRINT_DEBUG("paramFromXml() : Param type %d \n", p_type );
-    
+
   // Update pose indicator (useful in case it is an array parameter)
   dynStringSetPoseIndicator ( message, i );
 
@@ -810,7 +810,7 @@ int32_t xmlrpcParamGetInt( XmlrpcParam *param )
 
 double xmlrpcParamGetDouble( XmlrpcParam *param )
 {
-  return param->data.as_double;  
+  return param->data.as_double;
 }
 char *xmlrpcParamGetString( XmlrpcParam *param )
 {
@@ -888,7 +888,7 @@ void xmlrpcParamSetStringN ( XmlrpcParam *param, const char *val, int n )
       param->data.as_string[i] = *c;
   }
   param->data.as_string[i] = '\0';
-  
+
   PRINT_DEBUG ( "xmlrpcSetStringN() : Set: %s\n", param->data.as_string );
 }
 
@@ -1272,7 +1272,7 @@ static void paramPrint( XmlrpcParam *param, char *head )
     printf("%s type : double Value : [%f]\n", head, param->data.as_double );
     break;
   case XMLRPC_PARAM_STRING:
-    printf("%s type : string Value : [%s]\n", head, 
+    printf("%s type : string Value : [%s]\n", head,
            (param->data.as_string != NULL)?param->data.as_string:"NULL" );
     break;
 
@@ -1289,7 +1289,7 @@ static void paramPrint( XmlrpcParam *param, char *head )
     }
     else
       printf("Empty array\n");
-      
+
     printf("=========End array=========\n\n");
     break;
 
@@ -1302,7 +1302,7 @@ static void paramPrint( XmlrpcParam *param, char *head )
   default:
     PRINT_ERROR ( "xmlrpcParamPrint() : Unknown parameter \n" );
     break;
-  } 
+  }
 }
 
 void xmlrpcParamPrint( XmlrpcParam *param )

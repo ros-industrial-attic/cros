@@ -20,7 +20,7 @@ struct RosApiCall
   XmlrpcParamVector params;                   //! Method arguments
   char *host;                                 //! Host to contact for the api
   int port;                                   //! Tcp port of the host to contact for the api
-  int provider_idx;                           //! Provider (sub, pub or service provider) index
+  int provider_idx;                           //! Provider (sub, pub, service provider or service caller) index
   ResultCallback result_callback;             //! Response callback
   void *context_data;                         //! Result callback context
   FetchResultCallback fetch_result_callback;  //! Callback to fetch the result

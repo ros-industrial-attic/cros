@@ -549,7 +549,7 @@ void cRosMessageInit(cRosMessage *message)
     message->n_fields = 0;
     message->msgDef = NULL;
 
-    message->md5sum = (char*) calloc(33,1); // 32 chars + '\0';
+    message->md5sum = (char*) calloc(33, sizeof(char)); // 32 chars + '\0';
 }
 
 cRosMessage * cRosMessageNew()
@@ -594,7 +594,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
         const char* delimiter = "\n";
 
         int txt_len = strlen(text);
-        msg->plain_text = (char*) malloc(strlen(text)+1);
+        msg->plain_text = (char*) malloc((strlen(text)+1)*sizeof(char));
         memcpy(msg->plain_text,"\0",1);
         strcpy(msg->plain_text,text);
         int plain_txt_len = strlen(msg->plain_text);
@@ -808,13 +808,13 @@ int loadFromFileMsg(char* filename, cRosMessageDef* msg)
       it++;
     }
 
-    msg->root_dir = (char*) calloc (strlen(file_tokenized)+1, sizeof(char)); msg->root_dir[0] = '\0';
+    msg->root_dir = (char*) malloc ((strlen(file_tokenized)+1) * sizeof(char)); // msg->root_dir[0] = '\0';
     strcpy(msg->root_dir,file_tokenized);
 
-    msg->package = (char*) calloc (strlen(token_pack)+1, sizeof(char)); msg->package[0] = '\0';
+    msg->package = (char*) malloc ((strlen(token_pack)+1) * sizeof(char)); // msg->package[0] = '\0';
     strcpy(msg->package,token_pack);
 
-    msg->name = (char*) calloc (strlen(token_name)+1, sizeof(char)); msg->name[0] = '\0';
+    msg->name = (char*) malloc ((strlen(token_name)+1) * sizeof(char)); // msg->name[0] = '\0';
     strcpy(msg->name,token_name);
 
     loadFromStringMsg(msg_text, msg);
@@ -1584,15 +1584,18 @@ size_t cRosMessageSize(cRosMessage* message)
     return ret;// + sizeof(uint32_t);
 }
 
-void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
+int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
 {
+  int ret_err;
   size_t it;
-  for (it = 0; it < message->n_fields; it++)
+
+  ret_err = 0; // default error value. If it is >=0, no error
+  for (it = 0; it < message->n_fields && ret_err >= 0; it++)
   {
     cRosMessageField *field = message->fields[it];
 
     if(field->is_array && !field->is_fixed_array)
-      dynBufferPushBackInt32(buffer,field->array_size);
+      ret_err = dynBufferPushBackInt32(buffer, field->array_size);
 
     switch (field->type)
     {
@@ -1613,9 +1616,9 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
       {
         size_t size = getMessageTypeSizeOf(field->type);
         if (field->is_array)
-          dynBufferPushBackBuf(buffer, field->data.as_array, size * field->array_size);
+          ret_err = dynBufferPushBackBuf(buffer, field->data.as_array, size * field->array_size);
         else
-          dynBufferPushBackBuf(buffer, field->data.opaque, size);
+          ret_err = dynBufferPushBackBuf(buffer, field->data.opaque, size);
         break;
       }
       case CROS_STD_MSGS_DURATION:
@@ -1623,7 +1626,7 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
         cRosMessageField* timefromstart_secs = cRosMessageGetField(field->data.as_msg, "secs");
         cRosMessageField* timefromstart_nsecs= cRosMessageGetField(field->data.as_msg, "nsecs");
         dynBufferPushBackBuf( buffer, timefromstart_secs->data.opaque, sizeof(int32_t));
-        dynBufferPushBackBuf( buffer, timefromstart_nsecs->data.opaque, sizeof(int32_t));
+        ret_err = dynBufferPushBackBuf( buffer, timefromstart_nsecs->data.opaque, sizeof(int32_t));
         break;
       }
       case CROS_STD_MSGS_STRING:
@@ -1632,12 +1635,12 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
         if(field->is_array)
         {
           int i;
-          for( i = 0; i < field->array_size; i++)
+          for( i = 0; i < field->array_size && ret_err >= 0; i++)
           {
             const char* val = NULL;
             cRosMessageFieldArrayAtStringGet(field, i, &val);
             dynBufferPushBackInt32(buffer, strlen(val));
-            dynBufferPushBackBuf(buffer, (unsigned char *)val, strlen(val));
+            ret_err = dynBufferPushBackBuf(buffer, (unsigned char *)val, strlen(val));
           }
         }
         else
@@ -1645,11 +1648,11 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
           if(field->size > 0)
           {
             dynBufferPushBackInt32(buffer, strlen(field->data.as_string));
-            dynBufferPushBackBuf(buffer,(unsigned char*)field->data.as_string,strlen(field->data.as_string));
+            ret_err = dynBufferPushBackBuf(buffer,(unsigned char*)field->data.as_string,strlen(field->data.as_string));
           }
           else
           {
-            dynBufferPushBackInt32(buffer, 0);
+            ret_err = dynBufferPushBackInt32(buffer, 0);
           }
         }
 
@@ -1661,18 +1664,18 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
         if(field->is_array)
         {
           int it2;
-          for (it2 = 0; it2 < field->array_size; it2++)
+          for (it2 = 0; it2 < field->array_size && ret_err >= 0; it2++)
           {
             cRosMessage* msg = NULL;
             cRosMessageFieldArrayAtMsgGet(field,it2,&msg);
-            cRosMessageSerialize(msg, buffer);
+            ret_err = cRosMessageSerialize(msg, buffer);
           }
         }
         else
         {
           //uint32_t size = dynBufferGetSize(buffer);
           //dynBufferPushBackInt32(buffer,0);
-          cRosMessageSerialize(field->data.as_msg, buffer);
+          ret_err = cRosMessageSerialize(field->data.as_msg, buffer);
           //uint32_t new_size = dynBufferGetSize(buffer);
           //uint32_t msg_size = new_size - size - sizeof(uint32_t);
           //*((uint32_t*) (buffer->data + size)) = msg_size;
@@ -1681,12 +1684,16 @@ void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
       }
     }
   }
+  return ret_err;
 }
 
-void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
+int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
 {
   size_t it;
-  for (it = 0; it < message->n_fields; it++)
+  int ret_err;
+
+  ret_err = 0; // default error value. If it is >=0, no error
+  for (it = 0; it < message->n_fields && ret_err >= 0; it++)
   {
     cRosMessageField *field = message->fields[it];
 
@@ -1715,17 +1722,19 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
           size_t curr_data_size = field->array_size;
           if (field->is_fixed_array)
           {
-            memcpy(field->data.as_array, dynBufferGetCurrentData(buffer), size * field->array_size);
+            ret_err = dynBufferGetCurrentContent( field->data.as_array, buffer, size * field->array_size ); // equiv. to: memcpy(field->data.as_array, dynBufferGetCurrentData(buffer), size * field->array_size);
             dynBufferMovePoseIndicator(buffer, size * field->array_size);
           }
           else
           {
-            size_t array_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
-            dynBufferMovePoseIndicator(buffer, 4);
+            size_t array_size;
+            ret_err = dynBufferGetCurrentContent( (unsigned char *)&array_size, buffer, sizeof(uint32_t) ); // equiv. to: array_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
             int i;
-            for(i = 0; i < array_size; i++)
+            for(i = 0; i < array_size && ret_err >= 0; i++)
             {
-              double d = *((double*) dynBufferGetCurrentData(buffer));
+              double d;
+              ret_err = dynBufferGetCurrentContent( (unsigned char *)&d, buffer, sizeof(double) ); // equiv. to: d = *((double*) dynBufferGetCurrentData(buffer));
               //printf("%.8f ", d);
               arrayFieldValuePushBack(field, (const void*) &d, size); //dynBufferGetCurrentData(buffer), size);
               //printf("%.8f - ", *cRosMessageFieldArrayAtFloat64(field, i));
@@ -1736,7 +1745,7 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         }
         else
         {
-          memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), size);
+          ret_err = dynBufferGetCurrentContent( field->data.opaque, buffer, size ); // equiv. to: memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), size);
           dynBufferMovePoseIndicator(buffer, size);
         }
 
@@ -1748,32 +1757,48 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         if (field->is_array)
         {
           cRosMessageFieldArrayClear(field);
-          size_t curr_data_size = field->array_size;
+          uint32_t curr_data_size = field->array_size;
           if(!field->is_fixed_array)
           {
-            curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
-            dynBufferMovePoseIndicator(buffer, 4);
+            ret_err = dynBufferGetCurrentContent( (unsigned char *)&curr_data_size, buffer, sizeof(uint32_t) ); // equiv. to: curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
           }
 
-          int i;
-          for(i = 0; i < curr_data_size; i++)
+          unsigned int i;
+          for(i = 0; i < curr_data_size && ret_err >= 0; i++)
           {
-            size_t element_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
-            dynBufferMovePoseIndicator(buffer, 4);
-            char* tmp_string = (char*) calloc(element_size + 1, sizeof(char));
-            memcpy(tmp_string, dynBufferGetCurrentData(buffer), element_size);
-            cRosMessageFieldArrayPushBackString(field, tmp_string);
-            dynBufferMovePoseIndicator(buffer, element_size);
-            free(tmp_string);
+            size_t element_size;
+            ret_err = dynBufferGetCurrentContent( (unsigned char *)&element_size, buffer, sizeof(uint32_t) ); // equiv. to: element_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
+            if(ret_err >= 0)
+            {
+              char* tmp_string = (char*)calloc(element_size + 1, sizeof(char));
+              if(tmp_string != NULL)
+              {
+                ret_err = dynBufferGetCurrentContent( (unsigned char *)&tmp_string, buffer, element_size ); // equiv. to: memcpy(tmp_string, dynBufferGetCurrentData(buffer), element_size);
+                cRosMessageFieldArrayPushBackString(field, tmp_string);
+                dynBufferMovePoseIndicator(buffer, element_size);
+                free(tmp_string);
+              }
+              else
+                ret_err=-1;
+            }
           }
         }
         else
         {
-          size_t curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
-          dynBufferMovePoseIndicator(buffer, 4);
-          field->data.as_string = (char*) calloc(curr_data_size + 1, sizeof(char));
-          memcpy(field->data.as_string, dynBufferGetCurrentData(buffer), curr_data_size);
-          dynBufferMovePoseIndicator(buffer, curr_data_size);
+          size_t curr_data_size;
+          ret_err = dynBufferGetCurrentContent( (unsigned char *)&curr_data_size, buffer, sizeof(uint32_t) ); // equiv. to: curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+          dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
+          field->data.as_string = (char*)realloc(field->data.as_string, (curr_data_size + 1) * sizeof(char)); // If field->data.as_string was NULL previously, realloc behaves as malloc
+          if(field->data.as_string != NULL)
+          {
+            dynBufferGetCurrentContent( (unsigned char *)field->data.as_string, buffer, curr_data_size ); // equiv. to: memcpy(field->data.as_string, dynBufferGetCurrentData(buffer), curr_data_size);
+            field->data.as_string[curr_data_size] = '\0';
+            dynBufferMovePoseIndicator(buffer, curr_data_size);
+          }
+          else
+            ret_err=-1;
         }
         break;
       }
@@ -1784,30 +1809,40 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
 
         //uint32 seq
 
-        uint32_t seq = *((uint32_t*)dynBufferGetCurrentData(buffer));
-        dynBufferMovePoseIndicator(buffer, 4);
+        uint32_t seq;
+        ret_err = dynBufferGetCurrentContent( (unsigned char *)&seq, buffer, sizeof(uint32_t) ); // equiv. to: seq = *((uint32_t*)dynBufferGetCurrentData(buffer));
+        dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
         //printf("Read: seq=%u , ", seq);
         header->fields[0]->data.as_uint32 = seq;
-        
+
         //time stamp
         cRosMessage* timestamp = header->fields[1]->data.as_msg;
-        uint32_t stamp_sec = *((uint32_t*)dynBufferGetCurrentData(buffer));
-        dynBufferMovePoseIndicator(buffer, 4);
+        uint32_t stamp_sec;
+        ret_err = dynBufferGetCurrentContent( (unsigned char *)&stamp_sec, buffer, sizeof(uint32_t) ); // equiv. to: stamp_sec = *((uint32_t*)dynBufferGetCurrentData(buffer));
+        dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
         //printf("stamp.sec=%u , ", stamp_sec);
-        timestamp->fields[0]->data.as_uint32 = stamp_sec;        
+        timestamp->fields[0]->data.as_uint32 = stamp_sec;
 
-        uint32_t stamp_nsec =  *((uint32_t*)dynBufferGetCurrentData(buffer));
-        dynBufferMovePoseIndicator(buffer, 4);
+        uint32_t stamp_nsec;
+        ret_err = dynBufferGetCurrentContent( (unsigned char *)&stamp_nsec, buffer, sizeof(uint32_t) ); // equiv. to: stamp_nsec =  *((uint32_t*)dynBufferGetCurrentData(buffer));
+        dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
         //printf("stamp.nsec=%u , ", stamp_nsec);
         timestamp->fields[0]->data.as_uint32 = stamp_nsec;
 
-        uint32_t strlen = *((uint32_t*)dynBufferGetCurrentData(buffer));
-        dynBufferMovePoseIndicator(buffer, 4);
+        uint32_t strlen;
+        ret_err = dynBufferGetCurrentContent( (unsigned char *)&strlen, buffer, sizeof(uint32_t) ); // equiv. to: strlen = *((uint32_t*)dynBufferGetCurrentData(buffer));
+        dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
         cRosMessageField* string_field = header->fields[1];
-        string_field->data.as_string = (char*) calloc(strlen + 1, sizeof(char));
-        memcpy(string_field->data.as_string, dynBufferGetCurrentData(buffer), strlen);
-        dynBufferMovePoseIndicator(buffer, strlen);
-        //printf("frame_id=%s\n", string_field->data.as_string);  
+        string_field->data.as_string = (char*)realloc(string_field->data.as_string, (strlen + 1) * sizeof(char));
+        if(string_field->data.as_string != NULL)
+        {
+          ret_err = dynBufferGetCurrentContent( (unsigned char *)string_field->data.as_string, buffer, strlen ); // equiv. to: memcpy(string_field->data.as_string, dynBufferGetCurrentData(buffer), strlen);
+          string_field->data.as_string[strlen] = '\0';
+          dynBufferMovePoseIndicator(buffer, strlen);
+        }
+        else
+          ret_err=-1;
+        //printf("frame_id=%s\n", string_field->data.as_string);
         //fflush(stdout);
         break;
       }
@@ -1816,41 +1851,52 @@ void cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         if (field->is_array)
         {
           cRosMessageFieldArrayClear(field);
-          size_t curr_data_size = field->array_size;
+          uint32_t curr_data_size = field->array_size;
           if(!field->is_fixed_array)
           {
-            curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
-            dynBufferMovePoseIndicator(buffer, 4);
+            ret_err = dynBufferGetCurrentContent( (unsigned char *)&curr_data_size, buffer, sizeof(uint32_t) ); // equiv. to: curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
           }
 
-          int it2;
-          for(it2 = 0; it2 < curr_data_size; it2++)
+          unsigned int it2;
+          for(it2 = 0; it2 < curr_data_size && ret_err >= 0; it2++)
           {
             cRosMessage* msg = calloc(1,sizeof(cRosMessage));
-            cRosMessageInit(msg);
-            char* msgPath = calloc(
-                            strlen(message->msgDef->root_dir) +
-                            strlen(DIR_SEPARATOR_STR) +
-                            strlen(field->type_s) +
-                            strlen(".msg") + 1,
-                            sizeof(char));
-            strcat(msgPath, message->msgDef->root_dir);
-            strcat(msgPath, DIR_SEPARATOR_STR);
-            strcat(msgPath, field->type_s);
-            strcat(msgPath,".msg");
-            cRosMessageBuild(msg,msgPath);
-            cRosMessageDeserialize(msg, buffer);
-            free(msgPath);
+            if(msg != NULL)
+            {
+              cRosMessageInit(msg);
+              char* msgPath = calloc(
+                              strlen(message->msgDef->root_dir) +
+                              strlen(DIR_SEPARATOR_STR) +
+                              strlen(field->type_s) +
+                              strlen(".msg") + 1,
+                              sizeof(char));
+              if(msgPath != NULL)
+              {
+                strcat(msgPath, message->msgDef->root_dir);
+                strcat(msgPath, DIR_SEPARATOR_STR);
+                strcat(msgPath, field->type_s);
+                strcat(msgPath,".msg");
+                cRosMessageBuild(msg,msgPath);
+                ret_err = cRosMessageDeserialize(msg, buffer);
+                free(msgPath);
+              }
+              else
+                ret_err=-1;
+            }
+            else
+              ret_err=-1;
           }
         }
         else
         {
-          cRosMessageDeserialize(field->data.as_msg, buffer);
+          ret_err = cRosMessageDeserialize(field->data.as_msg, buffer);
         }
         break;
       }
     }
   }
+  return ret_err;
 }
 
 const char * getMessageTypeDeclarationConst(msgConst *msgConst)

@@ -296,12 +296,12 @@ int main(int argc, char **argv)
 #ifdef SUBSCRIBER
 
   rc = cRosApiRegisterSubscriber(node, "/gripperstatus", "gripping_robot/GripperStatus",
-                                 gripperstatus_sub_callback, NULL, NULL);
+                                 gripperstatus_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 
   rc = cRosApiRegisterSubscriber(node, "/gripperjoints", "gripping_robot/GripperJoints",
-                                 gripperjoints_sub_callback, NULL, NULL);
+                                 gripperjoints_sub_callback, NULL, NULL, 0);
   if (rc == -1)
     return EXIT_FAILURE;
 

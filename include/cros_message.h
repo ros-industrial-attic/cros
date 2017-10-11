@@ -3,8 +3,8 @@
 
 #include "cros_node.h"
 
-/*! \defgroup cros_message cROS TCPROS 
- * 
+/*! \defgroup cros_message cROS TCPROS
+ *
  *  Implemenation of the TCPROS protocol for topic message exchanges
  */
 
@@ -86,8 +86,8 @@ typedef struct t_msgDef cRosMessageDef;
 struct cRosMessage
 {
     cRosMessageField **fields;
-    cRosMessageDef* msgDef;
-    char* md5sum;
+    cRosMessageDef *msgDef;
+    char *md5sum;
     int n_fields;
 };
 
@@ -111,7 +111,7 @@ void cRosMessageFieldRelease(cRosMessageField *field);
 
 void cRosMessageFieldFree(cRosMessageField *field);
 
-cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field);
+cRosMessageField * cRosMessageGetField(cRosMessage *message, char *field);
 
 int cRosMessageSetFieldValueString(cRosMessageField* field, const char* value);
 
@@ -171,9 +171,9 @@ int cRosMessageFieldArrayClear(cRosMessageField *field);
 
 size_t cRosMessageSize(cRosMessage *message);
 
-void cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer);
+int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer);
 
-void cRosMessageDeserialize(cRosMessage *message, DynBuffer *buffer);
+int cRosMessageDeserialize(cRosMessage *message, DynBuffer *buffer);
 
 CrosMessageType getMessageType(const char* type);
 
