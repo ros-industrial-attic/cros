@@ -6,7 +6,7 @@ implementation of the  basic features required to implement a ROS
 This ROS node supports the concurrent operation as several:
  * Subscribers
  * Publishers
- * Service providers (server)
+ * Service providers (servers)
  * Service callers (clients)
 
 ### Requirements

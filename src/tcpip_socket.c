@@ -198,7 +198,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
     }
     else
     {
-      PRINT_ERROR ( "tcpIpSocketConnect() : Connect failed to %s:%i through FD:%i. errno=%i\n", host, port, s->fd, errno);
+      PRINT_ERROR ( "tcpIpSocketConnect() : Connect to %s:%i through FD:%i failed. errno=%i\n", host, port, s->fd, errno);
       s->connected = 0;
       return TCPIPSOCKET_FAILED;
     }

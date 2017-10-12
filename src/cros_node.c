@@ -2612,8 +2612,6 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
   if( tmp_timeout < timeout )
     timeout = tmp_timeout;
 
-//printf(">>>>>>>>>>> timeout:%llu stat: %i wutime: %llu currtime: %llu\n", timeout, n->xmlrpc_client_proc[0].state, n->xmlrpc_client_proc[0].wake_up_time_ms, cur_time );
-
   for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
   {
     if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING)
@@ -2743,45 +2741,48 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     uint64_t cur_time = cRosClockGetTimeMs();
 
     XmlrpcProcess *rosproc = &n->xmlrpc_client_proc[0];
-    if(rosproc->state == XMLRPC_PROCESS_STATE_IDLE && rosproc->wake_up_time_ms <= cur_time )
+    if(rosproc->wake_up_time_ms <= cur_time ) // It's time to wakeup, ping master, and maybe look up in master for pending services
     {
-      rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD;
-
-      /* Prepare to ping roscore ... */
-      PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
-
-      RosApiCall *call = newRosApiCall();
-      if (call == NULL)
+      if(rosproc->state == XMLRPC_PROCESS_STATE_IDLE)
       {
-        PRINT_ERROR ( "cRosApiPrepareRequest() : Can't allocate memory\n");
-        exit(1);
-      }
+        /* Prepare to ping roscore ... */
+        PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
 
-      call->method = CROS_API_GET_PID;
-      int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
+        RosApiCall *call = newRosApiCall();
+        if (call == NULL)
+        {
+          PRINT_ERROR ( "cRosApiPrepareRequest() : Can't allocate memory\n");
+          exit(1);
+        }
 
-      rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
-      generateXmlrpcMessage( n->host, n->roscore_port, rosproc->message_type,
-                          getMethodName(call->method), &call->params, &rosproc->message );
+        call->method = CROS_API_GET_PID;
+        int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
 
-      rosproc->current_call = call;
-      xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_WRITING );
+        rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
+        generateXmlrpcMessage( n->host, n->roscore_port, rosproc->message_type,
+                              getMethodName(call->method), &call->params, &rosproc->message );
 
-      // The ROS master does not warn us when then a new service is registered, so we have to
-      // continuously check for the required service
-      for(i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++ )
-      {
-         TcprosProcess *client_proc = &(n->rpcros_client_proc[i]);
+        rosproc->current_call = call;
+        xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_WRITING );
 
-         if( client_proc->state == TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING)
-         {
+        // The ROS master does not warn us when then a new service is registered, so we have to
+        // continuously check for the required service
+        for(i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++ )
+        {
+           TcprosProcess *client_proc = &(n->rpcros_client_proc[i]);
+           if( client_proc->state == TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING)
+           {
              tcprosProcessChangeState(client_proc, TCPROS_PROCESS_STATE_IDLE);
              enqueueServiceLookup(n, client_proc->service_idx);
-         }
+           }
+        }
+        rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD; // The process completed doing what it should, so wake up again CN_PING_LOOP_PERIOD milliseconds later
       }
+      else
+        rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD/50; // The process is busy, so try to wake up again soon (CN_PING_LOOP_PERIOD/100 milliseconds later) to do what is pending
     }
-    else if( n->xmlrpc_client_proc[0].state != XMLRPC_PROCESS_STATE_IDLE &&
-             cur_time - n->xmlrpc_client_proc[0].last_change_time > CN_IO_TIMEOUT )
+    if( rosproc->state != XMLRPC_PROCESS_STATE_IDLE &&
+             cur_time - rosproc->last_change_time > CN_IO_TIMEOUT ) // last_change_time is updated when changing process state
     {
       /* Timeout between I/O operations... close the socket and re-advertise */
       PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC client I/O timeout\n");
