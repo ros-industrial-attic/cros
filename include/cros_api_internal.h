@@ -88,12 +88,6 @@ int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx);
  */
 int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx);
 
-/*! \brief Unregister the service caller
- *
- *  \param subidx Index of the service provider
- */
-int cRosNodeUnregisterServiceCaller(CrosNode *node, int serviceidx);
-
 void restartAdversing(CrosNode* node);
 int enqueueRequestTopic(CrosNode *node, int subidx);
 int enqueueMasterApiCall(CrosNode *node, RosApiCall *call);

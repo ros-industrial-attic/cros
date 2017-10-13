@@ -376,7 +376,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
     {
       case TCPIPSOCKET_DONE:
         {
-        handleApiCallAttempt(n, xmlrpc_client_proc->current_call);
+        // NB: Node release is done by handleApiCallAttempt when the ros master response is received
         xmlrpcProcessClear(xmlrpc_client_proc, 0);
         xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_READING );
         break;
@@ -451,6 +451,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
         PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
 
         int rc = cRosApiParseResponse( n, i );
+        handleApiCallAttempt(n, xmlrpc_client_proc->current_call);
         if (rc != 0)
         {
           handleXmlrpcClientError( n, i );
@@ -1844,12 +1845,85 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
   return new_n;
 }
 
+int cRosUnregistrationCompleted(CrosNode *n)
+{
+  int i, unreg_finished;
+
+  unreg_finished = 1;
+
+  for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS && unreg_finished == 1; i++)
+    if(n->pubs[i].topic_name != NULL)
+      unreg_finished = 0;
+
+  for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS && unreg_finished == 1; i++)
+    if(n->subs[i].topic_name != NULL)
+      unreg_finished = 0;
+
+  for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS && unreg_finished == 1; i++)
+    if(n->service_providers[i].service_name != NULL)
+      unreg_finished = 0;
+/*
+  for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS && unreg_finished == 1; i++)
+    if(n->paramsubs[i].parameter_key != NULL)
+      unreg_finished = 0;
+*/
+  return(unreg_finished);
+}
+
+void cRosNodeWaitForAllUnregistrations(CrosNode *n)
+{
+  while( !cRosUnregistrationCompleted(n) )
+    cRosNodeDoEventsLoop( n );
+}
+
+void cRosNodePauseAllCallerPublisher(CrosNode *n)
+{
+  int i;
+
+  for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS; i++)
+    if(n->pubs[i].topic_name != NULL)
+      n->pubs[i].loop_period = -1;
+
+  for ( i = 0; i < CN_MAX_SERVICE_CALLERS; i++)
+    if(n->service_callers[i].service_name != NULL)
+      n->service_callers[i].loop_period = -1;
+}
+
+
+int cRosNodeUnregisterAll(CrosNode *n)
+{
+  int i, ret_err=0;
+
+  for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS && ret_err == 0; i++)
+    if(n->pubs[i].topic_name != NULL)
+      cRosApiUnregisterPublisher(n, i);
+
+  for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS && ret_err == 0; i++)
+    if(n->subs[i].topic_name != NULL)
+      cRosApiUnregisterSubscriber(n, i);
+
+  for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS && ret_err == 0; i++)
+    if(n->service_providers[i].service_name != NULL)
+      cRosApiUnregisterServiceProvider(n, i);
+/*
+  for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS && ret_err == 0; i++)
+    (&n->paramsubs[i]);
+*/
+  return ret_err;
+}
+
 void cRosNodeDestroy ( CrosNode *n )
 {
   PRINT_VDEBUG ( "cRosNodeDestroy()\n" );
 
   if ( n == NULL )
     return;
+
+  cRosNodePauseAllCallerPublisher( n );
+  if(cRosNodeUnregisterAll(n) == 0)
+  {
+    cRosNodeWaitForAllUnregistrations( n );
+  }
 
   xmlrpcProcessRelease( &(n->xmlrpc_listner_proc) );
 
@@ -2290,30 +2364,19 @@ int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx)
   }
 
   call->method = CROS_API_UNREGISTER_SERVICE;
-
+  call->provider_idx = serviceidx;
+  // 3 parameters are expected for this method
   xmlrpcParamVectorPushBackString( &call->params, node->name);
   xmlrpcParamVectorPushBackString( &call->params, svc->service_name);
   char uri[256];
   snprintf( uri, 256, "rosrpc://%s:%d/", node->host, node->rpcros_port);
   xmlrpcParamVectorPushBackString( &call->params, uri );
-  snprintf( uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
-  xmlrpcParamVectorPushBackString( &call->params, uri );
+//  snprintf( uri, 256, "http://%s:%d/", node->host, node->xmlrpc_port);
+//  xmlrpcParamVectorPushBackString( &call->params, uri );
 
   // NB: Node release is done in handleApiCallAttempt()
 
   return enqueueMasterApiCallInternal(node, call);
-}
-
-int cRosNodeUnregisterServiceCaller(CrosNode *node, int serviceidx)
-{
-  if (serviceidx < 0 || serviceidx >= CN_MAX_SERVICE_CALLERS)
-    return -1;
-
-  ServiceCallerNode *svc = &node->service_callers[serviceidx];
-  if (svc->service_name == NULL)
-    return -1;
-  // We actually do nothing in this function
-  return 0;
 }
 
 int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context)
@@ -2791,9 +2854,9 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
 
     for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
     {
-      int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) ); //Del???
       if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
-            n->tcpros_server_proc[i].wake_up_time_ms <= cur_time )
+            n->tcpros_server_proc[i].wake_up_time_ms <= cur_time &&
+            n->pubs[n->tcpros_server_proc[i].topic_idx].loop_period >= 0)
       {
         n->tcpros_server_proc[i].wake_up_time_ms = cur_time + n->pubs[n->tcpros_server_proc[i].topic_idx].loop_period;
         tcprosProcessChangeState( &(n->tcpros_server_proc[i]), TCPROS_PROCESS_STATE_START_WRITING );
@@ -2811,7 +2874,8 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     for( i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++ )
     {
       if( n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
-            n->rpcros_client_proc[i].wake_up_time_ms <= cur_time )
+            n->rpcros_client_proc[i].wake_up_time_ms <= cur_time &&
+            n->service_callers[n->rpcros_client_proc[i].service_idx].loop_period >= 0)
       {
         n->rpcros_client_proc[i].wake_up_time_ms = cur_time + n->service_callers[n->rpcros_client_proc[i].service_idx].loop_period;
         tcprosProcessChangeState( &(n->rpcros_client_proc[i]), TCPROS_PROCESS_STATE_START_WRITING );
@@ -3236,7 +3300,7 @@ void initPublisherNode(PublisherNode *node)
   node->status_callback = NULL;
   node->context = NULL;
   node->client_tcpros_id = -1;
-  node->loop_period = 1000;
+  node->loop_period = -1; // Publication paused
 }
 
 void initSubscriberNode(SubscriberNode *node)
@@ -3283,6 +3347,7 @@ void initServiceCallerNode(ServiceCallerNode *node)
   node->serviceresponse_type = NULL;
   node->persistent = 0;
   node->tcp_nodelay = 0;
+  node->loop_period = -1; // Calling paused
 }
 
 void initParameterSubscrition(ParameterSubscription *subscription)

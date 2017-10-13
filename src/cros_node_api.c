@@ -148,7 +148,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
   assert(client_proc->current_call != NULL);
   RosApiCall *call = client_proc->current_call;
-  if(client_idx == 0 && call->user_call == 0) //xmlrpc client connected to roscore
+  if(client_idx == 0 && call->user_call == 0) // xmlrpc client connected to roscore (master)
   {
     if( client_proc->message_type != XMLRPC_MESSAGE_RESPONSE )
     {
@@ -334,7 +334,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_GET_PID:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+        PRINT_DEBUG ( "cRosApiParseResponse() : get PID response \n" );
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         if( checkResponseValue( &client_proc->response ) )
@@ -363,14 +363,15 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_SERVICE:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+        PRINT_DEBUG ( "cRosApiParseResponse() : unregister service response \n" );
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
-          XmlrpcParam* status_msg = xmlrpcParamVectorAt( &client_proc->response, 1);
-          XmlrpcParam* unreg_num = xmlrpcParamVectorAt( &client_proc->response, 2);
+          XmlrpcParam *array = xmlrpcParamVectorAt(&client_proc->response,0);
+          XmlrpcParam* status_msg = xmlrpcParamArrayGetParamAt(array, 1);
+          XmlrpcParam* unreg_num = xmlrpcParamArrayGetParamAt(array, 2);
         }
 
         xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
@@ -378,7 +379,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_PUBLISHER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+        PRINT_DEBUG ( "cRosApiParseResponse() : unregister publisher response \n" );
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
@@ -392,7 +393,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_SUBSCRIBER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : ping response \n" );
+        PRINT_DEBUG ( "cRosApiParseResponse() : unregister subscriber response \n" );
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;

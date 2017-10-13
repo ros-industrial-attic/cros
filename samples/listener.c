@@ -8,6 +8,8 @@
  *  This node also implements a provider of the service /sum. Each time a the service is called
  *  two 64bit integers are received, the callback function callback_srv_add_two_ints is executed,
  *  this function computes the sum of them and this result is sent back to service caller.
+ *  To exit safely press Ctrl-C or 'kill' the process once. If this actions are repeated, the process
+ *  will be finished immediately.
  */
 #include <cros.h>
 
@@ -21,6 +23,7 @@
 
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
 unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
+struct sigaction old_int_signal_handler, old_term_signal_handler; //! Structures codifying the original handlers of SIGINT and SIGTERM signals (e.g. used when pressing Ctrl-C for the second time);
 
 // This callback will be invoked when the subscriber receives a message
 static CallbackResponse callback_sub(cRosMessage *message, void* data_context)
@@ -57,9 +60,11 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
 // Function set_signal_handler() should be called to set this function as the handler of
 // these signals
 static void exit_deamon_handler(int sig)
-  {
-   printf("Signal %i received: exiting.\n", sig);
-   exit_flag = 1;
+{
+  printf("Signal %i received: exiting safely.\n", sig);
+  sigaction(SIGINT, &old_int_signal_handler, NULL);
+  sigaction(SIGTERM, &old_term_signal_handler, NULL);
+  exit_flag = 1; // Indicate the exit of cRosNodeStart loop (safe exit)
 }
 
 // Sets the signal handler functions of SIGINT and SIGTERM: exit_deamon_handler
@@ -75,8 +80,7 @@ int set_signal_handler(void)
    // then the we want the call to be automatically restarted after the signal handler returns
    // instead of making the call fail with the error EINTR.
    act.sa_flags=SA_RESTART;
-   sigaction(SIGINT, &act, NULL);
-   if(sigaction(SIGTERM, &act, NULL) == 0)
+   if(sigaction(SIGINT, &act, &old_int_signal_handler) == 0 && sigaction(SIGTERM, &act,  &old_term_signal_handler) == 0)
       ret=0;
    else
      {

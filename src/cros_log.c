@@ -127,11 +127,11 @@ int cRosLogQueueIsEmpty(CrosLogQueue *queue)
 }
 
 void cRosLogPrint(CrosNode* node,
-                  CrosLogLevel level,         // debug level
+                  CrosLogLevel level,   // debug level
                   const char* file,     // file the message came from
                   const char* function, // function the message came from
                   uint32_t line,
-                  const char* msg, ...)      // message
+                  const char* msg, ...) // message
 {
   char* log_msg = NULL;
   va_list args;
@@ -202,8 +202,13 @@ void cRosLogPrint(CrosNode* node,
 
   for(i = 0; i <node->n_pubs; i++)
   {
-    log->pubs[i] = calloc(strlen(node->pubs[i].topic_name) + 1, sizeof(char));
-    strncpy(log->pubs[i], node->pubs[i].topic_name,strlen(node->pubs[i].topic_name));
+    if(node->pubs[i].topic_name != NULL)
+    {
+      log->pubs[i] = calloc(strlen(node->pubs[i].topic_name) + 1, sizeof(char));
+      strncpy(log->pubs[i], node->pubs[i].topic_name,strlen(node->pubs[i].topic_name));
+    }
+    else
+      log->pubs[i] = NULL;
   }
 
   printf("\n[%d,%d] ",log->secs, log->nsecs);

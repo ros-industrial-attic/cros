@@ -237,7 +237,7 @@ int cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const
 
   // NB: Pass the private ProviderContext to the private api, not the user context
   int rc = cRosNodeRegisterServiceCaller(node, nodeContext->message_definition, service_name, service_type, nodeContext->md5sum,
-                                           loop_period, cRosNodeServiceCallerCallback, cRosNodeStatusCallback,
+                                           loop_period, cRosNodeServiceCallerCallback, status_callback == NULL ? NULL : cRosNodeStatusCallback,
                                            nodeContext, persistent, tcp_nodelay);
   return rc;
 }
@@ -246,11 +246,9 @@ int cRosApisUnegisterServiceCaller(CrosNode *node, int svcidx)
 {
   ServiceCallerNode *service = &node->service_callers[svcidx];
   ProviderContext *context = (ProviderContext *)service->context;
-  int rc = cRosNodeUnregisterServiceCaller(node, svcidx);
-  if (rc != -1)
-    context->unregistering = 1; // ???
+  context->unregistering = 1;
 
-  return rc;
+  return 0;
 }
 
 int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
@@ -268,12 +266,12 @@ int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, con
 
   // NB: Pass the private ProviderContext to the private api, not the user context
   int rc = cRosNodeRegisterServiceProvider(node, service_name, service_type, nodeContext->md5sum,
-                                           cRosNodeServiceProviderCallback, cRosNodeStatusCallback,
+                                           cRosNodeServiceProviderCallback, status_callback == NULL ? NULL : cRosNodeStatusCallback,
                                            nodeContext);
   return rc;
 }
 
-int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx)
+int cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx)
 {
   ServiceProviderNode *service = &node->service_providers[svcidx];
   ProviderContext *context = (ProviderContext *)service->context;

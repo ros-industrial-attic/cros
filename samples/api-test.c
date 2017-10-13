@@ -195,7 +195,7 @@ static CallbackResponse callback_srv_reconfigure(cRosMessage *request, cRosMessa
   cRosMessageField *reconfigured_field = cRosMessageGetField(response, "reconfigured");
   reconfigured_field->data.as_uint8 = response_val;
 
-  printf("Service reconfigure. Arguments: %lld. Response %d \n", reconfigure_id, response_val);
+  printf("Service reconfigure. Arguments: %lld. Response %u \n", (long long)reconfigure_id, response_val);
   fflush(stdout);
 
   return 0;

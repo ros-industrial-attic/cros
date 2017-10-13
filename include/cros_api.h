@@ -305,7 +305,7 @@ typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void *con
 int cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period, ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay);
 int cRosApisUnegisterServiceCaller(CrosNode *node, int svcidx);
 int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context);
-int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx);
+int cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx);
 int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay);
 int cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
 int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context);
