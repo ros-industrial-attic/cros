@@ -73,6 +73,9 @@
 /*! Maximum I/O operations timeout (in msec) */
 #define CN_IO_TIMEOUT 2000
 
+/*! Maximum time that the node will wait for unregistering all publishers, subscribers, servicer providers... in the ROS master (in msec) */
+#define CN_UNREGISTRATION_TIMEOUT 3000
+
 typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;

@@ -1872,7 +1872,10 @@ int cRosUnregistrationCompleted(CrosNode *n)
 
 void cRosNodeWaitForAllUnregistrations(CrosNode *n)
 {
-  while( !cRosUnregistrationCompleted(n) )
+  uint64_t start_time;
+
+  start_time = cRosClockGetTimeMs();
+  while( !cRosUnregistrationCompleted(n) && start_time + CN_UNREGISTRATION_TIMEOUT > cRosClockGetTimeMs())
     cRosNodeDoEventsLoop( n );
 }
 
