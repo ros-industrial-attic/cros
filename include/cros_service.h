@@ -5,7 +5,7 @@
 #include "cros_message.h"
 
 /*! \defgroup cros_service cROS TCPROS
- * 
+ *
  *  Implemenation of the TCPROS protocol for service message exchanges
  */
 

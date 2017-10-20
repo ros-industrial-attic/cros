@@ -102,14 +102,14 @@ int main(int argc, char **argv)
   // Create a subscriber and supply a callback for received messages
   if(cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0) < 0)
   {
-    printf("cRosApiRegisterSubscriber failed; did you run this program one directory above 'rosdb'?\n");
+    printf("cRosApiRegisterSubscriber() failed; did you run this program one directory above 'rosdb'?\n");
     return EXIT_FAILURE;
   }
 
   // Create a service provider and supply a callback for received calls
   if(cRosApiRegisterServiceProvider(node,"/sum","roscpp_tutorials/TwoInts", callback_srv_add_two_ints, NULL, NULL) < 0)
   {
-    printf("cRosApiRegisterServiceProvider failed; did you run this program one directory above 'rosdb'?\n");
+    printf("cRosApiRegisterServiceProvider() failed; did you run this program one directory above 'rosdb'?\n");
     return EXIT_FAILURE;
   }
 
@@ -119,8 +119,8 @@ int main(int argc, char **argv)
   // Run the main loop until exit_flag is 1
   cRosNodeStart( node, &exit_flag );
 
-  // Free memory
-  cRosNodeDestroy( node );
-
+  // Free memory and unregister
+  if (cRosNodeDestroy( node ) != 0)
+    printf("cRosNodeDestroy() failed; Error unregistering from ROS master\n");
   return EXIT_SUCCESS;
 }

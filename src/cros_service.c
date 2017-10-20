@@ -95,15 +95,15 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
 
         if(srv_req != NULL)
         {
-          srv->request->package = srv->package;
-          srv->request->root_dir = srv->root_dir;
+          srv->request->package = strdup(srv->package);
+          srv->request->root_dir = strdup(srv->root_dir);
           loadFromStringMsg(srv_req, srv->request);
         }
 
         if(strlen(srv_res) != 0)
         {
-          srv->response->package = srv->package;
-          srv->response->root_dir = srv->root_dir;
+          srv->response->package = strdup(srv->package);
+          srv->response->root_dir = strdup(srv->root_dir);
           loadFromStringMsg(srv_res, srv->response);
         }
 
@@ -253,8 +253,22 @@ int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **me
         return -1;
      }
   }
-
+  cRosServiceDefFree(srv);
   return 0;
+}
+
+void cRosServiceDefFree(cRosSrvDef* service_def)
+{
+  if(service_def != NULL)
+  {
+    free(service_def->name);
+    free(service_def->package);
+    free(service_def->plain_text);
+    free(service_def->root_dir);
+    cRosMessageDefFree(service_def->request);
+    cRosMessageDefFree(service_def->response);
+    free(service_def);
+  }
 }
 
 void cRosServiceFree(cRosService* service)

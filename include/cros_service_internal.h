@@ -35,4 +35,6 @@ char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps);
 
 int loadFromFileSrv(char* filename, cRosSrvDef* srv);
 
+void cRosServiceDefFree(cRosSrvDef* service_def);
+
 #endif // _CROS_SERVICE_INTERNAL_H_

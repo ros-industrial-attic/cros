@@ -69,23 +69,39 @@ typedef struct ProviderContext
   NodeStatusCallback status_callback;
   void *api_callback;
   void *context;
-  int unregistering;
 } ProviderContext;
+
+static void initProviderContext(ProviderContext *context)
+{
+  context->type=-1;
+  context->incoming=NULL;
+  context->outgoing=NULL;
+  context->message_definition=NULL;
+  context->md5sum=NULL;
+  context->status_callback=NULL;
+  context->api_callback=NULL;
+  context->context=NULL;
+}
 
 static void freeProviderContext(ProviderContext *context)
 {
-  cRosMessageFree(context->incoming);
-  cRosMessageFree(context->outgoing);
-  free(context->md5sum);
-  free(context);
+  if(context != NULL)
+  {
+    cRosMessageFree(context->incoming);
+    cRosMessageFree(context->outgoing);
+    free(context->message_definition);
+    free(context->md5sum);
+    free(context);
+  }
 }
 
 static ProviderContext * newProviderContext(const char *provider_path, ProviderType type)
 {
-  ProviderContext *context = (ProviderContext *)calloc(1, sizeof(ProviderContext));
+  ProviderContext *context = (ProviderContext *)malloc(sizeof(ProviderContext));
   if (context == NULL)
     goto clean;
 
+  initProviderContext(context);
   context->type = type;
   context->md5sum = (char*) calloc(1, 33);// 32 chars + '\0';
   if (context->md5sum == NULL)
@@ -105,7 +121,7 @@ static ProviderContext * newProviderContext(const char *provider_path, ProviderT
         goto clean;
 
       strcpy(context->md5sum, context->incoming->md5sum);
-      context->message_definition = context->incoming->msgDef->plain_text;
+      context->message_definition = strdup(context->incoming->msgDef->plain_text); // Alloc new mem so that it can be freed independently
       break;
     }
     case CROS_PUBLISHER:
@@ -119,7 +135,7 @@ static ProviderContext * newProviderContext(const char *provider_path, ProviderT
         goto clean;
 
       strcpy(context->md5sum, context->outgoing->md5sum);
-      context->message_definition = context->outgoing->msgDef->plain_text;
+      context->message_definition = strdup(context->outgoing->msgDef->plain_text);
       break;
     }
     case CROS_SERVICE_PROVIDER:
@@ -218,8 +234,6 @@ static void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
 {
   ProviderContext *context = (ProviderContext *)context_;
   context->status_callback(status, context->context);
-  if (context->unregistering)
-    freeProviderContext(context);
 }
 
 int cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period,
@@ -242,13 +256,12 @@ int cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const
   return rc;
 }
 
-int cRosApisUnegisterServiceCaller(CrosNode *node, int svcidx)
+void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx)
 {
-  ServiceCallerNode *service = &node->service_callers[svcidx];
-  ProviderContext *context = (ProviderContext *)service->context;
-  context->unregistering = 1;
-
-  return 0;
+  ServiceCallerNode *svc = &node->service_callers[svcidx];
+  ProviderContext *context = (ProviderContext *)svc->context;
+  freeProviderContext(context);
+  cRosNodeReleaseServiceCaller(svc);
 }
 
 int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
@@ -276,10 +289,16 @@ int cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx)
   ServiceProviderNode *service = &node->service_providers[svcidx];
   ProviderContext *context = (ProviderContext *)service->context;
   int rc = cRosNodeUnregisterServiceProvider(node, svcidx);
-  if (rc != -1)
-    context->unregistering = 1;
 
   return rc;
+}
+
+void cRosApiReleaseServiceProvider(CrosNode *node, int svcidx)
+{
+  ServiceProviderNode *svc = &node->service_providers[svcidx];
+  ProviderContext *context = (ProviderContext *)svc->context;
+  freeProviderContext(context);
+  cRosNodeReleaseServiceProvider(svc);
 }
 
 int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type,
@@ -307,10 +326,16 @@ int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
   SubscriberNode *sub = &node->subs[subidx];
   ProviderContext *context = (ProviderContext *)sub->context;
   int rc = cRosNodeUnregisterSubscriber(node, subidx);
-  if (rc != -1)
-    context->unregistering = 1;
 
   return rc;
+}
+
+void cRosApiReleaseSubscriber(CrosNode *node, int subidx)
+{
+  SubscriberNode *sub = &node->subs[subidx];
+  ProviderContext *context = (ProviderContext *)sub->context;
+  freeProviderContext(context);
+  cRosNodeReleaseSubscriber(sub);
 }
 
 int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period,
@@ -338,10 +363,16 @@ int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
   PublisherNode *pub = &node->pubs[pubidx];
   ProviderContext *context = (ProviderContext *)pub->context;
   int rc = cRosNodeUnregisterPublisher(node, pubidx);
-  if (rc != -1)
-    context->unregistering = 1;
 
   return rc;
+}
+
+void cRosApiReleasePublisher(CrosNode *node, int pubidx)
+{
+  PublisherNode *pub = &node->pubs[pubidx];
+  ProviderContext *context = (ProviderContext *)pub->context;
+  freeProviderContext(context);
+  cRosNodeReleasePublisher(pub);
 }
 
 int cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback callback, void *context)

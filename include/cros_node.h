@@ -318,12 +318,13 @@ void cRosGetMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char
 CrosNode *cRosNodeCreate(char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
                          char *message_root_path, uint64_t const *select_timeout_ms );
 
-/*! \brief Release all the internal allocated memory for a CrosNode object previously crated with
- *         cRosNodeCreate()
+/*! \brief Unregister from ROS master and release all the internal allocated memory for a CrosNode
+ *          object previously crated with cRosNodeCreate()
  *
  *  \param n A pointer to the CrosNode object to be released
+ *  \return 0 on success. Otherwise an error code
  */
-void cRosNodeDestroy( CrosNode *n );
+int cRosNodeDestroy( CrosNode *n );
 
 /*! \brief Perform a loop of the cROS node main cycle
  *

@@ -77,13 +77,13 @@ int main(int argc, char **argv)
 
   if(cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 10, callback_pub, NULL, NULL) < 0)
   {
-    printf("cRosApiRegisterPublisher failed; did you run this program one directory above 'rosdb'?\n");
+    printf("cRosApiRegisterPublisher() failed; did you run this program one directory above 'rosdb'?\n");
     return EXIT_FAILURE;
   }
 
   if(cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", 20, callback_srv_add_two_ints, NULL, NULL, 1, 1) < 0)
   {
-    printf("cRosApiRegisterServiceCaller failed; did you run this program one directory above 'rosdb'?\n");
+    printf("cRosApiRegisterServiceCaller() failed; did you run this program one directory above 'rosdb'?\n");
     return EXIT_FAILURE;
   }
 
@@ -98,9 +98,11 @@ int main(int argc, char **argv)
   elapsed_time = (end_time.tv_sec - start_time.tv_sec) * 1000.0;      // sec to ms
   elapsed_time += (end_time.tv_usec - start_time.tv_usec) / 1000.0;   // us to ms
 
-  // All done
-  cRosNodeDestroy( node );
   printf("Elapsed time: %fms\n", elapsed_time);
+
+  // All done: free memory and unregister from ROS master
+  if( cRosNodeDestroy( node ) != 0)
+    printf("cRosNodeDestroy() failed; Error unregistering from ROS master\n");
 
   return EXIT_SUCCESS;
 }

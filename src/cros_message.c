@@ -589,181 +589,183 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
 //  Load message specification from a string:
 //  types, names, constants
 
-        char* new_line = NULL;
-        char* new_line_saveptr = NULL;
-        const char* delimiter = "\n";
+    char* new_line = NULL;
+    char* new_line_saveptr = NULL;
+    const char* delimiter = "\n";
 
-        int txt_len = strlen(text);
-        msg->plain_text = (char*) malloc((strlen(text)+1)*sizeof(char));
-        memcpy(msg->plain_text,"\0",1);
-        strcpy(msg->plain_text,text);
-        int plain_txt_len = strlen(msg->plain_text);
+    int txt_len = strlen(text);
+    msg->plain_text = (char*) malloc((strlen(text)+1)*sizeof(char));
+    if(msg->plain_text == NULL)
+        return -1;
+    memcpy(msg->plain_text,"\0",1);
+    strcpy(msg->plain_text,text);
+    int plain_txt_len = strlen(msg->plain_text);
 
-        new_line = strtok_r(text, delimiter, &new_line_saveptr);
-        while(new_line != NULL)
+    new_line = strtok_r(text, delimiter, &new_line_saveptr);
+    while(new_line != NULL)
+    {
+        //printf("%s\n", new_line);
+        char* iterator = new_line;
+        int comment_char_found = 0;
+        int char_count = 0;
+
+        //strip comments and new line
+        while(((char)*iterator) != '\0')
         {
-            //printf("%s\n", new_line);
-            char* iterator = new_line;
-            int comment_char_found = 0;
-            int char_count = 0;
-
-            //strip comments and new line
-            while(((char)*iterator) != '\0')
+            if(((char)*iterator) == *CHAR_COMMENT)
             {
-                if(((char)*iterator) == *CHAR_COMMENT)
-                {
-                    comment_char_found = 1;
-                    break;
-                }
-                char_count++;
-                iterator++;
+                comment_char_found = 1;
+                break;
             }
+            char_count++;
+            iterator++;
+        }
 
-            // ignore empty lines
-            if(comment_char_found)
+        // ignore empty lines
+        if(comment_char_found)
+        {
+          if(char_count == 0)
+          {
+            new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
+            continue;
+          }
+          else
+          {
+            //remove spaces among the message entry and the comment
+            while(*(new_line + char_count - 1) == ' ')
             {
-              if(char_count == 0)
-              {
-                new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
-                continue;
-              }
-              else
-              {
-                //remove spaces among the message entry and the comment
-                while(*(new_line + char_count - 1) == ' ')
-                {
-                 char_count--;
-                }
-              }
+             char_count--;
             }
+          }
+        }
 
-            char* msg_entry = (char*) calloc(char_count + 1, sizeof(char)); // type/name
-            strncpy(msg_entry, new_line,char_count);
-            char* entry_type = NULL;
-            char* entry_name = NULL;
-            char* entry_const_val = NULL;
+        char* msg_entry = (char*) calloc(char_count + 1, sizeof(char)); // type/name
+        strncpy(msg_entry, new_line,char_count);
+        char* entry_type = NULL;
+        char* entry_name = NULL;
+        char* entry_const_val = NULL;
 
-            char* msg_entry_itr = msg_entry;
-            entry_type = msg_entry;
+        char* msg_entry_itr = msg_entry;
+        entry_type = msg_entry;
 
-            while(*(msg_entry_itr++) != ' ');
-            *(msg_entry_itr - 1) = '\0';
+        while(*(msg_entry_itr++) != ' ');
+        *(msg_entry_itr - 1) = '\0';
 
-            entry_name = (char*) calloc(strlen(msg_entry_itr) + 1, sizeof(char));
-            strcpy(entry_name, msg_entry_itr);
-            entry_type = base_msg_type(entry_type);
+        entry_name = (char*) calloc(strlen(msg_entry_itr) + 1, sizeof(char));
+        strcpy(entry_name, msg_entry_itr);
+        entry_type = base_msg_type(entry_type);
 
-            char* filled_count = msg_entry_itr;
+        char* filled_count = msg_entry_itr;
 
-            while(*filled_count != '\0')
+        while(*filled_count != '\0')
+        {
+            if(*filled_count == ' ')
             {
-                if(*filled_count == ' ')
-                {
-                    msg_entry_itr = filled_count + 1;
-                    while(*msg_entry_itr != '\0' &&  *msg_entry_itr == ' ' )
-                        msg_entry_itr++;
-                    *filled_count = *msg_entry_itr;
-                    if(*msg_entry_itr != '\0')
-                        *msg_entry_itr = ' ';
-                }
-                else
-                {
-                    filled_count ++;
-                }
-            }
-
-            if(!is_valid_msg_type(entry_type))
-            {
-                free(entry_type);
-                free(msg_entry);
-                return -1;
-            }
-
-            char* const_char_ptr = strpbrk(entry_name, CHAR_CONST);
-
-            if( const_char_ptr != NULL)
-            {
-                if(strcmp(entry_type, "string") == 0)
-                {
-                    //  String constants
-                    //  Strings contain anything to the right of the equals sign,
-                    //  there are no comments allowed
-
-                    char* entry_name_saveptr = NULL;
-                    strtok_r(entry_name,CHAR_CONST,&entry_name_saveptr);
-                    entry_const_val = strtok_r(NULL,CHAR_CONST,&entry_name_saveptr);
-                }
-                else
-                {
-                    //Number constants
-                    char* entry_name_saveptr = NULL;
-                    strtok_r(entry_name,CHAR_CONST,&entry_name_saveptr);
-                    entry_const_val = strtok_r(NULL,CHAR_CONST,&entry_name_saveptr);
-                }
-
-                // TODO: try to cast number values
-
-                msgConst* current = msg->constants;
-
-                current->name = entry_name;
-                current->type = getMessageType(entry_type);
-                if (current->type == CROS_CUSTOM_TYPE)
-                {
-                  current->type_s = entry_type;
-                  entry_type = NULL;
-                }
-                current->value = entry_const_val;
-                current->next = (msgConst*)malloc(sizeof(msgConst));
-                msgConst* next = current->next;
-                initMsgConst(next);
-                next->prev = current;
-                msg->constants = next;
+                msg_entry_itr = filled_count + 1;
+                while(*msg_entry_itr != '\0' &&  *msg_entry_itr == ' ' )
+                    msg_entry_itr++;
+                *filled_count = *msg_entry_itr;
+                if(*msg_entry_itr != '\0')
+                    *msg_entry_itr = ' ';
             }
             else
             {
-                msgFieldDef* current = msg->fields;
-
-                current->name = entry_name;
-                current->type = getMessageType(entry_type);
-                if (current->type == CROS_CUSTOM_TYPE)
-                {
-                  if(strstr(entry_type,"/") == NULL)
-                  {
-                      current->type_s = (char*) calloc(strlen(msg->package)+ 1 + strlen(entry_type) + 1, sizeof(char));
-                      memcpy(current->type_s, msg->package, strlen(msg->package)+ 1);
-                      strcat(current->type_s,"/");
-                      strcat(current->type_s,entry_type);
-                  }
-                  else
-                  {
-                    current->type_s = entry_type;
-                    entry_type = NULL;
-                  }
-                }
-
-                int array_size;
-                if(is_array_type(msg_entry, &array_size))
-                {
-                  current->is_array = 1;
-                  current->array_size = array_size;
-                }
-
-                current->next = (msgFieldDef*)malloc(sizeof(msgFieldDef));
-                msgFieldDef* next = current->next;
-                initFieldDef(next);
-                next->prev = current;
-                msg->fields = next;
+                filled_count ++;
             }
-
-            if (entry_type)
-              free(entry_type);
-
-            free(msg_entry);
-
-            new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
         }
 
-        return EXIT_SUCCESS;
+        if(!is_valid_msg_type(entry_type))
+        {
+            free(entry_type);
+            free(msg_entry);
+            return -1;
+        }
+
+        char* const_char_ptr = strpbrk(entry_name, CHAR_CONST);
+
+        if( const_char_ptr != NULL)
+        {
+            if(strcmp(entry_type, "string") == 0)
+            {
+                //  String constants
+                //  Strings contain anything to the right of the equals sign,
+                //  there are no comments allowed
+
+                char* entry_name_saveptr = NULL;
+                strtok_r(entry_name,CHAR_CONST,&entry_name_saveptr);
+                entry_const_val = strtok_r(NULL,CHAR_CONST,&entry_name_saveptr);
+            }
+            else
+            {
+                //Number constants
+                char* entry_name_saveptr = NULL;
+                strtok_r(entry_name,CHAR_CONST,&entry_name_saveptr);
+                entry_const_val = strtok_r(NULL,CHAR_CONST,&entry_name_saveptr);
+            }
+
+            // TODO: try to cast number values
+
+            msgConst* current = msg->constants;
+
+            current->name = entry_name;
+            current->type = getMessageType(entry_type);
+            if (current->type == CROS_CUSTOM_TYPE)
+            {
+              current->type_s = entry_type;
+              entry_type = NULL;
+            }
+            current->value = strdup(entry_const_val); // strdup() will allocate a memory buffer that is independent of '->value' memory buffer so that it can freed independently as well
+            current->next = (msgConst*)malloc(sizeof(msgConst));
+            msgConst* next = current->next;
+            initMsgConst(next);
+            next->prev = current;
+            msg->constants = next;
+        }
+        else
+        {
+            msgFieldDef* current = msg->fields;
+
+            current->name = entry_name;
+            current->type = getMessageType(entry_type);
+            if (current->type == CROS_CUSTOM_TYPE)
+            {
+              if(strstr(entry_type,"/") == NULL)
+              {
+                  current->type_s = (char*) calloc(strlen(msg->package)+ 1 + strlen(entry_type) + 1, sizeof(char));
+                  memcpy(current->type_s, msg->package, strlen(msg->package)+ 1);
+                  strcat(current->type_s,"/");
+                  strcat(current->type_s,entry_type);
+              }
+              else
+              {
+                current->type_s = entry_type;
+                entry_type = NULL;
+              }
+            }
+
+            int array_size;
+            if(is_array_type(msg_entry, &array_size))
+            {
+              current->is_array = 1;
+              current->array_size = array_size;
+            }
+
+            current->next = (msgFieldDef*)malloc(sizeof(msgFieldDef));
+            msgFieldDef* next = current->next;
+            initFieldDef(next);
+            next->prev = current;
+            msg->fields = next;
+        }
+
+        if (entry_type)
+          free(entry_type);
+
+        free(msg_entry);
+
+        new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
+    }
+
+    return EXIT_SUCCESS;
 }
 
 int loadFromFileMsg(char* filename, cRosMessageDef* msg)
@@ -915,8 +917,178 @@ int cRosMessageBuild(cRosMessage* message, const char* message_path)
 
   message->msgDef = msg_def;
   cRosMessageBuildFromDef(message,msg_def);
+  cRosMessageDefFree(msg_def);
 
   return 0;
+}
+
+int cRosCopyFieldDef(msgFieldDef* new_field_def, msgFieldDef* orig_field_def )
+{
+  int ret;
+  if(new_field_def != NULL && orig_field_def != NULL)
+  {
+    new_field_def->type = orig_field_def->type;
+    new_field_def->is_array = orig_field_def->is_array;
+    new_field_def->array_size = orig_field_def->array_size;
+    new_field_def->next = NULL;
+    new_field_def->prev = NULL;
+    new_field_def->type_s = (orig_field_def->type_s != NULL)? strdup(orig_field_def->type_s):NULL;
+    new_field_def->name = (orig_field_def->name != NULL)? strdup(orig_field_def->name):NULL;
+    if((new_field_def->type_s == NULL && orig_field_def->type_s != NULL) || (new_field_def->name == NULL && orig_field_def->name != NULL))
+    {
+      free(new_field_def->type_s);
+      free(new_field_def->name);
+      ret=-1;
+    }
+    else
+      ret=0;
+  }
+  else
+    ret=-1;
+  return ret;
+}
+
+int cRosCopyConstDef(msgConst* new_const_def, msgConst* orig_const_def )
+{
+  int ret;
+  if(new_const_def != NULL && orig_const_def != NULL)
+  {
+    new_const_def->type = orig_const_def->type;
+    new_const_def->next = NULL;
+    new_const_def->prev = NULL;
+    new_const_def->type_s = (orig_const_def->type_s != NULL)? strdup(orig_const_def->type_s):NULL;
+    new_const_def->name = (orig_const_def->name != NULL)? strdup(orig_const_def->name):NULL;
+    new_const_def->value = (orig_const_def->value != NULL)? strdup(orig_const_def->value):NULL;
+    if((new_const_def->type_s == NULL && orig_const_def->type_s != NULL) ||
+       (new_const_def->name == NULL && orig_const_def->name != NULL) ||
+       (new_const_def->value == NULL && orig_const_def->value != NULL))
+    {
+      free(new_const_def->type_s);
+      free(new_const_def->name);
+      free(new_const_def->value);
+      ret=-1;
+    }
+    else
+      ret=0;
+  }
+  else
+    ret=-1;
+  return ret;
+}
+
+// Make a copy of a message definition struct allocating new memory for it, so that all fields can be freed independently from the originals
+int cRosCopyMessageDef(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_msg_def )
+{
+  int ret;
+
+  *ptr_new_msg_def = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+  if(*ptr_new_msg_def != NULL)
+  {
+    initCrosMsg(*ptr_new_msg_def);
+    (*ptr_new_msg_def)->name = (orig_msg_def->name != NULL)? strdup(orig_msg_def->name):NULL; // NULL should not be passed to strdup()
+    (*ptr_new_msg_def)->package = (orig_msg_def->package != NULL)? strdup(orig_msg_def->package):NULL;
+    (*ptr_new_msg_def)->root_dir = (orig_msg_def->root_dir != NULL)? strdup(orig_msg_def->root_dir):NULL;
+    (*ptr_new_msg_def)->plain_text = (orig_msg_def->plain_text != NULL)? strdup(orig_msg_def->plain_text):NULL;
+
+    ret=0; // Default return value: no error
+    // Copy the first field
+    if(orig_msg_def->first_field != NULL)
+    {
+      msgFieldDef *new_field_itr, *orig_field_itr;
+
+      orig_field_itr =  orig_msg_def->first_field;
+      new_field_itr = (*ptr_new_msg_def)->first_field;
+
+      ret=cRosCopyFieldDef(new_field_itr, orig_field_itr);
+
+      // Copy message definition fields
+      while(orig_field_itr->next != NULL && ret == 0)
+      {
+        new_field_itr->next = (msgFieldDef*)malloc(sizeof(msgFieldDef));
+        if(new_field_itr->next != NULL)
+        {
+          initFieldDef(new_field_itr->next);
+          ret=cRosCopyFieldDef(new_field_itr->next, orig_field_itr->next);
+          if(ret == 0)
+          {
+            new_field_itr->next->prev = new_field_itr;
+            new_field_itr = new_field_itr->next;
+            orig_field_itr = orig_field_itr->next;
+          }
+          else  // Error allocating memory: discard last filed and exit the loop
+          {
+            free(new_field_itr->next);
+            new_field_itr->next = NULL;
+            ret=-1;
+          }
+        }
+        else
+        {
+          ret=-1; // Error allocating memory: exit the loop
+        }
+      }
+      (*ptr_new_msg_def)->fields=new_field_itr; // Last valid field
+    }
+    else
+    {
+      free((*ptr_new_msg_def)->first_field);
+      (*ptr_new_msg_def)->first_field=NULL;
+      (*ptr_new_msg_def)->fields=NULL;
+    }
+
+     // Copy the first constant
+    if(orig_msg_def->first_const != NULL)
+    {
+      msgConst *new_const_itr, *orig_const_itr;
+
+      orig_const_itr =  orig_msg_def->first_const;
+      new_const_itr = (*ptr_new_msg_def)->first_const;
+
+      ret=cRosCopyConstDef(new_const_itr, orig_const_itr);
+
+      // Copy message definition constants
+      while(orig_const_itr->next != NULL && ret == 0)
+      {
+        new_const_itr->next = (msgConst*)malloc(sizeof(msgConst));
+        if(new_const_itr->next != NULL)
+        {
+          initMsgConst(new_const_itr->next);
+          ret=cRosCopyConstDef(new_const_itr->next, orig_const_itr->next);
+          if(ret == 0)
+          {
+            new_const_itr->next->prev = new_const_itr;
+            new_const_itr = new_const_itr->next;
+            orig_const_itr = orig_const_itr->next;
+          }
+          else  // Error allocating memory: discard last filed and exit the loop
+          {
+            free(new_const_itr->next);
+            new_const_itr->next = NULL;
+            ret=-1;
+          }
+        }
+        else
+        {
+          ret=-1; // Error allocating memory: exit the loop
+        }
+      }
+      (*ptr_new_msg_def)->constants = new_const_itr; // Last valid constant
+
+    }
+    else
+    {
+      free((*ptr_new_msg_def)->first_const);
+      (*ptr_new_msg_def)->first_const=NULL;
+      (*ptr_new_msg_def)->constants=NULL;
+    }
+    if(ret != 0) // Error making the msg. def. copy: free all the memory that we have allocated
+    {
+      cRosMessageDefFree(*ptr_new_msg_def);
+    }
+  }
+  else
+    ret=-1;
+    return(ret);
 }
 
 void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
@@ -924,7 +1096,8 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
   DynString output;
   dynStringInit(&output);
 
-  message->msgDef = msg_def;
+  cRosCopyMessageDef(&message->msgDef, msg_def );
+
   unsigned char* res = getMD5Msg(msg_def);
   cRosMD5Readable(res, &output);
   strcpy(message->md5sum,output.data);

@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "cros_node.h"
+#include "cros_api_internal.h"
 #include "cros_api.h"
 #include "cros_message.h"
 #include "cros_clock.h"
@@ -22,11 +23,6 @@ static void initSubscriberNode(SubscriberNode *node);
 static void initServiceProviderNode(ServiceProviderNode *node);
 static void initServiceCallerNode(ServiceCallerNode *node);
 static void initParameterSubscrition(ParameterSubscription *subscription);
-static void releasePublisherNode(PublisherNode *node);
-static void releaseSubscriberNode(SubscriberNode *node);
-static void releaseServiceProviderNode(ServiceProviderNode *node);
-static void releaseServiceCallerNode(ServiceCallerNode *node);
-static void releaseParameterSubscrition(ParameterSubscription *subscription);
 static int enqueueSubscriberAdvertise(CrosNode *node, int subidx);
 static int enqueuePublisherAdvertise(CrosNode *node, int pubidx);
 static int enqueueServiceAdvertise(CrosNode *node, int servivceidx);
@@ -158,7 +154,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       }
 
       // Finally release publisher
-      releasePublisherNode(pub);
+      cRosApiReleasePublisher(node, call->provider_idx);
       initPublisherNode(pub);
       call->provider_idx = -1;
       break;
@@ -178,7 +174,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       }
 
       // Finally release subscriber
-      releaseSubscriberNode(sub);
+      cRosApiReleaseSubscriber(node, call->provider_idx);
       initSubscriberNode(sub);
       call->provider_idx = -1;
       break;
@@ -198,7 +194,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       }
 
       // Finally release service provider
-      releaseServiceProviderNode(service);
+      cRosApiReleaseServiceProvider(node, call->provider_idx);
       initServiceProviderNode(service);
       call->provider_idx = -1;
       break;
@@ -221,7 +217,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       }
 
       // Finally release parameter subscription
-      releaseParameterSubscrition(subscription);
+      cRosNodeReleaseParameterSubscrition(subscription);
       initParameterSubscrition(subscription);
       call->provider_idx = -1;
       break;
@@ -1862,24 +1858,27 @@ int cRosUnregistrationCompleted(CrosNode *n)
   for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS && unreg_finished == 1; i++)
     if(n->service_providers[i].service_name != NULL)
       unreg_finished = 0;
-/*
+
   for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS && unreg_finished == 1; i++)
     if(n->paramsubs[i].parameter_key != NULL)
       unreg_finished = 0;
-*/
+
   return(unreg_finished);
 }
 
-void cRosNodeWaitForAllUnregistrations(CrosNode *n)
+int cRosNodeWaitForAllUnregistrations(CrosNode *n)
 {
+  int ret;
   uint64_t start_time;
 
   start_time = cRosClockGetTimeMs();
-  while( !cRosUnregistrationCompleted(n) && start_time + CN_UNREGISTRATION_TIMEOUT > cRosClockGetTimeMs())
+  while( (ret = !cRosUnregistrationCompleted(n)) && start_time + CN_UNREGISTRATION_TIMEOUT > cRosClockGetTimeMs())
     cRosNodeDoEventsLoop( n );
+
+  return ret;
 }
 
-void cRosNodePauseAllCallerPublisher(CrosNode *n)
+void cRosNodePauseAllCallersPublishers(CrosNode *n)
 {
   int i;
 
@@ -1899,33 +1898,36 @@ int cRosNodeUnregisterAll(CrosNode *n)
 
   for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS && ret_err == 0; i++)
     if(n->pubs[i].topic_name != NULL)
-      cRosApiUnregisterPublisher(n, i);
+      ret_err = cRosApiUnregisterPublisher(n, i);
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS && ret_err == 0; i++)
     if(n->subs[i].topic_name != NULL)
-      cRosApiUnregisterSubscriber(n, i);
+      ret_err = cRosApiUnregisterSubscriber(n, i);
 
   for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS && ret_err == 0; i++)
     if(n->service_providers[i].service_name != NULL)
-      cRosApiUnregisterServiceProvider(n, i);
-/*
+      ret_err = cRosApiUnregisterServiceProvider(n, i);
+
   for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS && ret_err == 0; i++)
-    (&n->paramsubs[i]);
-*/
+    if(n->paramsubs[i].parameter_key != NULL)
+      ret_err = cRosApiUnsubscribeParam(n, i);
+
   return ret_err;
 }
 
-void cRosNodeDestroy ( CrosNode *n )
+int cRosNodeDestroy ( CrosNode *n )
 {
+  int ret;
   PRINT_VDEBUG ( "cRosNodeDestroy()\n" );
 
   if ( n == NULL )
-    return;
+    return 0;
 
-  cRosNodePauseAllCallerPublisher( n );
-  if(cRosNodeUnregisterAll(n) == 0)
+  cRosNodePauseAllCallersPublishers( n );
+  ret = cRosNodeUnregisterAll(n);
+  if(ret == 0)
   {
-    cRosNodeWaitForAllUnregistrations( n );
+    ret = cRosNodeWaitForAllUnregistrations( n );
   }
 
   xmlrpcProcessRelease( &(n->xmlrpc_listner_proc) );
@@ -1959,19 +1961,21 @@ void cRosNodeDestroy ( CrosNode *n )
   if ( n->roscore_host != NULL ) free ( n->roscore_host );
 
   for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS; i++)
-    releasePublisherNode(&n->pubs[i]);
+    cRosApiReleasePublisher(n, i);
 
   for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS; i++)
-    releaseSubscriberNode(&n->subs[i]);
+    cRosApiReleaseSubscriber(n, i);
 
   for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS; i++)
-    releaseServiceProviderNode(&n->service_providers[i]);
+    cRosApiReleaseServiceProvider(n, i);
 
   for ( i = 0; i < CN_MAX_SERVICE_CALLERS; i++)
-    releaseServiceCallerNode(&n->service_callers[i]);
+    cRosApiReleaseServiceCaller(n, i);
 
   for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS; i++)
-    releaseParameterSubscrition(&n->paramsubs[i]);
+    cRosNodeReleaseParameterSubscrition(&n->paramsubs[i]);
+
+  return ret;
 }
 
 int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
@@ -2296,7 +2300,10 @@ int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx)
 
   // NB: Node release is done in handleApiCallAttempt()
 
-  return enqueueMasterApiCallInternal(node, call);
+  if(enqueueMasterApiCallInternal(node, call) < 0)
+    return -1;
+  else
+    return 0;
 }
 
 int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx)
@@ -2338,7 +2345,10 @@ int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx)
 
   // NB: Node release is done in handleApiCallAttempt()
 
-  return enqueueMasterApiCallInternal(node, call);
+  if(enqueueMasterApiCallInternal(node, call) < 0)
+    return -1;
+  else
+    return 0;
 }
 
 int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx)
@@ -2379,7 +2389,10 @@ int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx)
 
   // NB: Node release is done in handleApiCallAttempt()
 
-  return enqueueMasterApiCallInternal(node, call);
+  if(enqueueMasterApiCallInternal(node, call) < 0)
+    return -1;
+  else
+    return 0;
 }
 
 int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context)
@@ -2397,7 +2410,7 @@ int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback ca
   char *parameter_key = ( char * ) malloc ( ( strlen ( key ) + 1 ) * sizeof ( char ) );
   if (parameter_key == NULL)
   {
-    PRINT_ERROR ( "cRosApiUnsubscribeParam() : Can't allocate memory\n" );
+    PRINT_ERROR ( "cRosApiSubscribeParam() : Can't allocate memory\n" );
     return -1;
   }
 
@@ -3361,7 +3374,7 @@ void initParameterSubscrition(ParameterSubscription *subscription)
   subscription->context = NULL;
 }
 
-void releasePublisherNode(PublisherNode *node)
+void cRosNodeReleasePublisher(PublisherNode *node)
 {
   free(node->message_definition);
   free(node->topic_name);
@@ -3369,7 +3382,7 @@ void releasePublisherNode(PublisherNode *node)
   free(node->md5sum);
 }
 
-void releaseSubscriberNode(SubscriberNode *node)
+void cRosNodeReleaseSubscriber(SubscriberNode *node)
 {
   free(node->message_definition);
   free(node->topic_name);
@@ -3378,7 +3391,7 @@ void releaseSubscriberNode(SubscriberNode *node)
   free(node->topic_host);
 }
 
-void releaseServiceProviderNode(ServiceProviderNode *node)
+void cRosNodeReleaseServiceProvider(ServiceProviderNode *node)
 {
   free(node->service_name);
   free(node->service_type);
@@ -3387,7 +3400,7 @@ void releaseServiceProviderNode(ServiceProviderNode *node)
   free(node->md5sum);
 }
 
-void releaseServiceCallerNode(ServiceCallerNode *node)
+void cRosNodeReleaseServiceCaller(ServiceCallerNode *node)
 {
   free(node->service_name);
   free(node->service_type);
@@ -3408,7 +3421,7 @@ void initCrosNodeStatus(CrosNodeStatusUsr *status)
   status->parameter_value = NULL;
 }
 
-void releaseParameterSubscrition(ParameterSubscription *subscription)
+void cRosNodeReleaseParameterSubscrition(ParameterSubscription *subscription)
 {
   free(subscription->parameter_key);
   xmlrpcParamRelease(&subscription->parameter_value);

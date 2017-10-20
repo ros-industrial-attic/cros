@@ -88,6 +88,37 @@ int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx);
  */
 int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx);
 
+
+/*! \brief Frees the memory of a publisher node
+ *
+ *  \param node Pointer to the publisher node to be freed
+ */
+void cRosNodeReleasePublisher(PublisherNode *node);
+
+/*! \brief Frees the memory of a subscriber node
+ *
+ *  \param node Pointer to the subscriber node to be freed
+ */
+void cRosNodeReleaseSubscriber(SubscriberNode *node);
+
+/*! \brief Frees the memory of a service-provider node
+ *
+ *  \param node Pointer to the service node to be freed
+ */
+void cRosNodeReleaseServiceProvider(ServiceProviderNode *node);
+
+/*! \brief Frees the memory of a service-caller node
+ *
+ *  \param node Pointer to the service node to be freed
+ */
+void cRosNodeReleaseServiceCaller(ServiceCallerNode *node);
+
+/*! \brief Frees the memory of a parameter subscription
+ *
+ *  \param node Pointer to the parameter subscription to be freed
+ */
+void cRosNodeReleaseParameterSubscrition(ParameterSubscription *subscription);
+
 void restartAdversing(CrosNode* node);
 int enqueueRequestTopic(CrosNode *node, int subidx);
 int enqueueMasterApiCall(CrosNode *node, RosApiCall *call);

@@ -107,4 +107,6 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg);
 
 int loadFromFileMsg(char* filename, cRosMessageDef* msg);
 
+void cRosMessageDefFree(cRosMessageDef *msgDef);
+
 #endif // _CROS_MESSAGE_INTERNAL_H_
