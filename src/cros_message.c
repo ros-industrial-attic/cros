@@ -404,13 +404,16 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
         }
         else if(fields_it->type == CROS_STD_MSGS_HEADER)
         {
-            cRosMessageDef* msg = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
-            initCrosMsg(msg);
+            cRosMessageDef* msg_header = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+            initCrosMsg(msg_header);
             char* header_text = malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
             memcpy(header_text,HEADER_DEFAULT_TYPEDEF,strlen(HEADER_DEFAULT_TYPEDEF) + 1);
-            loadFromStringMsg(header_text, msg);
-            unsigned char* res =  getMD5Msg(msg);
+            loadFromStringMsg(header_text, msg_header);
+            free(header_text);
+            unsigned char* res =  getMD5Msg(msg_header);
+            cRosMessageDefFree(msg_header);
             cRosMD5Readable(res, &buffer);
+            free(res);
             dynStringPushBackStr(&buffer," ");
             dynStringPushBackStr(&buffer,fields_it->name);
             dynStringPushBackStr(&buffer,"\n");
@@ -424,17 +427,18 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
             dynStringPushBackStr(&filename_dep, type_decl);
             dynStringPushBackStr(&filename_dep,".msg");
 
-            cRosMessage msg;
-            cRosMessageInit(&msg);
-            cRosMessageBuild(&msg,filename_dep.data);
-            char *md5sum = calloc(strlen(msg.md5sum)+1,sizeof(char));
-            strcpy(md5sum,msg.md5sum);
-            cRosMessageRelease(&msg);
+            cRosMessage msg_fn;
+            cRosMessageInit(&msg_fn);
+            cRosMessageBuild(&msg_fn,filename_dep.data);
+            char *md5sum = calloc(strlen(msg_fn.md5sum)+1,sizeof(char));
+            strcpy(md5sum,msg_fn.md5sum);
+            cRosMessageRelease(&msg_fn);
 
             dynStringPushBackStr(&buffer, md5sum);
             dynStringPushBackStr(&buffer," ");
             dynStringPushBackStr(&buffer,fields_it->name);
             dynStringPushBackStr(&buffer,"\n");
+            free(md5sum);
         }
         fields_it = fields_it->next;
     }
@@ -446,6 +450,7 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
     MD5_Init(&md5_t);
     MD5_Update(&md5_t,buffer.data,buffer.len - 1);
     MD5_Final(result, &md5_t);
+    dynStringRelease(&buffer);
 
     return result;
 }
@@ -454,7 +459,6 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
 {
     int i;
 
-    dynStringInit(buffer);
     msgConst* const_it = msg->first_const;
 
     while(const_it->next != NULL)
@@ -496,16 +500,18 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
         }
         else if(fields_it->type == CROS_STD_MSGS_HEADER)
         {
-            cRosMessageDef* msg = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
-            initCrosMsg(msg);
+            cRosMessageDef* msg_header = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+            initCrosMsg(msg_header);
             char* header_text = malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
             memcpy(header_text,HEADER_DEFAULT_TYPEDEF,strlen(HEADER_DEFAULT_TYPEDEF) + 1);
-            loadFromStringMsg(header_text, msg);
-            unsigned char* res =  getMD5Msg(msg);
+            loadFromStringMsg(header_text, msg_header);
+            unsigned char* res =  getMD5Msg(msg_header);
             cRosMD5Readable(res, buffer);
+            free(res);
             dynStringPushBackStr(buffer," ");
             dynStringPushBackStr(buffer,fields_it->name);
             dynStringPushBackStr(buffer,"\n");
+            cRosMessageDefFree(msg_header);
         }
         else
         {
@@ -516,12 +522,13 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
             dynStringPushBackStr(&filename_dep,base_msg_type(type_decl));
             dynStringPushBackStr(&filename_dep,".msg");
 
-            cRosMessage msg;
-            cRosMessageInit(&msg);
-            cRosMessageBuild(&msg,filename_dep.data);
-            char *md5sum = calloc(strlen(msg.md5sum)+1,sizeof(char));
-            strcpy(md5sum,msg.md5sum);
-            cRosMessageRelease(&msg);
+            cRosMessage msg_fn;
+            cRosMessageInit(&msg_fn);
+            cRosMessageBuild(&msg_fn,filename_dep.data);
+            dynStringRelease(&filename_dep);
+            char *md5sum = calloc(strlen(msg_fn.md5sum)+1,sizeof(char));
+            strcpy(md5sum,msg_fn.md5sum);
+            cRosMessageRelease(&msg_fn);
 
             dynStringPushBackStr(buffer, md5sum);
             dynStringPushBackStr(buffer," ");
@@ -908,15 +915,15 @@ int cRosMessageBuild(cRosMessage* message, const char* message_path)
   char* message_path_cpy = calloc(strlen(message_path) + 1, sizeof(char));
   strcpy(message_path_cpy,message_path);
   int rc = loadFromFileMsg(message_path_cpy,msg_def);
+  free(message_path_cpy);
   if (rc == -1)
   {
-    free(message_path_cpy);
     free(msg_def);
     return -1;
   }
 
-  message->msgDef = msg_def;
-  cRosMessageBuildFromDef(message,msg_def);
+  //message->msgDef = msg_def;
+  cRosMessageBuildFromDef(message, msg_def);
   cRosMessageDefFree(msg_def);
 
   return 0;
@@ -1096,10 +1103,12 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
   DynString output;
   dynStringInit(&output);
 
+  cRosMessageDefFree(message->msgDef); // Just in case there was a previous message definition in the message
   cRosCopyMessageDef(&message->msgDef, msg_def );
 
   unsigned char* res = getMD5Msg(msg_def);
   cRosMD5Readable(res, &output);
+  free(res);
   strcpy(message->md5sum,output.data);
   dynStringRelease(&output);
 
@@ -1236,20 +1245,28 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
 
 void cRosMessageConstDefFree(msgConst* msg_const)
 {
-  free(msg_const->name);
-  msg_const->name = NULL;
-  free(msg_const->type_s);
-  msg_const->type_s = NULL;
-  free(msg_const->value);
-  msg_const->value = NULL;
+  if(msg_const != NULL)
+  {
+    free(msg_const->name);
+    msg_const->name = NULL;
+    free(msg_const->type_s);
+    msg_const->type_s = NULL;
+    free(msg_const->value);
+    msg_const->value = NULL;
+    free(msg_const); // Assignment to NULL not needed
+  }
 }
 
 void cRosMessageFieldDefFree(msgFieldDef* msg_field)
 {
-  free(msg_field->name);
-  msg_field->name = NULL;
-  free(msg_field->type_s);
-  msg_field->type_s = NULL;
+  if(msg_field != NULL)
+  {
+    free(msg_field->name);
+    msg_field->name = NULL;
+    free(msg_field->type_s);
+    msg_field->type_s = NULL;
+    free(msg_field); // Assignment to NULL not needed
+  }
 }
 
 void cRosMessageDefFree(cRosMessageDef *msgDef)
@@ -1267,24 +1284,25 @@ void cRosMessageDefFree(cRosMessageDef *msgDef)
   msgDef->plain_text = NULL;
 
   msgConst* it_const = msgDef->first_const;
-  while(it_const->next != NULL)
+  while(it_const != NULL)
   {
+    msgConst* next_const = it_const->next;
     cRosMessageConstDefFree(it_const);
-    it_const = it_const->next;
+    it_const = next_const;
   }
-  free(msgDef->first_const);
   msgDef->first_const = NULL;
   msgDef->constants = NULL;
 
   msgFieldDef* it_field = msgDef->first_field;
-  while(it_field->next != NULL)
+  while(it_field != NULL)
   {
+    msgFieldDef* next_field=it_field->next;
     cRosMessageFieldDefFree(it_field);
-    it_field = it_field->next;
+    it_field = next_field;
   }
-  free(msgDef->first_field);
   msgDef->first_field = NULL;
   msgDef->fields = NULL;
+  free(msgDef); // All the previous pointer assignments to NULL make no sense if we free the cRosMessageDef struct
 }
 
 void cRosMessageRelease(cRosMessage *message)
@@ -1332,10 +1350,10 @@ void cRosMessageFieldRelease(cRosMessageField *field)
 
   if(field->is_array)
   {
-    if(field->type != CROS_CUSTOM_TYPE ||
-    field->type != CROS_STD_MSGS_STRING ||
-    field->type != CROS_STD_MSGS_TIME ||
-    field->type != CROS_STD_MSGS_DURATION ||
+    if(field->type != CROS_CUSTOM_TYPE &&
+    field->type != CROS_STD_MSGS_STRING &&
+    field->type != CROS_STD_MSGS_TIME &&
+    field->type != CROS_STD_MSGS_DURATION &&
     field->type != CROS_STD_MSGS_HEADER)
     {
       free(field->data.as_array);
@@ -1354,13 +1372,26 @@ void cRosMessageFieldRelease(cRosMessageField *field)
           }
           else
           {
-            free(field->data.as_msg_array[i]);
+            cRosMessageFree(field->data.as_msg_array[i]);
           }
         }
         free(field->data.as_array);
         field->data.as_array = NULL;
     }
-   }
+  }
+  else if(field->type == CROS_STD_MSGS_STRING)
+  {
+    free(field->data.as_array);
+    field->data.as_array=NULL;
+  }
+  else if(field->type == CROS_CUSTOM_TYPE ||
+          field->type == CROS_STD_MSGS_TIME ||
+          field->type == CROS_STD_MSGS_DURATION ||
+          field->type == CROS_STD_MSGS_HEADER)
+  {
+    cRosMessageFree(field->data.as_msg);
+    field->data.as_msg=NULL;
+  }
 }
 
 void cRosMessageFieldFree(cRosMessageField *field)

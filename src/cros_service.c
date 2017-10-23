@@ -195,10 +195,10 @@ int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **me
   strcpy(copy_filepath,filepath);
 
   int rc = loadFromFileSrv(copy_filepath,srv);
+  free(copy_filepath);
   if (rc != 0)
   {
     free(srv);
-    free(copy_filepath);
     return -1;
   }
 
@@ -221,14 +221,18 @@ int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **me
     getMD5Txt(srv->response, &buffer);
     MD5_Update(&md5_t,buffer.data,buffer.len - 1);
   }
+  dynStringRelease(&buffer);
 
   unsigned char* result = (unsigned char*) malloc(16);
   MD5_Final(result, &md5_t);
   DynString output;
   dynStringInit(&output);
   cRosMD5Readable(result,&output);
+  free(result);
 
   strcpy(md5sum, output.data);
+  dynStringRelease(&output);
+
   if(srv->request->plain_text != NULL)
   {
     cRosMessageBuildFromDef(request, srv->request);
@@ -249,7 +253,6 @@ int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **me
      else
      {
         free(srv);
-        free(copy_filepath);
         return -1;
      }
   }
