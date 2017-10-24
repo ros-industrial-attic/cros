@@ -13,10 +13,9 @@
 #include "cros_defs.h"
 #include "xmlrpc_params.h"
 
-int
-lookup_host (const char *host, char *ip)
+int lookup_host (const char *host, char *ip)
 {
-  struct addrinfo hints, *res;
+  struct addrinfo hints, *res, *res_it;
   int errcode;
   char addrstr[100];
   void *ptr = NULL;
@@ -33,18 +32,19 @@ lookup_host (const char *host, char *ip)
       return -1;
     }
 
-  while (res)
+  res_it = res;
+  while (res_it)
     {
-      inet_ntop (res->ai_family, res->ai_addr->sa_data, addrstr, 100);
+      inet_ntop (res_it->ai_family, res_it->ai_addr->sa_data, addrstr, 100);
 
-      switch (res->ai_family)
+      switch (res_it->ai_family)
         {
         case AF_INET:
-          ptr = &((struct sockaddr_in *) res->ai_addr)->sin_addr;
+          ptr = &((struct sockaddr_in *) res_it->ai_addr)->sin_addr;
           break;
 #ifdef AF_INET6
         case AF_INET6:
-          ptr = &((struct sockaddr_in6 *) res->ai_addr)->sin6_addr;
+          ptr = &((struct sockaddr_in6 *) res_it->ai_addr)->sin6_addr;
           break;
 #endif
         default:
@@ -56,13 +56,14 @@ lookup_host (const char *host, char *ip)
         return -1;
       }
 
-      inet_ntop (res->ai_family, ptr, addrstr, 100);
-      PRINT_VDEBUG ("IPv%d address: %s (%s)\n", res->ai_family == PF_INET6 ? 6 : 4,
-              addrstr, res->ai_canonname);
-      res = res->ai_next;
+      inet_ntop (res_it->ai_family, ptr, addrstr, 100);
+      PRINT_VDEBUG ("IPv%d address: %s (%s)\n", res_it->ai_family == PF_INET6 ? 6 : 4,
+              addrstr, res_it->ai_canonname);
+      res_it = res_it->ai_next;
       strcpy(ip, (char*)&addrstr);
     }
 
+  freeaddrinfo(res);
   return 0;
 }
 
@@ -621,6 +622,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             }
 
             requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
+            free(clean_string);
             enqueueRequestTopic(n, sub_idx);
           }
 

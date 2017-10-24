@@ -123,6 +123,7 @@ int is_array_type(char* type_statement, int* size)
     *size = -1;
   else
     *size = (int)res;
+  free(array_size);
 
   return 1;
 }
