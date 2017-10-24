@@ -34,75 +34,100 @@ static int enqueueSlaveApiCallInternal(CrosNode *node, RosApiCall *call);
 static int enqueueMasterApiCallInternal(CrosNode *node, RosApiCall *call);
 static void printNodeProcState( CrosNode *n );
 
-static void openXmlrpcClientSocket( CrosNode *n, int i )
+static int openXmlrpcClientSocket( CrosNode *n, int i )
 {
+  int ret;
   if( !tcpIpSocketOpen( &(n->xmlrpc_client_proc[i].socket) ) ||
       !tcpIpSocketSetReuse( &(n->xmlrpc_client_proc[i].socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->xmlrpc_client_proc[i].socket) ) )
   {
     PRINT_ERROR("openXmlrpcClientSocket() at index %d failed", i);
-    exit( EXIT_FAILURE );
+    ret=-1;
   }
+  else
+  {
+    ret=0; // success
+  }
+  return(ret);
 }
 
-static void openTcprosClientSocket( CrosNode *n, int i )
+static int openTcprosClientSocket( CrosNode *n, int i )
 {
+  int ret;
   if( !tcpIpSocketOpen( &(n->tcpros_client_proc[i].socket) ) ||
       !tcpIpSocketSetReuse( &(n->tcpros_client_proc[i].socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->tcpros_client_proc[i].socket) ) )
   {
     PRINT_ERROR("openTcprosClientSocket() at index %d failed", i);
-    exit( EXIT_FAILURE );
+    ret=-1;
   }
+  else
+  {
+    ret=0; // success
+  }
+  return(ret);
 }
 
-static void openRpcrosClientSocket( CrosNode *n, int i )
+static int openRpcrosClientSocket( CrosNode *n, int i )
 {
+  int ret;
   if( !tcpIpSocketOpen( &(n->rpcros_client_proc[i].socket) ) ||
       !tcpIpSocketSetReuse( &(n->rpcros_client_proc[i].socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->rpcros_client_proc[i].socket) ) )
   {
     PRINT_ERROR("openRpcrosClientSocket() at index %d failed", i);
-    exit( EXIT_FAILURE );
+    ret=-1;
   }
+  else
+  {
+    ret=0; // success
+  }
+  return(ret);
 }
 
-static void openXmlrpcListnerSocket( CrosNode *n )
+static int openXmlrpcListnerSocket( CrosNode *n )
 {
+  int ret;
   if( !tcpIpSocketOpen( &(n->xmlrpc_listner_proc.socket) ) ||
       !tcpIpSocketSetReuse( &(n->xmlrpc_listner_proc.socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->xmlrpc_listner_proc.socket) ) ||
       !tcpIpSocketBindListen( &(n->xmlrpc_listner_proc.socket), n->host, 0, CN_MAX_XMLRPC_SERVER_CONNECTIONS ) )
   {
     PRINT_ERROR("openXmlrpcListnerSocket() failed");
-    exit( EXIT_FAILURE );
+    ret=-1;
   }
   else
   {
     n->xmlrpc_port = tcpIpSocketGetPort( &(n->xmlrpc_listner_proc.socket) );
     PRINT_DEBUG ( "openXmlrpcListnerSocket () : Accepting xmlrpc connections at port %d\n", n->xmlrpc_port );
+    ret=0; // success
   }
+  return(ret);
 }
 
-static void openRpcrosListnerSocket( CrosNode *n )
+static int openRpcrosListnerSocket( CrosNode *n )
 {
+  int ret;
   if( !tcpIpSocketOpen( &(n->rpcros_listner_proc.socket) ) ||
       !tcpIpSocketSetReuse( &(n->rpcros_listner_proc.socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->rpcros_listner_proc.socket) ) ||
       !tcpIpSocketBindListen( &(n->rpcros_listner_proc.socket), n->host, 0, CN_MAX_RPCROS_SERVER_CONNECTIONS ) )
   {
     PRINT_ERROR("openRpcrosListnerSocket() failed");
-    exit( EXIT_FAILURE );
+    ret=-1;
   }
   else
   {
     n->rpcros_port = tcpIpSocketGetPort( &(n->rpcros_listner_proc.socket) );
     PRINT_DEBUG ( "openRpcrosListnerSocket() : Accepting rcpros connections at port %d\n", n->rpcros_port );
+    ret=0; // success
   }
+  return(ret);
 }
 
-static void openTcprosListnerSocket( CrosNode *n )
+static int openTcprosListnerSocket( CrosNode *n )
 {
+  int ret;
   if( !tcpIpSocketOpen( &(n->tcpros_listner_proc.socket) ) ||
       !tcpIpSocketSetReuse( &(n->tcpros_listner_proc.socket) ) ||
       !tcpIpSocketSetNonBlocking( &(n->tcpros_listner_proc.socket) ) ||
@@ -115,7 +140,9 @@ static void openTcprosListnerSocket( CrosNode *n )
   {
     n->tcpros_port = tcpIpSocketGetPort( &(n->tcpros_listner_proc.socket) );
     PRINT_DEBUG ( "openTcprosListnerSocket() : Accepting tcpros connections at port %d\n", n->tcpros_port );
+    ret=0; // success
   }
+  return(ret);
 }
 
 static void closeTcprosProcess(TcprosProcess *process)
@@ -1688,6 +1715,7 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
 CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
                           char *message_root_path, uint64_t const *select_timeout_ms)
 {
+  CrosNode *ret_val; // Value to be returned by this function. NULL on failure
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
 
   signal(SIGPIPE, SIG_IGN);
@@ -1705,6 +1733,8 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
     PRINT_ERROR ( "cRosNodeCreate() : Can't allocate memory\n" );
     return NULL;
   }
+
+  ret_val = new_n; // Default return value: node created
 
   new_n->name = new_n->host = new_n->roscore_host = NULL;
 
@@ -1737,7 +1767,7 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
   initApiCallQueue(&new_n->master_api_queue);
   initApiCallQueue(&new_n->slave_api_queue);
 
-  int i;
+  int i, fn_ret;
   for (i = 0 ; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++)
     xmlrpcProcessInit( &(new_n->xmlrpc_server_proc[i]) );
 
@@ -1786,25 +1816,34 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
     new_n->select_timeout = *select_timeout_ms;
   new_n->pid = (int)getpid();
 
-  for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
+  fn_ret = 0;
+  for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS && fn_ret == 0; i++)
   {
-    openXmlrpcClientSocket( new_n, i );
+    fn_ret = openXmlrpcClientSocket( new_n, i );
   }
 
-  for(i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++)
+  for(i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS && fn_ret == 0; i++)
   {
-    openTcprosClientSocket( new_n, i );
+    fn_ret = openTcprosClientSocket( new_n, i );
   }
 
-  for(i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++)
+  for(i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS && fn_ret == 0; i++)
   {
-    openRpcrosClientSocket( new_n, i );
+    fn_ret = openRpcrosClientSocket( new_n, i );
   }
+  if(fn_ret == 0)
+    fn_ret = openXmlrpcListnerSocket( new_n );
+  if(fn_ret == 0)
+    fn_ret = openTcprosListnerSocket( new_n );
+  if(fn_ret == 0)
+    fn_ret = openRpcrosListnerSocket( new_n );
 
-  openXmlrpcListnerSocket( new_n );
-  openTcprosListnerSocket( new_n );
-  openRpcrosListnerSocket( new_n );
-
+  if(fn_ret != 0)
+  {
+    PRINT_ERROR ( "cRosNodeCreate() : socket could not be opened\n" );
+    cRosNodeDestroy ( new_n );
+    return NULL;
+  }
 
   new_n->log_queue = cRosLogQueueNew();
   new_n-> log_last_id = 0;
