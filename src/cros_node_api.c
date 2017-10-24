@@ -669,7 +669,10 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         }
         else
         {
-          PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic not available or protocol for publisherUpdate() not supported\n" );
+          if(array_size == 0)
+            PRINT_INFO ( "cRosApiParseRequestPrepareResponse() : Topic not available\n" );
+          else
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Protocol for publisherUpdate() not supported\n" );
 
           //Resetting tcpros infos
           requesting_subscriber->tcpros_port = -1;
