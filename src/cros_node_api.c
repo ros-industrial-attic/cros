@@ -219,11 +219,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               }
 
               int rc = lookup_host(hostname, requesting_subscriber->topic_host);
-              if (rc)
-                return ret;
-
-              requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-              enqueueRequestTopic(n, subidx);
+              if (rc == 0)
+              {
+                requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
+                enqueueRequestTopic(n, subidx);
+              }
+              free(clean_string);
 
               break;
             }
@@ -271,22 +272,22 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               }
 
               int rc = lookup_host(hostname, requesting_service_caller->service_host);
-              if (rc)
-                return ret;
-
-              requesting_service_caller->service_port = atoi(strtok_r(NULL,":",&progress));
-              free(clean_string);
-
-              //need to be checked because maybe the connection went down suddenly.
-              if(!rpcros_proc->socket.open)
+              if (rc == 0)
               {
-                tcpIpSocketOpen(&(rpcros_proc->socket));
+                requesting_service_caller->service_port = atoi(strtok_r(NULL,":",&progress));
+
+                //need to be checked because maybe the connection went down suddenly.
+                if(!rpcros_proc->socket.open)
+                {
+                  tcpIpSocketOpen(&(rpcros_proc->socket));
+                }
+
+                PRINT_DEBUG( "cRosApiParseResponse() : Lookup Service response [tcp port: %d]\n", requesting_service_caller->service_port);
+
+                //set the process to open the socket with the desired host
+                tcprosProcessChangeState(rpcros_proc, TCPROS_PROCESS_STATE_CONNECTING);
               }
-
-              PRINT_DEBUG( "cRosApiParseResponse() : Lookup Service response [tcp port: %d]\n", requesting_service_caller->service_port);
-
-              //set the process to open the socket with the desired host
-              tcprosProcessChangeState(rpcros_proc, TCPROS_PROCESS_STATE_CONNECTING);
+              free(clean_string);
           }
           else
                PRINT_ERROR ( "cRosApiParseResponse() : Invalid response from ROS master when Looking up services (Not enough parameters in response)\n");
