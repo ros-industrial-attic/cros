@@ -341,8 +341,9 @@ int cRosNodeDestroy( CrosNode *n );
  *    // If you want, do here something
  *    cRosNodeDoEventsLoop( node );
  *  }
+ *  \return 0 on success
  */
-void cRosNodeDoEventsLoop( CrosNode *n );
+int cRosNodeDoEventsLoop( CrosNode *n );
 
 /*! \brief Start the cROS node main cycle
  *

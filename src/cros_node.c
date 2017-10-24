@@ -134,7 +134,7 @@ static int openTcprosListnerSocket( CrosNode *n )
       !tcpIpSocketBindListen( &(n->tcpros_listner_proc.socket), n->host, 0, CN_MAX_TCPROS_SERVER_CONNECTIONS ) )
   {
     PRINT_ERROR("openTcprosListnerSocket() failed");
-    exit( EXIT_FAILURE );
+    ret=-1;
   }
   else
   {
@@ -2538,13 +2538,15 @@ void printNodeProcState( CrosNode *n )
   PRINT_DEBUG("%s\n",stat_str);
 }
 
-void cRosNodeDoEventsLoop ( CrosNode *n )
+int cRosNodeDoEventsLoop ( CrosNode *n )
 {
+  int ret;
   PRINT_VDEBUG ( "cRosNodeDoEventsLoop ()\n" );
 
   int nfds = -1;
   fd_set r_fds, w_fds, err_fds;
   int i = 0;
+  ret = 0; // Default return value: success
 
   #if CROS_DEBUG_LEVEL >= 2
   printNodeProcState( n );
@@ -2848,8 +2850,8 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
     }
     else
     {
-      perror("cRosNodeDoEventsLoop() ");
-      exit( EXIT_FAILURE );
+      PRINT_INFO("cRosNodeDoEventsLoop() : select() function failed. errno=%i\n", errno);
+      ret=-1;
     }
   }
   else if( n_set == 0 )
@@ -2867,34 +2869,36 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
         PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
 
         RosApiCall *call = newRosApiCall();
-        if (call == NULL)
+        if (call != NULL)
+        {
+          call->method = CROS_API_GET_PID;
+          int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
+
+          rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
+          generateXmlrpcMessage( n->host, n->roscore_port, rosproc->message_type,
+                                getMethodName(call->method), &call->params, &rosproc->message );
+
+          rosproc->current_call = call;
+          xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_WRITING );
+
+          // The ROS master does not warn us when then a new service is registered, so we have to
+          // continuously check for the required service
+          for(i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++ )
+          {
+             TcprosProcess *client_proc = &(n->rpcros_client_proc[i]);
+             if( client_proc->state == TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING)
+             {
+               tcprosProcessChangeState(client_proc, TCPROS_PROCESS_STATE_IDLE);
+               enqueueServiceLookup(n, client_proc->service_idx);
+             }
+          }
+          rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD; // The process completed doing what it should, so wake up again CN_PING_LOOP_PERIOD milliseconds later
+        }
+        else
         {
           PRINT_ERROR ( "cRosApiPrepareRequest() : Can't allocate memory\n");
-          exit(1);
+          ret=-1;
         }
-
-        call->method = CROS_API_GET_PID;
-        int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
-
-        rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
-        generateXmlrpcMessage( n->host, n->roscore_port, rosproc->message_type,
-                              getMethodName(call->method), &call->params, &rosproc->message );
-
-        rosproc->current_call = call;
-        xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_WRITING );
-
-        // The ROS master does not warn us when then a new service is registered, so we have to
-        // continuously check for the required service
-        for(i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++ )
-        {
-           TcprosProcess *client_proc = &(n->rpcros_client_proc[i]);
-           if( client_proc->state == TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING)
-           {
-             tcprosProcessChangeState(client_proc, TCPROS_PROCESS_STATE_IDLE);
-             enqueueServiceLookup(n, client_proc->service_idx);
-           }
-        }
-        rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD; // The process completed doing what it should, so wake up again CN_PING_LOOP_PERIOD milliseconds later
       }
       else
         rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD/50; // The process is busy, so try to wake up again soon (CN_PING_LOOP_PERIOD/100 milliseconds later) to do what is pending
@@ -2907,7 +2911,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       handleXmlrpcClientError( n, 0 );
     }
 
-    for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
+    for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS && ret==0; i++ )
     {
       if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
             n->tcpros_server_proc[i].wake_up_time_ms <= cur_time &&
@@ -2926,7 +2930,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       }
     }
 
-    for( i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++ )
+    for( i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS && ret==0; i++ )
     {
       if( n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
             n->rpcros_client_proc[i].wake_up_time_ms <= cur_time &&
@@ -3142,6 +3146,7 @@ void cRosNodeDoEventsLoop ( CrosNode *n )
       }
     }
   }
+  return ret;
 }
 
 void cRosNodeStart( CrosNode *n, unsigned char *exit )
