@@ -347,13 +347,13 @@ int cRosNodeDoEventsLoop( CrosNode *n );
 
 /*! \brief Start the cROS node main cycle
  *
+ *  It is an utility function that call cRosNodeDoEventsLoop() inside a endless cycle
  *  \param n A pointer to a CrosNode object (e.g., created with cRosNodeCreate())
  *  \param exit Pointer to an unsigned char variable: cRosNodeStart() exit if this variable
  *              is not zero
- *
- *  It is an utiility function that call cRosNodeDoEventsLoop() inside a endless cycle
+ *  \return 0 on success
  */
-void cRosNodeStart( CrosNode *n, unsigned char *exit );
+int cRosNodeStart( CrosNode *n, unsigned char *exit );
 
 XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/

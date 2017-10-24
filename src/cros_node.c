@@ -3149,11 +3149,13 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
   return ret;
 }
 
-void cRosNodeStart( CrosNode *n, unsigned char *exit )
+int cRosNodeStart( CrosNode *n, unsigned char *exit )
 {
+  int ret=0;
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
-  while( !(*exit) )
-    cRosNodeDoEventsLoop( n );
+  while( ret==0 && !(*exit) )
+    ret=cRosNodeDoEventsLoop( n );
+  return ret;
 }
 
 int enqueueSubscriberAdvertise(CrosNode *node, int subidx)
