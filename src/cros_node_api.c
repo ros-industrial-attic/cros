@@ -206,26 +206,32 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               //removing the 'http://' and the last '/'
               int dirty_string_len = strlen(pub_host_string);
               char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
-              if (clean_string == NULL)
-                exit(1);
-              strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
-              char * progress = NULL;
-              char* hostname = strtok_r(clean_string,":",&progress);
-              if(requesting_subscriber->topic_host == NULL)
+              if (clean_string != NULL)
               {
-                requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
-                if (requesting_subscriber->topic_host == NULL)
-                  exit(1);
+                strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
+                char *progress = NULL;
+                char *hostname = strtok_r(clean_string,":",&progress);
+                if(requesting_subscriber->topic_host == NULL)
+                {
+                  requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+                }
+                if (requesting_subscriber->topic_host != NULL)
+                {
+                  int rc = lookup_host(hostname, requesting_subscriber->topic_host);
+                  if (rc == 0)
+                  {
+                    requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
+                    enqueueRequestTopic(n, subidx);
+                  }
+                  else
+                    ret=-1;
+                }
+                else
+                  ret=-1;
+                free(clean_string);
               }
-
-              int rc = lookup_host(hostname, requesting_subscriber->topic_host);
-              if (rc == 0)
-              {
-                requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-                enqueueRequestTopic(n, subidx);
-              }
-              free(clean_string);
-
+              else
+                ret=-1;
               break;
             }
           }
@@ -259,38 +265,49 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               //removing the 'rosrpc://' and the last '/'
               int dirty_string_len = strlen(service_prov_host_string);
               char* clean_string = (char *)calloc(dirty_string_len-10+1,sizeof(char));
-              if (clean_string == NULL)
-                exit(1);
-              strncpy(clean_string,service_prov_host_string+9,dirty_string_len-10);
-              char * progress = NULL;
-              char* hostname = strtok_r(clean_string,":",&progress);
-              if(requesting_service_caller->service_host == NULL)
+              if (clean_string != NULL)
               {
-                requesting_service_caller->service_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
-                if (requesting_service_caller->service_host == NULL)
-                  exit(1);
-              }
-
-              int rc = lookup_host(hostname, requesting_service_caller->service_host);
-              if (rc == 0)
-              {
-                requesting_service_caller->service_port = atoi(strtok_r(NULL,":",&progress));
-
-                //need to be checked because maybe the connection went down suddenly.
-                if(!rpcros_proc->socket.open)
+                strncpy(clean_string,service_prov_host_string+9,dirty_string_len-10);
+                char * progress = NULL;
+                char* hostname = strtok_r(clean_string,":",&progress);
+                if(requesting_service_caller->service_host == NULL)
                 {
-                  tcpIpSocketOpen(&(rpcros_proc->socket));
+                  requesting_service_caller->service_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
                 }
 
-                PRINT_DEBUG( "cRosApiParseResponse() : Lookup Service response [tcp port: %d]\n", requesting_service_caller->service_port);
+                if (requesting_service_caller->service_host != NULL)
+                {
+                  int rc = lookup_host(hostname, requesting_service_caller->service_host);
+                  if (rc == 0)
+                  {
+                    requesting_service_caller->service_port = atoi(strtok_r(NULL,":",&progress));
 
-                //set the process to open the socket with the desired host
-                tcprosProcessChangeState(rpcros_proc, TCPROS_PROCESS_STATE_CONNECTING);
+                    //need to be checked because maybe the connection went down suddenly.
+                    if(!rpcros_proc->socket.open)
+                    {
+                      tcpIpSocketOpen(&(rpcros_proc->socket));
+                    }
+
+                    PRINT_DEBUG( "cRosApiParseResponse() : Lookup Service response [tcp port: %d]\n", requesting_service_caller->service_port);
+
+                    //set the process to open the socket with the desired host
+                    tcprosProcessChangeState(rpcros_proc, TCPROS_PROCESS_STATE_CONNECTING);
+                  }
+                  else
+                    ret=-1;
+                }
+                else
+                  ret=-1;
+                free(clean_string);
               }
-              free(clean_string);
+              else
+                ret=-1;
           }
           else
-               PRINT_ERROR ( "cRosApiParseResponse() : Invalid response from ROS master when Looking up services (Not enough parameters in response)\n");
+          {
+             PRINT_ERROR ( "cRosApiParseResponse() : Invalid response from ROS master when Looking up services (Not enough parameters in response)\n");
+             ret=-1;
+          }
         }
         else
         {
