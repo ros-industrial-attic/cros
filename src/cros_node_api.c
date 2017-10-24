@@ -527,6 +527,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
 int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
+  int ret;
   PRINT_DEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
 
   XmlrpcProcess *server_proc = &(n->xmlrpc_server_proc[server_idx]);
@@ -537,6 +538,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     return -1;
   }
 
+  ret=0; // Default return value
   server_proc->message_type = XMLRPC_MESSAGE_RESPONSE;
 
   XmlrpcParamVector params;
@@ -570,6 +572,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       {
         PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong publisherUpdate message \n" );
         xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
+        ret=-1;
         break;
       }
       else
@@ -620,35 +623,49 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             //removing the 'http://' and the last '/'
             int dirty_string_len = strlen(pub_host_string);
             char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
-            if (clean_string == NULL)
-              exit(1);
-            strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
-            char * progress = NULL;
-            char* hostname = strtok_r(clean_string,":",&progress);
-            if(requesting_subscriber->topic_host == NULL)
+            if (clean_string != NULL)
             {
-              requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
-              if (requesting_subscriber->topic_host == NULL)
-                exit(1);
+              strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
+              char * progress = NULL;
+              char* hostname = strtok_r(clean_string,":",&progress);
+              if(requesting_subscriber->topic_host == NULL)
+              {
+                requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+              }
+              if (requesting_subscriber->topic_host != NULL)
+              {
+                int rc = lookup_host(hostname, requesting_subscriber->topic_host);
+                if (rc == 0)
+                {
+                  requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
+                  enqueueRequestTopic(n, sub_idx);
+                }
+                else
+                {
+                  PRINT_ERROR ( "lookup_host() : Unable to resolve hostname \n" );
+                  ret=-1;
+                }
+              }
+              else
+                ret=-1;
+              free(clean_string);
             }
-            int rc = lookup_host(hostname, requesting_subscriber->topic_host);
-            if (rc)
-            {
-              PRINT_ERROR ( "lookup_host() : Unable to resolve hostname \n" );
-              xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
-              break;
-            }
-
-            requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-            free(clean_string);
-            enqueueRequestTopic(n, sub_idx);
+            else
+              ret=-1;
           }
-
-          xmlrpcParamVectorPushBackArray(&params);
-          XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
-          xmlrpcParamArrayPushBackInt(array, 1);
-          xmlrpcParamArrayPushBackString(array, "");
-          xmlrpcParamArrayPushBackInt(array, 0);
+          if(ret == 0) // No errors so far
+          {
+            xmlrpcParamVectorPushBackArray(&params);
+            XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+            xmlrpcParamArrayPushBackInt(array, 1);
+            xmlrpcParamArrayPushBackString(array, "");
+            xmlrpcParamArrayPushBackInt(array, 0);
+          }
+          else
+          {
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Error processing publisherUpdate \n" );
+            xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
+          }
         }
         else
         {
@@ -658,6 +675,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           requesting_subscriber->tcpros_port = -1;
 
           xmlrpcParamVectorPushBackString( &params, "Topic not available or protocol for publisherUpdate() not supported" );
+          ret=-1;
         }
       }
 
@@ -677,6 +695,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       {
         PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong requestTopic message \n" );
         xmlrpcParamVectorPushBackString( &params, "Wrong requestTopic message" );
+        ret=-1;
         break;
       }
       else
@@ -736,6 +755,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         {
           PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic or protocol for requestTopic not supported\n" );
           xmlrpcParamVectorPushBackString( &params, "Topic or protocol for requestTopic not supported");
+          ret=-1;
           break;
         }
       }
@@ -883,6 +903,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       PRINT_ERROR("cRosApiParseRequestPrepareResponse() : Unknown method \n Message : \n %s",
                   dynStringGetData( &(server_proc->message)));
       xmlrpcParamVectorPushBackString( &params, "Unknown method");
+      ret=-1;
       break;
     }
   }
@@ -892,7 +913,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
                         dynStringGetData(&server_proc->method), &params, &server_proc->message);
   xmlrpcParamVectorRelease(&params);
 
-  return 0;
+  return ret;
 }
 
 const char * getMethodName(CrosApiMethod method)
