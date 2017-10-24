@@ -3149,11 +3149,11 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
   return ret;
 }
 
-int cRosNodeStart( CrosNode *n, unsigned char *exit )
+int cRosNodeStart( CrosNode *n, unsigned char *exit_flag )
 {
   int ret=0;
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
-  while( ret==0 && !(*exit) )
+  while( ret==0 && !(*exit_flag) )
     ret=cRosNodeDoEventsLoop( n );
   return ret;
 }
