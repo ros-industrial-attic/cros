@@ -116,14 +116,12 @@ static void arrayToXml ( XmlrpcParam *val, DynString *message )
 
 static void timeToXml ( void *val, DynString *message )
 {
-  PRINT_ERROR ( "timeToXml() : Not yet implemented! (FATAL ERROR) \n" );
-  exit ( EXIT_FAILURE );
+  PRINT_ERROR ( "timeToXml() : ERROR: Not yet implemented!\n" );
 }
 
 static void binaryToXml ( void *val, DynString *message )
 {
-  PRINT_ERROR ( "binaryToXml() : Not yet implemented! (FATAL ERROR) \n" );
-  exit ( EXIT_FAILURE );
+  PRINT_ERROR ( "binaryToXml() : ERROR: Not yet implemented!\n" );
 }
 
 int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType container)
@@ -219,7 +217,7 @@ int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType co
           param_end = c;
           c += XMLRPC_VALUE_ETAG.dim;
           i += XMLRPC_VALUE_ETAG.dim;
-          goto exit;
+          goto paramFromXml_exit;
         }
         break;
       }
@@ -231,7 +229,7 @@ int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType co
           param_end = c;
           c += XMLRPC_MEMBER_ETAG.dim;
           i += XMLRPC_MEMBER_ETAG.dim;
-          goto exit;
+          goto paramFromXml_exit;
         }
         break;
       }
@@ -242,7 +240,7 @@ int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType co
     }
   }
 
-exit:
+paramFromXml_exit:
   if ( param_end == NULL )
   {
     PRINT_ERROR ( "arrayFromXml() : no param end tag found\n" );
@@ -323,6 +321,7 @@ int structFromXml(DynString *message, XmlrpcParam *param)
 
 int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType container)
 {
+  int ret = 0; // Default return value=0
   const char *c = dynStringGetCurrentData ( message );
   int len = dynStringGetLen ( message );
   int i = dynStringGetPoseIndicatorOffset ( message );
@@ -391,8 +390,8 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
     else if ( len - i >= XMLRPC_DATETIME_TAG.dim &&
               strncmp ( c, XMLRPC_DATETIME_TAG.str, XMLRPC_DATETIME_TAG.dim ) == 0 )
     {
-      PRINT_ERROR ( "paramFromXml() : Tag %s not yet implemented! (FATAL ERROR) \n", XMLRPC_DATETIME_TAG.str );
-      exit ( EXIT_FAILURE );
+      PRINT_ERROR ( "paramFromXml() : ERROR: Tag %s not yet implemented!\n", XMLRPC_DATETIME_TAG.str );
+      ret=-1;
 
       c += XMLRPC_DATETIME_TAG.dim;
       i += XMLRPC_DATETIME_TAG.dim;
@@ -403,8 +402,8 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
     else if ( len - i >= XMLRPC_BASE64_TAG.dim &&
               strncmp ( c, XMLRPC_BASE64_TAG.str, XMLRPC_BASE64_TAG.dim ) == 0 )
     {
-      PRINT_ERROR ( "paramFromXml() : Tag %s not yet implemented! (FATAL ERROR) \n", XMLRPC_BASE64_TAG.str );
-      exit ( EXIT_FAILURE );
+      PRINT_ERROR ( "paramFromXml() : ERROR: Tag %s not yet implemented!\n", XMLRPC_BASE64_TAG.str );
+      ret=-1;
 
       c += XMLRPC_BASE64_TAG.dim;
       i += XMLRPC_BASE64_TAG.dim;
@@ -665,7 +664,7 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
       xmlrpcParamSetStringN ( param, str_init, str_len );
   }
 
-  return 0;
+  return ret;
 }
 
 int structMemberFromXml ( DynString *message, XmlrpcParam *param)
@@ -1178,9 +1177,10 @@ void xmlrpcParamRelease ( XmlrpcParam *param )
     break;
 
   case XMLRPC_PARAM_DATETIME: /* WARNING: Currently unsupported */
+    PRINT_ERROR ( "xmlrpcParamReleaseData() : ERROR: Parameter type datetime not yet supported\n" );
+    break;
   case XMLRPC_PARAM_BINARY: /* WARNING: Currently unsupported */
-    PRINT_ERROR ( "xmlrpcParamReleaseData() : Parameter type not yet supported (FATAL ERROR) \n" );
-    exit ( EXIT_FAILURE );
+    PRINT_ERROR ( "xmlrpcParamReleaseData() : ERROR: Parameter type binary not yet supported\n" );
     break;
   case XMLRPC_PARAM_UNKNOWN:
     break;

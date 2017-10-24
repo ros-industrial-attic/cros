@@ -458,8 +458,8 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   unsigned char *read_buf = (unsigned char *)malloc(max_size);
   if (!read_buf)
   {
-    PRINT_ERROR("Out of memory while reading from socket");
-    exit(1);
+    PRINT_ERROR("tcpIpSocketReadBufferEx() : Out of memory while reading from socket");
+    return TCPIPSOCKET_FAILED;
   }
 
   TcpIpSocketState state = TCPIPSOCKET_UNKNOWN;

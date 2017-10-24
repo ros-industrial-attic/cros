@@ -353,7 +353,7 @@ int cRosNodeDoEventsLoop( CrosNode *n );
  *              is not zero
  *  \return 0 on success
  */
-int cRosNodeStart( CrosNode *n, unsigned char *exit );
+int cRosNodeStart( CrosNode *n, unsigned char *exit_flag );
 
 XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/
