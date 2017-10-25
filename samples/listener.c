@@ -37,7 +37,7 @@ static CallbackResponse callback_sub(cRosMessage *message, void* data_context)
 }
 
 // This callback will be invoked when the service provider receives a service call
-static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMessage *response, void* context)
+static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMessage *response, void* data_context)
 {
   cRosMessageField *a_field = cRosMessageGetField(request, "a");
   cRosMessageField *b_field = cRosMessageGetField(request, "b");

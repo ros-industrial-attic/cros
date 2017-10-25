@@ -135,6 +135,7 @@ void cRosLogPrint(CrosNode* node,
 {
   char* log_msg = NULL;
   va_list args;
+
   va_start(args,msg);
 
   time_t wall_time;
@@ -177,6 +178,10 @@ void cRosLogPrint(CrosNode* node,
     return;
   }
 
+  // We need to use the argument list twice (the 1st time to call vprintf and the 2nd time to call vsprintf), so we make a copy
+  va_list args_copy;
+  va_copy(args_copy, args);
+
   if(level != node->log_level &&
       (level != CROS_LOGLEVEL_ERROR || level != CROS_LOGLEVEL_FATAL))
     return;
@@ -216,9 +221,10 @@ void cRosLogPrint(CrosNode* node,
   size_t msg_size = vprintf(msg,args) + 512;
 
   log_msg = calloc(msg_size + 1, sizeof(char));
-  vsprintf(log_msg,msg,args);
+  vsprintf(log_msg,msg,args_copy);
   log->msg = log_msg;
 
   va_end(args);
+  va_end(args_copy);
   cRosLogQueueEnqueue(node->log_queue, log);
 }
