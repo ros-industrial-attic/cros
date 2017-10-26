@@ -524,7 +524,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
   return ret;
 }
-
+// return value is different from 0 only when a response message cannot be generated
 int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
   int ret;
@@ -572,7 +572,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       {
         PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong publisherUpdate message \n" );
         xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
-        ret=-1;
         break;
       }
       else
@@ -607,7 +606,11 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           }
         }
 
-        if (sub_idx != -1 && (uri_found || array_size == 0) && requesting_subscriber->tcpros_port == -1)
+        // The condition to be met is:
+        // Topic name must be registered and
+        // either some node is unregistering the topic or
+        // the host is found and the tcpros port is not assigned
+        if (sub_idx != -1 && (array_size == 0 || (uri_found && requesting_subscriber->tcpros_port == -1)))
         {
           // Subscriber that is still waiting for a tcpros connection found
           publishers_param = xmlrpcParamVectorAt(&server_proc->params, 2);
@@ -643,7 +646,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
                 else
                 {
                   PRINT_ERROR ( "lookup_host() : Unable to resolve hostname \n" );
-                  ret=-1;
+                  xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
                 }
               }
               else
@@ -653,6 +656,8 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             else
               ret=-1;
           }
+          else
+            requesting_subscriber->tcpros_port = -1;
           if(ret == 0) // No errors so far
           {
             xmlrpcParamVectorPushBackArray(&params);
@@ -663,22 +668,22 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           }
           else
           {
-            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Error processing publisherUpdate \n" );
-            xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Error allocating memory \n" );
           }
         }
         else
         {
-          if(array_size > 0 && !uri_found)
+          if(sub_idx == -1)
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Unknown topic name\n" );
+          else if(!uri_found)
             PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Host not found\n" );
           else
-            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Protocol for publisherUpdate() not supported\n" );
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : More than one publisher for the same topic\n" );
 
           //Resetting tcpros infos
           requesting_subscriber->tcpros_port = -1;
 
-          xmlrpcParamVectorPushBackString( &params, "Protocol for publisherUpdate() not supported or host not found" );
-          ret=-1;
+          xmlrpcParamVectorPushBackString( &params, "Unknown topic in publisherUpdate(), host not found or more than one publisher per topic" );
         }
       }
 
@@ -698,7 +703,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       {
         PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Wrong requestTopic message \n" );
         xmlrpcParamVectorPushBackString( &params, "Wrong requestTopic message" );
-        ret=-1;
         break;
       }
       else
@@ -758,7 +762,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         {
           PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Topic or protocol for requestTopic not supported\n" );
           xmlrpcParamVectorPushBackString( &params, "Topic or protocol for requestTopic not supported");
-          ret=-1;
           break;
         }
       }
@@ -906,7 +909,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       PRINT_ERROR("cRosApiParseRequestPrepareResponse() : Unknown method \n Message : \n %s",
                   dynStringGetData( &(server_proc->message)));
       xmlrpcParamVectorPushBackString( &params, "Unknown method");
-      ret=-1;
       break;
     }
   }

@@ -69,19 +69,25 @@ int main(int argc, char **argv)
   // We need to tell our node where to find the .msg files that we'll be using
   char path[1024];
 
+  char *node_name;
+
+  if(argc>1)
+    node_name=argv[1];
+  else
+    node_name="/talker"; // Default node name if no command-line parameters are specified
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path));
   // Create a new node and tell it to connect to roscore in the usual place
-  node = cRosNodeCreate("/talker", "127.0.0.1", "127.0.0.1", 11311, path, NULL);
+  node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
   // Create a publisher and request that the associated callback be invoked every 100ms (10Hz)
 
-  if(cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 10, callback_pub, NULL, NULL) < 0)
+  if(cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 100, callback_pub, NULL, NULL) < 0)
   {
     printf("cRosApiRegisterPublisher() failed; did you run this program one directory above 'rosdb'?\n");
     return EXIT_FAILURE;
   }
 
-  if(cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", 20, callback_srv_add_two_ints, NULL, NULL, 1, 1) < 0)
+  if(cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", 200, callback_srv_add_two_ints, NULL, NULL, 1, 1) < 0)
   {
     printf("cRosApiRegisterServiceCaller() failed; did you run this program one directory above 'rosdb'?\n");
     return EXIT_FAILURE;
