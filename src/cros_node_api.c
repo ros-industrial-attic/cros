@@ -607,7 +607,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           }
         }
 
-        if (sub_idx != -1 && uri_found && requesting_subscriber->tcpros_port == -1)
+        if (sub_idx != -1 && (uri_found || array_size == 0) && requesting_subscriber->tcpros_port == -1)
         {
           // Subscriber that is still waiting for a tcpros connection found
           publishers_param = xmlrpcParamVectorAt(&server_proc->params, 2);
@@ -669,15 +669,15 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         }
         else
         {
-          if(array_size == 0)
-            PRINT_INFO ( "cRosApiParseRequestPrepareResponse() : Topic not available\n" );
+          if(array_size > 0 && !uri_found)
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Host not found\n" );
           else
             PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Protocol for publisherUpdate() not supported\n" );
 
           //Resetting tcpros infos
           requesting_subscriber->tcpros_port = -1;
 
-          xmlrpcParamVectorPushBackString( &params, "Topic not available or protocol for publisherUpdate() not supported" );
+          xmlrpcParamVectorPushBackString( &params, "Protocol for publisherUpdate() not supported or host not found" );
           ret=-1;
         }
       }

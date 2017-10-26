@@ -94,10 +94,16 @@ int main(int argc, char **argv)
 {
   // We need to tell our node where to find the .msg files that we'll be using
   char path[1024];
+  char *node_name;
+
+  if(argc>1)
+    node_name=argv[1];
+  else
+    node_name="/listener"; // Default node name if no command-line parameters are specified
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path));
   // Create a new node and tell it to connect to roscore in the usual place
-  node = cRosNodeCreate("/listener", "127.0.0.1", "127.0.0.1", 11311, path, NULL);
+  node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
 
   // Create a subscriber and supply a callback for received messages
   if(cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0) < 0)
