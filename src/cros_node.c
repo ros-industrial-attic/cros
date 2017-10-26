@@ -1339,8 +1339,8 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
           server_proc->left_to_recv -= n_reads;
           if (server_proc->left_to_recv == 0)
           {
-            const unsigned char *data = dynBufferGetCurrentData(&server_proc->packet);
-            uint32_t msg_size = (uint32_t)*data;
+            const uint32_t *data = (const uint32_t *)dynBufferGetCurrentData(&server_proc->packet);
+            uint32_t msg_size = *data;
             tcprosProcessClear( server_proc, 0);
             if (msg_size == 0)
             {
