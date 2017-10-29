@@ -141,8 +141,6 @@ struct SubscriberNode
   char *topic_host;                         //! The hostname of the topic already contacted.
   int   topic_port;                         //! The host port of the topic already contacted.
   int   client_xmlrpc_id;                   //! The xmlrpc client that manages the subscription
-  int   client_tcpros_id;
-  int   tcpros_port;
   unsigned char tcp_nodelay;                //! If 1, the publisher should set TCP_NODELAY on the socket, if possible
   void *context;
   SubscriberCallback callback;

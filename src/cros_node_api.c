@@ -221,7 +221,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                   if (rc == 0)
                   {
                     requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-                    enqueueRequestTopic(n, subidx);
+                    enqueueRequestTopic(n, subidx, requesting_subscriber->topic_host, requesting_subscriber->topic_port);
                   }
                   else
                     ret=-1;
@@ -485,34 +485,69 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       {
         if( checkResponseValue( &client_proc->response ) )
         {
+          int client_tcpros_ind;
+          char tcpros_host[100];
           ret = 0;
 
           XmlrpcParam* param_array = xmlrpcParamVectorAt(&client_proc->response,0);
           XmlrpcParam* nested_array = xmlrpcParamArrayGetParamAt(param_array,2);
+          XmlrpcParam* tcp_host = xmlrpcParamArrayGetParamAt(nested_array,1);
           XmlrpcParam* tcp_port = xmlrpcParamArrayGetParamAt(nested_array,2);
 
           RosApiCall *call = client_proc->current_call;
+          int sub_ind = call->provider_idx;
 
           int tcp_port_print = tcp_port->data.as_int;
-          SubscriberNode* sub = &n->subs[call->provider_idx];
-          sub->tcpros_port = tcp_port_print;
-
-          TcprosProcess* tcpros_proc = &n->tcpros_client_proc[sub->client_tcpros_id];
-          tcpros_proc->topic_idx = call->provider_idx;
-
-          //need to be checked because maybe the connection went down suddenly.
-          if(!tcpros_proc->socket.open)
-          {
-            tcpIpSocketOpen(&(tcpros_proc->socket));
-          }
+          SubscriberNode* sub = &n->subs[sub_ind];
 
           PRINT_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
           xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
 
-          //set the process to open the socket with the desired host
-          tcprosProcessChangeState(tcpros_proc, TCPROS_PROCESS_STATE_CONNECTING);
-        }
+          int rc = lookup_host(tcp_host->data.as_string, tcpros_host);
+          if (rc == 0)
+          {
+            // Check if a Tcpros client is already connected to the received hostname and port for the current subscriber node
+            client_tcpros_ind = cRosNodeFindFirstTcprosClientProc(n, sub_ind, tcpros_host, tcp_port_print);
+            if(client_tcpros_ind == -1) // No Tcpros client is already connected to this hostname and port for the current subscriber node, recruit one:
+            {
+              client_tcpros_ind = cRosNodeRecruitTcprosClientProc(n, sub_ind);
+              if(client_tcpros_ind != -1) // A Tcpros client has been recruited to be used
+              {
+                TcprosProcess* tcpros_proc = &n->tcpros_client_proc[client_tcpros_ind];
+                tcpros_proc->topic_idx = sub_ind;
 
+                //need to be checked because maybe the connection went down suddenly.
+                if(!tcpros_proc->socket.open)
+                  tcpIpSocketOpen(&(tcpros_proc->socket));
+
+                //set the process to open the socket with the desired host
+                tcpros_proc->sub_tcpros_host = (char *)realloc(tcpros_proc->sub_tcpros_host, 100*sizeof(char)); // If already allocated, realloc() does nothing
+                if (tcpros_proc->sub_tcpros_host != NULL)
+                {
+                  strncpy(tcpros_proc->sub_tcpros_host, tcpros_host, 100);
+                  tcpros_proc->sub_tcpros_port = tcp_port_print;
+                  tcprosProcessChangeState(tcpros_proc, TCPROS_PROCESS_STATE_CONNECTING);
+                  printf("HOST: %s:%i\n",tcpros_proc->sub_tcpros_host,tcpros_proc->sub_tcpros_port);
+                }
+                else
+                {
+                  PRINT_ERROR ( "cRosApiParseResponse() : Not enough memory allocating the publisher hostname string\n");
+                  ret=-1;
+                }
+              }
+              else
+              {
+                PRINT_ERROR ( "cRosApiParseResponse() : No TCPROS client process is available to be used to subscribe to the topic. Allocate more TCPROS client processes.\n");
+                ret=-1;
+              }
+            }
+          }
+          else
+          {
+            PRINT_ERROR ( "cRosApiParseResponse() : Cannot resolve the publisher hostname received in response of REQUEST_TOPIC\n");
+            ret=-1;
+          }
+        }
         break;
       }
       default:
@@ -610,54 +645,54 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         // Topic name must be registered and
         // either some node is unregistering the topic or
         // the host is found and the tcpros port is not assigned
-        if (sub_idx != -1 && (array_size == 0 || (uri_found && requesting_subscriber->tcpros_port == -1)))
+        if (sub_idx != -1 && (array_size == 0 || uri_found))
         {
           // Subscriber that is still waiting for a tcpros connection found
           publishers_param = xmlrpcParamVectorAt(&server_proc->params, 2);
           int available_pubs_n = xmlrpcParamArrayGetSize(publishers_param);
 
-          if(available_pubs_n > 0)
           {
-            //TODO: We just consider the first host. In the remote future we should consider the others as well
-
-            XmlrpcParam* pub_host = xmlrpcParamArrayGetParamAt(publishers_param, 0);
-            char* pub_host_string = xmlrpcParamGetString(pub_host);
-            //manage string for exploit informations
-            //removing the 'http://' and the last '/'
-            int dirty_string_len = strlen(pub_host_string);
-            char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
-            if (clean_string != NULL)
+            int pub_host_ind;
+            // Iterate through all the hosts while no error occurs
+            for(pub_host_ind=0;pub_host_ind<available_pubs_n && ret==0;pub_host_ind++)
             {
-              strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
-              char * progress = NULL;
-              char* hostname = strtok_r(clean_string,":",&progress);
-              if(requesting_subscriber->topic_host == NULL)
+              XmlrpcParam* pub_host = xmlrpcParamArrayGetParamAt(publishers_param, pub_host_ind);
+              char* pub_host_string = xmlrpcParamGetString(pub_host);
+              //manage string for exploit informations
+              //removing the 'http://' and the last '/'
+              int dirty_string_len = strlen(pub_host_string);
+              char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
+              if (clean_string != NULL)
               {
-                requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
-              }
-              if (requesting_subscriber->topic_host != NULL)
-              {
-                int rc = lookup_host(hostname, requesting_subscriber->topic_host);
-                if (rc == 0)
+                strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
+                char * progress = NULL;
+                char* hostname = strtok_r(clean_string,":",&progress);
+                if(requesting_subscriber->topic_host == NULL)
                 {
-                  requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-                  enqueueRequestTopic(n, sub_idx);
+                  requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); // Freed by cRosApiReleaseSubscriber() during cRosNodeDestroy()
+                }
+                if (requesting_subscriber->topic_host != NULL)
+                {
+                  int rc = lookup_host(hostname, requesting_subscriber->topic_host);
+                  if (rc == 0)
+                  {
+                    requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
+                    enqueueRequestTopic(n, sub_idx, requesting_subscriber->topic_host, requesting_subscriber->topic_port);
+                  }
+                  else
+                  {
+                    PRINT_ERROR ( "lookup_host() : Unable to resolve hostname\n" );
+                    xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
+                  }
                 }
                 else
-                {
-                  PRINT_ERROR ( "lookup_host() : Unable to resolve hostname \n" );
-                  xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
-                }
+                  ret=-1;
+                free(clean_string);
               }
               else
                 ret=-1;
-              free(clean_string);
             }
-            else
-              ret=-1;
           }
-          else
-            requesting_subscriber->tcpros_port = -1;
           if(ret == 0) // No errors so far
           {
             xmlrpcParamVectorPushBackArray(&params);
@@ -668,20 +703,15 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           }
           else
           {
-            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Error allocating memory \n" );
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Error allocating memory\n" );
           }
         }
         else
         {
           if(sub_idx == -1)
             PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Unknown topic name\n" );
-          else if(!uri_found)
-            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Host not found\n" );
           else
-            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : More than one publisher for the same topic\n" );
-
-          //Resetting tcpros infos
-          requesting_subscriber->tcpros_port = -1;
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Host not found\n" );
 
           xmlrpcParamVectorPushBackString( &params, "Unknown topic in publisherUpdate(), host not found or more than one publisher per topic" );
         }

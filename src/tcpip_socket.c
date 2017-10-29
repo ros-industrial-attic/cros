@@ -46,11 +46,17 @@ int tcpIpSocketOpen ( TcpIpSocket *s )
 
 void tcpIpSocketClose ( TcpIpSocket *s )
 {
-  PRINT_VDEBUG ( "tcpIpSocketClose()\n" );
+  PRINT_VDEBUG ( "tcpIpSocketClose()\n");
+
   if ( !s->open )
     return;
 
-  close ( s->fd );
+  PRINT_DEBUG ( "tcpIpSocketClose(): Closing socket FD: %i\n", s->fd);
+  if ( s->fd != -1 )
+    close ( s->fd );
+  else
+    PRINT_ERROR ( "tcpIpSocketClose(): Invalid file descriptor: %i\n", s->fd);
+
   tcpIpSocketInit ( s );
 }
 

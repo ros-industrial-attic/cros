@@ -1,5 +1,6 @@
 #include "tcpros_process.h"
 #include "cros_clock.h"
+#include <stdlib.h>
 
 void tcprosProcessInit( TcprosProcess *p )
 {
@@ -20,6 +21,8 @@ void tcprosProcessInit( TcprosProcess *p )
   p->service_idx = -1;
   p->ok_byte = 0;
   p->left_to_recv = 0;
+  p->sub_tcpros_host = NULL;
+  p->sub_tcpros_port = -1;
 }
 
 void tcprosProcessRelease( TcprosProcess *p )
@@ -35,6 +38,7 @@ void tcprosProcessRelease( TcprosProcess *p )
   dynStringRelease( &(p->serviceresponse_type) );
   dynStringRelease( &(p->md5sum) );
   dynBufferRelease( &(p->packet) );
+  free(p->sub_tcpros_host);
 }
 
 void tcprosProcessClear( TcprosProcess *p , int fullreset)
@@ -60,6 +64,9 @@ void tcprosProcessClear( TcprosProcess *p , int fullreset)
     p->topic_idx = -1;
     p->service_idx = -1;
     p->ok_byte = 0;
+    free(p->sub_tcpros_host);
+    p->sub_tcpros_host = NULL;
+    p->sub_tcpros_port = -1;
   }
 }
 

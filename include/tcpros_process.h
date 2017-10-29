@@ -53,6 +53,8 @@ struct TcprosProcess
   size_t left_to_recv;                  //! Remaining to receive
   uint8_t ok_byte;						//! 'ok' byte send by a service provider in response to the last service request
   int probe;							//! The current session is a probing one
+  int sub_tcpros_port;                  //! Port (obtained from a publisher node) to which the process must connect
+  char *sub_tcpros_host;                //! Host (obtained from a publisher node) to which the process must connect
 };
 
 

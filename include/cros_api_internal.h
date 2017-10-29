@@ -78,13 +78,13 @@ int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx);
 
 /*! \brief Unregister the topic publisher
  *
- *  \param subidx Index of the topic publisher
+ *  \param pubidx Index of the topic publisher
  */
 int cRosNodeUnregisterPublisher(CrosNode *node, int pubidx);
 
 /*! \brief Unregister the service provider
  *
- *  \param subidx Index of the service provider
+ *  \param serviceidx Index of the service provider
  */
 int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx);
 
@@ -119,8 +119,29 @@ void cRosNodeReleaseServiceCaller(ServiceCallerNode *node);
  */
 void cRosNodeReleaseParameterSubscrition(ParameterSubscription *subscription);
 
+/*! \brief Search for a Tcpros client proc that is currently not assigned
+ *         to any subscriber and assign it to the specified subscriber
+ *
+ *  \param node Pointer to CrosNode structure that has previously been created with cRosNodeCreate
+ *  \param subidx Index of the subscriber
+ *  \return Returns the found Tcpros client index on success or -1 on failure (e.g., No Tcpros client available)
+ */
+int cRosNodeRecruitTcprosClientProc(CrosNode *node, int subidx);
+
+/*! \brief Search for a Tcpros client proc that is currently assigned
+ *         to the specified subscriber and is connected to the specified hostname and port
+ *
+ *  subidx, tcpros_hostname and tcpros_port set the search condition for the Tcpros client proc
+ *  \param node Pointer to CrosNode structure that has previously been created with cRosNodeCreate
+ *  \param subidx Index of the subscriber or -1 for any subscriber
+ *  \param tcpros_hostname Pointer to the hostname string or NULL for any hostname
+ *  \param tcpros_port Port number of -1 for any port
+ *  \return Returns the found Tcpros client index on success or -1 on failure (e.g., No Tcpros client matching the search criteria)
+ */
+int cRosNodeFindFirstTcprosClientProc(CrosNode *node, int subidx, const char *tcpros_hostname, int tcpros_port);
+
 void restartAdversing(CrosNode* node);
-int enqueueRequestTopic(CrosNode *node, int subidx);
+int enqueueRequestTopic(CrosNode *node, int subidx, const char *host, int port);
 int enqueueMasterApiCall(CrosNode *node, RosApiCall *call);
 int enqueueSlaveApiCall(CrosNode *node, RosApiCall *call, const char *host, int port);
 

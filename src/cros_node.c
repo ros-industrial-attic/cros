@@ -364,7 +364,7 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
       }
       else // Is slave api
       {
-        if (call->provider_idx == -1)
+        if (1 || call->provider_idx == -1)
         {
           conn_state = tcpIpSocketConnect(&xmlrpc_client_proc->socket,
                                           call->host, call->port);
@@ -609,10 +609,9 @@ static void doWithTcprosClientSocket( CrosNode *n, int client_idx)
   {
     case  TCPROS_PROCESS_STATE_CONNECTING:
     {
-      SubscriberNode *sub = &(n->subs[client_proc->topic_idx]);
       tcprosProcessClear( client_proc, 0 );
       TcpIpSocketState conn_state = tcpIpSocketConnect( &(client_proc->socket),
-                                           sub->topic_host, sub->tcpros_port );
+                                           client_proc->sub_tcpros_host, client_proc->sub_tcpros_port );
       switch (conn_state)
       {
         case TCPIPSOCKET_DONE:
@@ -2147,6 +2146,51 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
   return serviceidx;
 }
 
+int cRosNodeRecruitTcprosClientProc(CrosNode *node, int subidx)
+{
+  int ret; // Return value: -1 on error, or the recruited proc index on success
+  SubscriberNode *sub;
+  TcprosProcess *client_proc;
+
+  // Look for a free Tcpros client proc
+  int clientidx;
+  client_proc=NULL;
+  sub = &node->subs[subidx];
+  ret=-1; // Default return value (No free Tcpros client proc is available)
+  for(clientidx=0;clientidx<CN_MAX_TCPROS_CLIENT_CONNECTIONS && ret==-1;clientidx++)
+  {
+    client_proc = &node->tcpros_client_proc[clientidx];
+    if(client_proc->topic_idx == -1) // A free Tcpros client proc has been found
+    {
+      client_proc->topic_idx = subidx;
+      client_proc->tcp_nodelay = (unsigned char)sub->tcp_nodelay;
+      printf("TCPROS client proc %i assigned to subs %i\n",clientidx,subidx);
+      ret=clientidx; // Exit loop
+    }
+  }
+  return ret;
+}
+
+int cRosNodeFindFirstTcprosClientProc(CrosNode *node, int subidx, const char *tcpros_hostname, int tcpros_port)
+{
+  int ret; // Return value: -1 on error, or the found proc index on success
+  SubscriberNode *sub;
+
+  // Look for the first Tcpros client proc that was recruited for subidx subscriber and a specific publisher host and port
+  int clientidx;
+  ret=-1;
+  sub = &node->subs[subidx];
+  for(clientidx=0;clientidx<CN_MAX_TCPROS_CLIENT_CONNECTIONS && ret==-1;clientidx++)
+  {
+    if((subidx == -1 || node->tcpros_client_proc[clientidx].topic_idx == subidx) &&
+       (tcpros_port == -1 || node->tcpros_client_proc[clientidx].sub_tcpros_port == tcpros_port) &&
+       (tcpros_hostname == NULL || strcmp(node->tcpros_client_proc[clientidx].sub_tcpros_host,tcpros_hostname)==0)
+       )
+      ret=clientidx;
+  }
+  return ret;
+}
+
 int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum,
                                SubscriberCallback callback, NodeStatusCallback status_callback, void *data_context, int tcp_nodelay)
@@ -2198,13 +2242,6 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
   sub->callback = callback;
   sub->context = data_context;
   sub->tcp_nodelay = (unsigned char)tcp_nodelay;
-
-  int clientidx = subidx + 1;
-  sub->client_tcpros_id = clientidx;
-
-  TcprosProcess *client_proc = &node->tcpros_client_proc[clientidx];
-  client_proc->topic_idx = subidx;
-  client_proc->tcp_nodelay = (unsigned char)tcp_nodelay;
 
   node->n_subs++;
 
@@ -2298,6 +2335,7 @@ int cRosNodeRegisterServiceCaller(CrosNode *node, const char *message_definition
 
 int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx)
 {
+  int client_tcpros_ind;
   if (subidx < 0 || subidx >= CN_MAX_SUBSCRIBED_TOPICS)
     return -1;
 
@@ -2312,8 +2350,12 @@ int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx)
     return -1;
   }
 
-  TcprosProcess *tcprosProc = &node->tcpros_client_proc[sub->client_tcpros_id];
-  closeTcprosProcess(tcprosProc);
+  while((client_tcpros_ind=cRosNodeFindFirstTcprosClientProc(node, subidx, NULL, -1)) != -1)
+  {
+    TcprosProcess *tcprosProc = &node->tcpros_client_proc[client_tcpros_ind];
+    closeTcprosProcess(tcprosProc);
+  }
+
   if (sub->client_xmlrpc_id != -1)
   {
     XmlrpcProcess *xmlrpcProc = &node->xmlrpc_client_proc[sub->client_xmlrpc_id];
@@ -3293,7 +3335,7 @@ int enqueueParameterUnsubscription(CrosNode *node, int parameteridx)
   return enqueueMasterApiCallInternal(node, call);
 }
 
-int enqueueRequestTopic(CrosNode *node, int subidx)
+int enqueueRequestTopic(CrosNode *node, int subidx, const char *host, int port)
 {
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
@@ -3310,8 +3352,8 @@ int enqueueRequestTopic(CrosNode *node, int subidx)
   {
     CrosNodeStatusUsr status;
     initCrosNodeStatus(&status);
-    status.xmlrpc_host = sub->topic_host;
-    status.xmlrpc_port = sub->topic_port;
+    status.xmlrpc_host = strdup(host);
+    status.xmlrpc_port = port;
     sub->status_callback(&status, sub->context);
   }
 
@@ -3322,7 +3364,7 @@ int enqueueRequestTopic(CrosNode *node, int subidx)
   xmlrpcParamArrayPushBackArray(array_param);
   xmlrpcParamArrayPushBackString(xmlrpcParamArrayGetParamAt(array_param,0),CROS_TRANSPORT_TCPROS_STRING);
 
-  return enqueueSlaveApiCallInternal(node, call);
+  return enqueueSlaveApiCall(node, call, host, port);
 }
 
 void restartAdversing(CrosNode* n)
@@ -3378,8 +3420,6 @@ void initSubscriberNode(SubscriberNode *node)
   node->status_callback = NULL;
   node->context = NULL;
   node->client_xmlrpc_id = -1;
-  node->client_tcpros_id = -1;
-  node->tcpros_port = -1;
   node->tcp_nodelay = 0;
 }
 
