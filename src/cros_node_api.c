@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "cros_node_api.h"
 #include "cros_api.h"
@@ -13,12 +14,11 @@
 #include "cros_defs.h"
 #include "xmlrpc_params.h"
 
-int lookup_host (const char *host, char *ip)
+int lookup_host (const char *host, char *ip_addr_buff, size_t ip_addr_buff_size)
 {
   struct addrinfo hints, *res, *res_it;
   int errcode;
-  char addrstr[100];
-  void *ptr = NULL;
+  int ret;
 
   memset (&hints, 0, sizeof (hints));
   hints.ai_family = PF_UNSPEC;
@@ -27,44 +27,54 @@ int lookup_host (const char *host, char *ip)
 
   errcode = getaddrinfo (host, NULL, &hints, &res);
   if (errcode != 0)
-    {
-      perror ("getaddrinfo");
-      return -1;
-    }
+  {
+    PRINT_ERROR ("lookup_host() : getaddrinfo failed with errno: %i", errno);
+    return -1;
+  }
 
+  ret=0; // Default return value=0: no error
   res_it = res;
-  while (res_it)
+  while (res_it != NULL && ret == 0)
+  {
+    void *src_addr = NULL;
+    switch (res_it->ai_family)
     {
-      inet_ntop (res_it->ai_family, res_it->ai_addr->sa_data, addrstr, 100);
-
-      switch (res_it->ai_family)
-        {
-        case AF_INET:
-          ptr = &((struct sockaddr_in *) res_it->ai_addr)->sin_addr;
-          break;
+      case AF_INET:
+        src_addr = &((struct sockaddr_in *) res_it->ai_addr)->sin_addr;
+        break;
 #ifdef AF_INET6
-        case AF_INET6:
-          ptr = &((struct sockaddr_in6 *) res_it->ai_addr)->sin6_addr;
-          break;
+      case AF_INET6:
+        src_addr = &((struct sockaddr_in6 *) res_it->ai_addr)->sin6_addr;
+        break;
 #endif
-        default:
-          break;
-        }
-      if (ptr == NULL)
-      {
-        PRINT_ERROR ("getaddrinfo unsupported ai_family");
-        return -1;
-      }
-
-      inet_ntop (res_it->ai_family, ptr, addrstr, 100);
-      PRINT_VDEBUG ("IPv%d address: %s (%s)\n", res_it->ai_family == PF_INET6 ? 6 : 4,
-              addrstr, res_it->ai_canonname);
-      res_it = res_it->ai_next;
-      strcpy(ip, (char*)&addrstr);
+      default:
+        break;
     }
-
+    if (src_addr != NULL)
+    {
+      if(inet_ntop (res_it->ai_family, src_addr, ip_addr_buff, ip_addr_buff_size) != NULL)
+      {
+        PRINT_VDEBUG ("IPv%d address: %s (%s)\n", res_it->ai_family == PF_INET6 ? 6 : 4,
+                      ip_addr_buff, res_it->ai_canonname);
+        res_it = res_it->ai_next;
+      }
+      else
+      {
+        if(errno == ENOSPC)
+          PRINT_ERROR ("lookup_host() : buffer for host address too small");
+        else
+          PRINT_ERROR ("lookup_host() : error executing inet_ntop(). errno = %i", errno);
+        ret = -1;
+      }
+    }
+    else
+    {
+      PRINT_ERROR ("lookup_host() : getaddrinfo unsupported ai_family");
+      ret = -1;
+    }
+  }
   freeaddrinfo(res);
-  return 0;
+  return ret;
 }
 
 // TODO Improve this
@@ -205,7 +215,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                 char *progress = NULL;
                 char *hostname = strtok_r(clean_string,":",&progress);
 
-                int rc = lookup_host(hostname, topic_host_addr);
+                int rc = lookup_host(hostname, topic_host_addr, sizeof(topic_host_addr));
                 if (rc == 0)
                 {
                   topic_host_port = atoi(strtok_r(NULL,":",&progress));
@@ -262,7 +272,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
                 if (requesting_service_caller->service_host != NULL)
                 {
-                  int rc = lookup_host(hostname, requesting_service_caller->service_host);
+                  int rc = lookup_host(hostname, requesting_service_caller->service_host, 100*sizeof(char));
                   if (rc == 0)
                   {
                     requesting_service_caller->service_port = atoi(strtok_r(NULL,":",&progress));
@@ -488,7 +498,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           PRINT_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
           xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
 
-          int rc = lookup_host(tcp_host->data.as_string, tcpros_host);
+          int rc = lookup_host(tcp_host->data.as_string, tcpros_host, sizeof(tcpros_host));
           if (rc == 0)
           {
             // Check if a Tcpros client is already connected to the received hostname and port for the current subscriber node
@@ -653,7 +663,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
                 char * progress = NULL;
                 char* hostname = strtok_r(clean_string,":",&progress);
 
-                int rc = lookup_host(hostname, topic_host_addr);
+                int rc = lookup_host(hostname, topic_host_addr, sizeof(topic_host_addr));
                 if (rc == 0)
                 {
                   topic_host_port = atoi(strtok_r(NULL,":",&progress));
