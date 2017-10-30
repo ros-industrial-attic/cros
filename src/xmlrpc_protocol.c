@@ -195,12 +195,14 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
     dynStringPushBackStr ( message, "User-Agent: " );
     dynStringPushBackStr ( message, XMLRPC_VERSION.str );
     dynStringPushBackStr ( message, "\r\nHost: " );
-    dynStringPushBackStr ( message, host );
-
-    char port_str[50];
-    snprintf ( port_str, 50, ":%d\r\n", port );
-
-    dynStringPushBackStr ( message, port_str );
+    if(host != NULL)
+    {
+      char port_str[50];
+      dynStringPushBackStr ( message, host );
+      snprintf ( port_str, 50, ":%d", port );
+      dynStringPushBackStr ( message, port_str );
+    }
+    dynStringPushBackStr ( message, "\r\n" );
   }
   else if( type == XMLRPC_MESSAGE_RESPONSE )
   {

@@ -109,12 +109,12 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
   RosApiCall *call = client_proc->current_call;
   if(client_idx == 0) //requests managed by the xmlrpc client connected to roscore
   {
-    generateXmlrpcMessage(n->host, n->roscore_port, XMLRPC_MESSAGE_REQUEST,
+    generateXmlrpcMessage(n->roscore_host, n->roscore_port, XMLRPC_MESSAGE_REQUEST,
                           getMethodName(call->method), &call->params, &client_proc->message);
   }
   else // client_idx > 0
   {
-    generateXmlrpcMessage(n->host, call->port, XMLRPC_MESSAGE_REQUEST,
+    generateXmlrpcMessage(call->host, call->port, XMLRPC_MESSAGE_REQUEST,
                           getMethodName(call->method), &call->params, &client_proc->message);
   }
 }
@@ -923,8 +923,8 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   }
 
   xmlrpcProcessClear(server_proc, 0);
-  generateXmlrpcMessage(n->roscore_host, n->xmlrpc_port, server_proc->message_type,
-                        dynStringGetData(&server_proc->method), &params, &server_proc->message);
+  generateXmlrpcMessage(NULL, 0, server_proc->message_type,
+                        dynStringGetData(&server_proc->method), &params, &server_proc->message); // host and port are not used in XMLRPC_MESSAGE_RESPONSE
   xmlrpcParamVectorRelease(&params);
 
   return ret;

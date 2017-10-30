@@ -2909,7 +2909,7 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
           int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
 
           rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
-          generateXmlrpcMessage( n->host, n->roscore_port, rosproc->message_type,
+          generateXmlrpcMessage( n->roscore_host, n->roscore_port, rosproc->message_type,
                                 getMethodName(call->method), &call->params, &rosproc->message );
 
           rosproc->current_call = call;
