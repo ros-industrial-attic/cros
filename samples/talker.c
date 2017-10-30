@@ -27,40 +27,43 @@ unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRos
 // This callback will be invoked when it's our turn to publish a new message
 static CallbackResponse callback_pub(cRosMessage *message, void* data_context)
 {
-  static int count = 0;
+  static int pub_count = 0;
   char buf[1024];
   // We need to index into the message structure and then assign to fields
   cRosMessageField *data_field = cRosMessageGetField(message, "data");
   if(data_field)
   {
-    snprintf(buf, sizeof(buf), "hello world %d", count);
+    snprintf(buf, sizeof(buf), "hello world %d", pub_count);
     if(cRosMessageSetFieldValueString(data_field, buf) == 0)
     {
       ROS_INFO(node, "%s\n", buf);
     }
   }
 
-  if(++count > 100) exit_flag=1;
+  if(++pub_count > 100) exit_flag=1;
   return 0;
 }
 
 static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMessage *response, int call_resp_flag, void* context)
 {
-  static int count = 0;
-  cRosMessageField *a_field = cRosMessageGetField(request, "a");
-  cRosMessageField *b_field = cRosMessageGetField(request, "b");
+  static int call_count = 0;
 
-  a_field->data.as_int64=7;
-  b_field->data.as_int64=8;
+  if(!call_resp_flag) // Check if this callback function has been called to provide the service call arguments or to collect the response
+  {
+    cRosMessageField *a_field = cRosMessageGetField(request, "a");
+    cRosMessageField *b_field = cRosMessageGetField(request, "b");
 
-  cRosMessageField *sum_field = cRosMessageGetField(response, "sum");
-
-  if(call_resp_flag)
-    ROS_INFO(node, "Service add 2 ints response: %lld (count: %i)\n", (long long)sum_field->data.as_int64, count);
-  else
+    a_field->data.as_int64=10;
+    b_field->data.as_int64=call_count;
     ROS_INFO(node, "Service add 2 ints call arguments: {a: %lld, b: %lld}\b\n", (long long)a_field->data.as_int64, (long long)b_field->data.as_int64);
+  }
+  else // Service call response available
+  {
+    cRosMessageField *sum_field = cRosMessageGetField(response, "sum");
+    ROS_INFO(node, "Service add 2 ints response: %lld (call_count: %i)\n", (long long)sum_field->data.as_int64, call_count++);
+  }
 
-  if(++count > 100) exit_flag=1;
+  if(call_count > 100) exit_flag=1;
   return 0;
 }
 

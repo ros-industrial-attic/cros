@@ -189,7 +189,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
   adr.sin_port = htons ( port );
   if ( inet_pton ( AF_INET, host, &adr.sin_addr ) <= 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketConnect() : Can't get a valid addres from %s\n", host );
+    PRINT_ERROR ( "tcpIpSocketConnect() : Can't get a valid address from %s\n", host );
     s->connected = 0;
     return TCPIPSOCKET_FAILED;
   }
@@ -199,7 +199,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
     if ( s->is_nonblocking &&
        ( errno == EINPROGRESS || errno == EALREADY ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketConnect() : connection in progress to %s:%i through FD:%i\n", host, port, s->fd);
+      PRINT_DEBUG ( "tcpIpSocketConnect() : Connection in progress to %s:%i through FD:%i\n", host, port, s->fd);
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else

@@ -114,17 +114,8 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
   }
   else // client_idx > 0
   {
-    if (call->provider_idx == -1)
-    {
-      generateXmlrpcMessage(n->host, call->port, XMLRPC_MESSAGE_REQUEST,
-                            getMethodName(call->method), &call->params, &client_proc->message);
-    }
-    else
-    {
-      SubscriberNode *subscriber_node = &n->subs[call->provider_idx];
-      generateXmlrpcMessage(n->host, subscriber_node->topic_port, XMLRPC_MESSAGE_REQUEST,
-                            getMethodName(call->method), &call->params, &client_proc->message);
-    }
+    generateXmlrpcMessage(n->host, call->port, XMLRPC_MESSAGE_REQUEST,
+                          getMethodName(call->method), &call->params, &client_proc->message);
   }
 }
 
@@ -208,22 +199,17 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
               if (clean_string != NULL)
               {
+                char topic_host_addr[100];
+                int topic_host_port;
                 strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
                 char *progress = NULL;
                 char *hostname = strtok_r(clean_string,":",&progress);
-                if(requesting_subscriber->topic_host == NULL)
+
+                int rc = lookup_host(hostname, topic_host_addr);
+                if (rc == 0)
                 {
-                  requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
-                }
-                if (requesting_subscriber->topic_host != NULL)
-                {
-                  int rc = lookup_host(hostname, requesting_subscriber->topic_host);
-                  if (rc == 0)
-                  {
-                    requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-                    enqueueRequestTopic(n, subidx, requesting_subscriber->topic_host, requesting_subscriber->topic_port);
-                  }
-                  else
+                  topic_host_port = atoi(strtok_r(NULL,":",&progress));
+                  if(enqueueRequestTopic(n, subidx, topic_host_addr, topic_host_port) == -1)
                     ret=-1;
                 }
                 else
@@ -236,7 +222,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
             }
           }
         }
-
         break;
       }
       case CROS_API_LOOKUP_SERVICE:
@@ -616,10 +601,9 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         XmlrpcParam *proto_name;
         int sub_idx = -1;
         int uri_found = 0;
-        SubscriberNode* requesting_subscriber = NULL;
 
-        int i = 0;
-        for(; i < n->n_subs; i++)
+        int i;
+        for(i = 0; i < n->n_subs; i++)
         {
           if (n->subs[i].topic_name == NULL)
             continue;
@@ -627,7 +611,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
           {
             sub_idx = i;
-            requesting_subscriber = &(n->subs[i]);
             break;
           }
         }
@@ -664,33 +647,33 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
               char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
               if (clean_string != NULL)
               {
+                char topic_host_addr[100];
+                int topic_host_port;
                 strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
                 char * progress = NULL;
                 char* hostname = strtok_r(clean_string,":",&progress);
-                if(requesting_subscriber->topic_host == NULL)
+
+                int rc = lookup_host(hostname, topic_host_addr);
+                if (rc == 0)
                 {
-                  requesting_subscriber->topic_host = (char *)calloc(100,sizeof(char)); // Freed by cRosApiReleaseSubscriber() during cRosNodeDestroy()
-                }
-                if (requesting_subscriber->topic_host != NULL)
-                {
-                  int rc = lookup_host(hostname, requesting_subscriber->topic_host);
-                  if (rc == 0)
+                  topic_host_port = atoi(strtok_r(NULL,":",&progress));
+                  if(enqueueRequestTopic(n, sub_idx, topic_host_addr, topic_host_port) == -1)
                   {
-                    requesting_subscriber->topic_port = atoi(strtok_r(NULL,":",&progress));
-                    enqueueRequestTopic(n, sub_idx, requesting_subscriber->topic_host, requesting_subscriber->topic_port);
-                  }
-                  else
-                  {
-                    PRINT_ERROR ( "lookup_host() : Unable to resolve hostname\n" );
-                    xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
+                    PRINT_ERROR ( "enqueueRequestTopic() : Unable to enqueue request (Not enough memory?)\n" );
                   }
                 }
                 else
-                  ret=-1;
+                {
+                  PRINT_ERROR ( "lookup_host() : Unable to resolve hostname\n" );
+                  xmlrpcParamVectorPushBackString( &params, "Unable to resolve hostname" );
+                }
                 free(clean_string);
               }
               else
+              {
+                PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Error allocating memory\n" );
                 ret=-1;
+              }
             }
           }
           if(ret == 0) // No errors so far
@@ -700,10 +683,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             xmlrpcParamArrayPushBackInt(array, 1);
             xmlrpcParamArrayPushBackString(array, "");
             xmlrpcParamArrayPushBackInt(array, 0);
-          }
-          else
-          {
-            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Error allocating memory\n" );
           }
         }
         else

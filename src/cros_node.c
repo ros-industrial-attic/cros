@@ -362,19 +362,10 @@ static void doWithXmlrpcClientSocket(CrosNode *n, int i)
     	  conn_state = tcpIpSocketConnect( &(xmlrpc_client_proc->socket),
                                        	   n->roscore_host, n->roscore_port );
       }
-      else // Is slave api
+      else // slave api or client xmlrpc to be invoked from a subscriber
       {
-        if (1 || call->provider_idx == -1)
-        {
-          conn_state = tcpIpSocketConnect(&xmlrpc_client_proc->socket,
-                                          call->host, call->port);
-        }
-        else // It's client xmlrpc to be invoked from a subscriber
-        {
-          SubscriberNode *sub = &n->subs[call->provider_idx];
-          conn_state = tcpIpSocketConnect(&xmlrpc_client_proc->socket,
-                                          sub->topic_host, sub->topic_port);
-        }
+        conn_state = tcpIpSocketConnect(&xmlrpc_client_proc->socket,
+                                        call->host, call->port);
       }
 
       if( conn_state == TCPIPSOCKET_IN_PROGRESS )
@@ -3197,7 +3188,9 @@ int cRosNodeStart( CrosNode *n, unsigned char *exit_flag )
   int ret=0;
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
   while( ret==0 && !(*exit_flag) )
+  {
     ret=cRosNodeDoEventsLoop( n );
+  }
   return ret;
 }
 
@@ -3411,8 +3404,6 @@ void initPublisherNode(PublisherNode *node)
 void initSubscriberNode(SubscriberNode *node)
 {
   node->message_definition = NULL;
-  node->topic_host = NULL;
-  node->topic_port = -1;
   node->topic_name = NULL;
   node->topic_type = NULL;
   node->md5sum = NULL;
@@ -3475,7 +3466,6 @@ void cRosNodeReleaseSubscriber(SubscriberNode *node)
   free(node->topic_name);
   free(node->topic_type);
   free(node->md5sum);
-  free(node->topic_host);
 }
 
 void cRosNodeReleaseServiceProvider(ServiceProviderNode *node)
