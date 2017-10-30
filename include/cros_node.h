@@ -57,15 +57,13 @@
 
 /*!
  * Max num TCPROS connections against another subscribed nodes
- *  (first connection index reserved to roscore)
  * */
-#define CN_MAX_TCPROS_CLIENT_CONNECTIONS 1 + CN_MAX_SUBSCRIBED_TOPICS
+#define CN_MAX_TCPROS_CLIENT_CONNECTIONS CN_MAX_SUBSCRIBED_TOPICS
 
 /*!
  * Max num RPCROS connections against other service-providing nodes
- *  (first connection index reserved to roscore) ???
  * */
-#define CN_MAX_RPCROS_CLIENT_CONNECTIONS 1 + CN_MAX_SERVICE_CALLERS
+#define CN_MAX_RPCROS_CLIENT_CONNECTIONS CN_MAX_SERVICE_CALLERS
 
 /*! Node automatic XMLRPC ping cycle period (in msec) */
 #define CN_PING_LOOP_PERIOD 1000

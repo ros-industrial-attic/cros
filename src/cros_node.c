@@ -2321,7 +2321,7 @@ int cRosNodeRegisterServiceCaller(CrosNode *node, const char *message_definition
   service->persistent = (unsigned char)persistent;
   service->tcp_nodelay = (unsigned char)tcp_nodelay;
 
-  int clientidx = serviceidx + 1; // +1 ??? see cros_node.h line 54
+  int clientidx = serviceidx; // node->service_callers[0] is assigned node->rpcros_client_proc[0] and so on
   service->client_rpcros_id = clientidx;
 
   TcprosProcess *client_proc = &node->rpcros_client_proc[clientidx];
