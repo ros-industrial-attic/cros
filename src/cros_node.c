@@ -262,9 +262,7 @@ static void cleanApiCallState(CrosNode *node, RosApiCall *call)
   {
     case CROS_API_REQUEST_TOPIC:
     {
-      // This is needed to clean transitory xmlrpc client process that is set on
-      // the subscriber
-      node->subs[call->provider_idx].client_xmlrpc_id = -1;
+      // transitory xmlrpc client processes are checked and cleared one by one in the subscriber unregistration function
       break;
     }
     default:
@@ -2341,7 +2339,7 @@ int cRosNodeRegisterServiceCaller(CrosNode *node, const char *message_definition
 
 int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx)
 {
-  int client_tcpros_ind;
+  int client_tcpros_ind, client_xmlrpc_ind;
   if (subidx < 0 || subidx >= CN_MAX_SUBSCRIBED_TOPICS)
     return -1;
 
@@ -2362,10 +2360,13 @@ int cRosNodeUnregisterSubscriber(CrosNode *node, int subidx)
     closeTcprosProcess(tcprosProc);
   }
 
-  if (sub->client_xmlrpc_id != -1)
+  // Check if any xmlrpc_client_proc is working for the subscriber being unregistered and if so, close them
+  for(client_xmlrpc_ind=0;client_xmlrpc_ind < CN_MAX_XMLRPC_CLIENT_CONNECTIONS;client_xmlrpc_ind++)
   {
-    XmlrpcProcess *xmlrpcProc = &node->xmlrpc_client_proc[sub->client_xmlrpc_id];
-    closeXmlrpcProcess(xmlrpcProc);
+    XmlrpcProcess *xmlrpcProc = &node->xmlrpc_client_proc[client_xmlrpc_ind];
+    if(xmlrpcProc->state != XMLRPC_PROCESS_STATE_IDLE && xmlrpcProc->current_call != NULL &&
+       xmlrpcProc->current_call->method == CROS_API_REQUEST_TOPIC && xmlrpcProc->current_call->provider_idx == subidx)
+     closeXmlrpcProcess(xmlrpcProc);
   }
 
   XmlrpcProcess *coreproc = &node->xmlrpc_client_proc[0];
@@ -2625,8 +2626,6 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
   {
     int idle_client_idx = idle_clients[next_idle_client_idx];
     RosApiCall *call = dequeueApiCall(&n->slave_api_queue);
-    if (call->method == CROS_API_REQUEST_TOPIC)
-      n->subs[call->provider_idx].client_xmlrpc_id = idle_client_idx;
 
     XmlrpcProcess *proc =  &n->xmlrpc_client_proc[idle_client_idx];
     proc->current_call = call;
@@ -3425,7 +3424,6 @@ void initSubscriberNode(SubscriberNode *node)
   node->callback = NULL;
   node->status_callback = NULL;
   node->context = NULL;
-  node->client_xmlrpc_id = -1;
   node->tcp_nodelay = 0;
 }
 

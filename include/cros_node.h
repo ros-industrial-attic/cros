@@ -136,7 +136,6 @@ struct SubscriberNode
   char *topic_name;                         //! The subscribed topic name
   char *topic_type;                         //! The subscribed topic data type (e.g., std_msgs/String, ...)
   char *md5sum;                             //! The MD5 sum of the message type
-  int   client_xmlrpc_id;                   //! The xmlrpc client that manages the subscription
   unsigned char tcp_nodelay;                //! If 1, the publisher should set TCP_NODELAY on the socket, if possible
   void *context;
   SubscriberCallback callback;

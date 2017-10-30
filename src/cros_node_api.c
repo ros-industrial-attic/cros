@@ -69,7 +69,7 @@ int lookup_host (const char *host, char *ip_addr_buff, size_t ip_addr_buff_size)
     }
     else
     {
-      PRINT_ERROR ("lookup_host() : getaddrinfo unsupported ai_family");
+      PRINT_ERROR ("lookup_host() : unsupported ai_family from getaddrinfo()");
       ret = -1;
     }
   }
