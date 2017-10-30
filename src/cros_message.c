@@ -1424,15 +1424,21 @@ cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field_name)
 
 int cRosMessageSetFieldValueString(cRosMessageField* field, const char* value)
 {
+  int ret;
   if (field->type != CROS_STD_MSGS_STRING)
     return -1;
 
-  size_t len = strlen(value);
-  free(field->data.as_string);
-  field->data.as_string = calloc(strlen(value) + 1, sizeof(char));
-  strcpy(field->data.as_string,value);
-  field->size = (int)len;
-  return 0;
+  size_t str_len = strlen(value);
+  field->data.as_string = (char *)realloc(field->data.as_string, sizeof(char)*(str_len+1));
+  if(field->data.as_string != NULL)
+  {
+    strcpy(field->data.as_string,value);
+    field->size = (int)str_len;
+    ret=0; // Success
+  }
+  else
+    ret=-1;
+  return ret;
 }
 
 int arrayFieldValuePushBack(cRosMessageField *field, const void* data, int element_size)
