@@ -1000,6 +1000,9 @@ static void doWithRpcrosClientSocket(CrosNode *n, int client_idx)
         case TCPIPSOCKET_IN_PROGRESS:
           break;
         case TCPIPSOCKET_DISCONNECTED:
+          tcpIpSocketClose(&client_proc->socket);
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING);
+          break;
         case TCPIPSOCKET_FAILED:
         default:
           handleRpcrosClientError( n, client_idx );
@@ -1033,6 +1036,9 @@ static void doWithRpcrosClientSocket(CrosNode *n, int client_idx)
           parser_state = TCPROS_PARSER_HEADER_INCOMPLETE;
           break;
         case TCPIPSOCKET_DISCONNECTED:
+          tcpIpSocketClose(&client_proc->socket);
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING);
+          break;
         case TCPIPSOCKET_FAILED:
         default:
           handleRpcrosClientError( n, client_idx );
@@ -1081,6 +1087,9 @@ static void doWithRpcrosClientSocket(CrosNode *n, int client_idx)
           break;
 
         case TCPIPSOCKET_DISCONNECTED:
+          tcpIpSocketClose(&client_proc->socket);
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING);
+          break;
         case TCPIPSOCKET_FAILED:
         default:
           PRINT_INFO( "doWithRpcrosClientSocket() : Client disconnected\n" );
@@ -1116,6 +1125,9 @@ static void doWithRpcrosClientSocket(CrosNode *n, int client_idx)
         case TCPIPSOCKET_IN_PROGRESS:
           break;
         case TCPIPSOCKET_DISCONNECTED:
+          tcpIpSocketClose(&client_proc->socket);
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING);
+          break;
         case TCPIPSOCKET_FAILED:
         default:
           handleRpcrosClientError( n, client_idx );
@@ -1160,6 +1172,9 @@ static void doWithRpcrosClientSocket(CrosNode *n, int client_idx)
         case TCPIPSOCKET_IN_PROGRESS:
           break;
         case TCPIPSOCKET_DISCONNECTED:
+          tcpIpSocketClose(&client_proc->socket);
+          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WAIT_FOR_CONNECTING);
+          break;
         case TCPIPSOCKET_FAILED:
         default:
           handleRpcrosClientError( n, client_idx );
