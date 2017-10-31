@@ -11,8 +11,6 @@
  *  To exit safely press Ctrl-C or 'kill' the process once. If this actions are repeated, the process
  *  will be finished immediately.
  */
-#include <cros.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +18,9 @@
 
 #include <errno.h>
 #include <signal.h>
+
+#include "cros.h"
+
 
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
 unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits

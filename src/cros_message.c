@@ -580,16 +580,19 @@ cRosMessage * cRosMessageNew()
 
 void cRosMessageFieldInit(cRosMessageField *field)
 {
-  field->is_const = 0;
-  field->name = NULL;
-  field->type = CROS_CUSTOM_TYPE;
-  field->type_s = NULL;
-  field->size = -1;
-  field->is_array = 0;
-  field->is_fixed_array = 0;
-  field->array_size = -1;
-  field->array_capacity = -1;
-  memset(field->data.opaque, 0, sizeof(field->data.opaque));
+  if(field != NULL)
+  {
+    field->is_const = 0;
+    field->name = NULL;
+    field->type = CROS_CUSTOM_TYPE;
+    field->type_s = NULL;
+    field->size = -1;
+    field->is_array = 0;
+    field->is_fixed_array = 0;
+    field->array_size = -1;
+    field->array_capacity = -1;
+    memset(field->data.opaque, 0, sizeof(field->data.opaque));
+  }
 }
 
 int loadFromStringMsg(char* text, cRosMessageDef* msg)
@@ -930,7 +933,219 @@ int cRosMessageBuild(cRosMessage* message, const char* message_path)
   return 0;
 }
 
-int cRosCopyFieldDef(msgFieldDef* new_field_def, msgFieldDef* orig_field_def )
+int cRosMessageFieldCopy(cRosMessageField* new_field, cRosMessageField* orig_field)
+{
+  int ret;
+  if(new_field != NULL && orig_field != NULL)
+  {
+    new_field->size = orig_field->size;
+    new_field->is_const = orig_field->is_const;
+    new_field->is_array = orig_field->is_array;
+    new_field->is_fixed_array = orig_field->is_fixed_array;
+    new_field->array_size = orig_field->array_size;
+    new_field->array_capacity = orig_field->array_capacity;
+    new_field->type = orig_field->type;
+    new_field->type_s = (orig_field->type_s != NULL)? strdup(orig_field->type_s):NULL;
+    new_field->name = (orig_field->name != NULL)? strdup(orig_field->name):NULL;
+    if((new_field->type_s == NULL && orig_field->type_s != NULL) || (new_field->name == NULL && orig_field->name != NULL))
+    {
+      free(new_field->type_s);
+      free(new_field->name);
+      ret=-1;
+    }
+    else
+    {
+      ret=0; // Default return value
+      if(!orig_field->is_array)
+      {
+        switch (orig_field->type)
+        {
+          case CROS_STD_MSGS_INT8:
+          case CROS_STD_MSGS_UINT8:
+          case CROS_STD_MSGS_INT16:
+          case CROS_STD_MSGS_UINT16:
+          case CROS_STD_MSGS_INT32:
+          case CROS_STD_MSGS_UINT32:
+          case CROS_STD_MSGS_INT64:
+          case CROS_STD_MSGS_UINT64:
+          case CROS_STD_MSGS_FLOAT32:
+          case CROS_STD_MSGS_FLOAT64:
+          case CROS_STD_MSGS_BOOL:
+          case CROS_STD_MSGS_CHAR:
+          case CROS_STD_MSGS_BYTE:
+          {
+            new_field->data = orig_field->data;
+            break;
+          }
+          case CROS_STD_MSGS_STRING:
+          {
+            new_field->data.as_string = (orig_field->data.as_string != NULL)? strdup(orig_field->data.as_string) : NULL;
+            if(orig_field->data.as_string != NULL && new_field->data.as_string == NULL)
+              ret=-1; // Error allocating memory for string
+            break;
+          }
+          case CROS_STD_MSGS_TIME:
+          case CROS_STD_MSGS_DURATION:
+          case CROS_STD_MSGS_HEADER:
+          case CROS_CUSTOM_TYPE:
+          {
+            if(!orig_field->is_array)
+              new_field->data.as_msg = cRosMessageCopyWithoutDef(orig_field->data.as_msg);
+              if(new_field->data.as_msg == NULL)
+                ret=-1;
+            break;
+          }
+        }
+      }
+      else
+      {
+        // Allocate the array
+        if(orig_field->type == CROS_STD_MSGS_STRING) // The array is encoded as a pointer to pointers
+          new_field->data.as_array = calloc(orig_field->array_capacity, sizeof(char *)); // String pointers
+        else if(orig_field->type == CROS_STD_MSGS_TIME || orig_field->type == CROS_STD_MSGS_DURATION ||
+                orig_field->type == CROS_STD_MSGS_HEADER || orig_field->type == CROS_CUSTOM_TYPE)
+          new_field->data.as_array = calloc(orig_field->array_capacity, sizeof(cRosMessage *)); // Message pointers
+        else // The array is encoded as a pointer to elements
+          new_field->data.as_array = calloc(orig_field->array_capacity, orig_field->size); // Element pointers
+        if(new_field->data.as_array != NULL) // If the array was allocated, copy the elements
+        {
+          switch (orig_field->type)
+          {
+            case CROS_STD_MSGS_STRING:
+            {
+              int n_str;
+              for(n_str=0;n_str<orig_field->array_size && ret==0;n_str++)
+              {
+                new_field->data.as_string_array[n_str] = strdup(orig_field->data.as_string_array[n_str]);
+                if(new_field->data.as_string_array[n_str] == NULL)
+                  ret=-1;
+              }
+              if(ret != 0) // Error allocating memory for strings: free previously allocated string memory
+                for(n_str=0;n_str<orig_field->array_size && ret==0;n_str++)
+                  free(new_field->data.as_string_array[n_str]);
+              break;
+            }
+            case CROS_STD_MSGS_TIME:
+            case CROS_STD_MSGS_DURATION:
+            case CROS_STD_MSGS_HEADER:
+            case CROS_CUSTOM_TYPE:
+            {
+              int n_msg;
+              for(n_msg=0;n_msg<orig_field->array_size && ret==0;n_msg++)
+              {
+                new_field->data.as_msg_array[n_msg] = cRosMessageCopyWithoutDef(orig_field->data.as_msg_array[n_msg]);
+                if(new_field->data.as_msg_array[n_msg] == NULL)
+                  ret=-1;
+              }
+              if(ret != 0) // Error allocating memory for messages: free previously allocated message memory
+                for(n_msg=0;n_msg<orig_field->array_size && ret==0;n_msg++)
+                  cRosMessageFree(new_field->data.as_msg_array[n_msg]);
+              break;
+            }
+            default:
+            {
+              memcpy(new_field->data.as_array, orig_field->data.as_array, orig_field->size * orig_field->array_size);
+              break;
+            }
+          }
+          if(ret != 0)
+          {
+            free(new_field->data.as_array);
+          }
+        }
+        else
+          ret=-1; // Error allocating the array
+      }
+      if(ret != 0) // Free memory to leave the message in a determined state
+      {
+        free(new_field->type_s);
+        free(new_field->name);
+      }
+    }
+  }
+  else
+    ret=-1;
+  return ret;
+}
+
+// This function copies the MD5 and all the fields (fields field struct) from one message (m_src) to another (m_dst).
+// It if expected than the fields field of m_dst is NULL.
+int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src)
+{
+  int ret;
+
+  m_dst->n_fields = m_src->n_fields;
+  if(m_src->md5sum != NULL) // If source message has a valid MD5 field, copy it
+  {
+    if(m_dst->md5sum != NULL)
+    {
+      strcpy(m_dst->md5sum, m_src->md5sum);
+      ret=0;
+    }
+    else
+    {
+      m_dst->md5sum = strdup(m_src->md5sum);
+      ret = (m_dst->md5sum != NULL)?0:-1;
+    }
+  }
+  else
+  {
+    free(m_dst->md5sum);
+    m_dst->md5sum=NULL;
+    ret=0;
+  }
+  if(ret == 0) // If no error copying MD5 field, continue
+  {
+    // Assume that destination message has no fields (they are removed when cRosMessageQueueRemove() is executed)
+    // Create a new field array in destination message
+    m_dst->fields = (cRosMessageField **)calloc(m_src->n_fields, sizeof(cRosMessageField*));
+    if(m_dst->fields != NULL)
+    {
+      int field_ind;
+      // Copy all the filed in source message while no error occurs
+      for(field_ind=0;field_ind<m_src->n_fields && ret==0;field_ind++)
+      {
+        cRosMessageField *new_field = cRosMessageFieldNew();
+        if(new_field != NULL)
+        {
+          ret = cRosMessageFieldCopy(new_field, m_src->fields[field_ind]);
+          if(ret == 0)
+            m_dst->fields[field_ind] = new_field;
+          else
+            free(new_field);
+        }
+        else
+          ret=-1;
+      }
+      if(ret != 0) // Error copying fields
+      {
+        // Destroy already created fields
+        cRosMessageFieldsFree(m_dst);
+      }
+    }
+    else
+      ret=-1;
+  }
+  return ret;
+}
+
+cRosMessage *cRosMessageCopyWithoutDef(cRosMessage *m_src)
+{
+  cRosMessage *m_dst;
+  m_dst = cRosMessageNew();
+  if(m_dst != NULL)
+  {
+    if(cRosMessageFieldsCopy(m_dst, m_src) != 0)
+    {
+      // Error copying fields: free the new message
+      cRosMessageFree(m_dst);
+      m_dst=NULL; // Return NULL (error indicator)
+    }
+  }
+  return m_dst;
+}
+
+int cRosFieldDefCopy(msgFieldDef* new_field_def, msgFieldDef* orig_field_def )
 {
   int ret;
   if(new_field_def != NULL && orig_field_def != NULL)
@@ -956,7 +1171,7 @@ int cRosCopyFieldDef(msgFieldDef* new_field_def, msgFieldDef* orig_field_def )
   return ret;
 }
 
-int cRosCopyConstDef(msgConst* new_const_def, msgConst* orig_const_def )
+int cRosConstDefCopy(msgConst* new_const_def, msgConst* orig_const_def )
 {
   int ret;
   if(new_const_def != NULL && orig_const_def != NULL)
@@ -985,7 +1200,7 @@ int cRosCopyConstDef(msgConst* new_const_def, msgConst* orig_const_def )
 }
 
 // Make a copy of a message definition struct allocating new memory for it, so that all fields can be freed independently from the originals
-int cRosCopyMessageDef(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_msg_def )
+int cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_msg_def )
 {
   int ret;
 
@@ -1007,7 +1222,7 @@ int cRosCopyMessageDef(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_ms
       orig_field_itr =  orig_msg_def->first_field;
       new_field_itr = (*ptr_new_msg_def)->first_field;
 
-      ret=cRosCopyFieldDef(new_field_itr, orig_field_itr);
+      ret=cRosFieldDefCopy(new_field_itr, orig_field_itr);
 
       // Copy message definition fields
       while(orig_field_itr->next != NULL && ret == 0)
@@ -1016,7 +1231,7 @@ int cRosCopyMessageDef(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_ms
         if(new_field_itr->next != NULL)
         {
           initFieldDef(new_field_itr->next);
-          ret=cRosCopyFieldDef(new_field_itr->next, orig_field_itr->next);
+          ret=cRosFieldDefCopy(new_field_itr->next, orig_field_itr->next);
           if(ret == 0)
           {
             new_field_itr->next->prev = new_field_itr;
@@ -1052,7 +1267,7 @@ int cRosCopyMessageDef(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_ms
       orig_const_itr =  orig_msg_def->first_const;
       new_const_itr = (*ptr_new_msg_def)->first_const;
 
-      ret=cRosCopyConstDef(new_const_itr, orig_const_itr);
+      ret=cRosConstDefCopy(new_const_itr, orig_const_itr);
 
       // Copy message definition constants
       while(orig_const_itr->next != NULL && ret == 0)
@@ -1061,7 +1276,7 @@ int cRosCopyMessageDef(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_ms
         if(new_const_itr->next != NULL)
         {
           initMsgConst(new_const_itr->next);
-          ret=cRosCopyConstDef(new_const_itr->next, orig_const_itr->next);
+          ret=cRosConstDefCopy(new_const_itr->next, orig_const_itr->next);
           if(ret == 0)
           {
             new_const_itr->next->prev = new_const_itr;
@@ -1105,7 +1320,7 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
   dynStringInit(&output);
 
   cRosMessageDefFree(message->msgDef); // Just in case there was a previous message definition in the message
-  cRosCopyMessageDef(&message->msgDef, msg_def );
+  cRosMessageDefCopy(&message->msgDef, msg_def );
 
   unsigned char* res = getMD5Msg(msg_def);
   cRosMD5Readable(res, &output);
@@ -1182,8 +1397,7 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
       {
         if(!field_def_itr->is_array)
         {
-          field->data.as_msg = malloc(sizeof(cRosMessage));
-          cRosMessageInit((cRosMessage*)field->data.as_msg);
+          field->data.as_msg = cRosMessageNew();
           char* path = calloc(strlen(msg_def->root_dir) +
                               strlen(DIR_SEPARATOR_STR) +
                               strlen(field_def_itr->type_s) +
@@ -1194,6 +1408,7 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
           strcat(path, field_def_itr->type_s);
           strcat(path, ".msg");
           cRosMessageBuild((cRosMessage*) field->data.as_msg, path);
+          free(path);
         }
         break;
       }
@@ -1306,17 +1521,20 @@ void cRosMessageDefFree(cRosMessageDef *msgDef)
   free(msgDef); // All the previous pointer assignments to NULL make no sense if we free the cRosMessageDef struct
 }
 
-void cRosMessageRelease(cRosMessage *message)
+void cRosMessageFieldsFree(cRosMessage *message)
 {
   int i;
 
   for(i = 0; i < message->n_fields; i++)
-  {
     cRosMessageFieldFree(message->fields[i]);
-  }
   free(message->fields);
   message->fields = NULL;
   message->n_fields = 0;
+}
+
+void cRosMessageRelease(cRosMessage *message)
+{
+  cRosMessageFieldsFree(message);
 
   cRosMessageDefFree(message->msgDef);
   message->msgDef = NULL;

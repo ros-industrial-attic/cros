@@ -5,7 +5,7 @@
  *  This ROS node can implement at the same time several:
  *  - Subscribers
  *  - Publishers
- *  - Service providers (server)
+ *  - Service providers (servers)
  *  - Service callers (clients)
  *
  */
@@ -191,13 +191,13 @@ typedef struct CrosLogQueue CrosLogQueue;
 
 struct CrosLog
 {
-  uint8_t level;    //! debug level
-  char* name;       //! name of the node
-  char* msg;        //! message
-  char* file;       //! file the message came from
-  char* function;   //! function the message came from
-  uint32_t line;    //! line the message came from
-  char** pubs;    //! topic names that the node publishes
+  uint8_t level;   //! debug level
+  char* name;      //! name of the node
+  char* msg;       //! message
+  char* file;      //! file the message came from
+  char* function;  //! function the message came from
+  uint32_t line;   //! line the message came from
+  char** pubs;     //! topic names that the node publishes
   uint32_t secs;
   uint32_t nsecs;
   size_t n_pubs;

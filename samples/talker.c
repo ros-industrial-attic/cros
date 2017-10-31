@@ -13,13 +13,14 @@
  *  parameter set to 1.
  *  When the number of service calls or published messages is 100 the ROS node exits and the program finishes.
  */
-#include <cros.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
+
+#include "cros.h"
 
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
 unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
