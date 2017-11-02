@@ -14,7 +14,7 @@
 #include "cros_message.h"
 
 
-#define MAX_QUEUE_LEN 10 //! Maximum number of messages that can be hold in the queue
+#define MAX_QUEUE_LEN 3 //! Maximum number of messages that can be hold in the queue
 
 typedef struct cRosMessageQueue cRosMessageQueue;
 

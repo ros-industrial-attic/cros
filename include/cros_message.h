@@ -97,6 +97,8 @@ void cRosMessageInit(cRosMessage *message);
 
 int cRosMessageBuild(cRosMessage* message, const char* message_path);
 
+void cRosMessageFieldsPrint(cRosMessage *msg, int n_indent);
+
 int cRosMessageFieldCopy(cRosMessageField* new_field, cRosMessageField* orig_field);
 
 int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src);
