@@ -1960,19 +1960,22 @@ int cRosMessageSetFieldValueString(cRosMessageField* field, const char* value)
   return ret;
 }
 
-int arrayFieldValuePushBack(cRosMessageField *field, const void* data, int element_size)
+int arrayFieldValuesPushBack(cRosMessageField *field, const void* data, int element_size, int n_new_elements)
 {
   if(!field->is_array || field->is_fixed_array)
     return -1;
 
-  if(field->array_capacity == field->array_size)
+  if(field->array_capacity < field->array_size + n_new_elements)
   {
     void* new_location;
-    new_location = realloc(field->data.as_array, 2 * field->array_capacity * element_size);
+    size_t new_arr_cap;
+
+    new_arr_cap = (field->array_size + n_new_elements) * 3 / 2;
+    new_location = realloc(field->data.as_array, new_arr_cap * element_size);
     if(new_location != NULL)
     {
       field->data.as_array = new_location;
-      field->array_capacity *= 2;
+      field->array_capacity = (int)new_arr_cap;
     }
     else
     {
@@ -1980,9 +1983,14 @@ int arrayFieldValuePushBack(cRosMessageField *field, const void* data, int eleme
     }
   }
 
-  memcpy(field->data.as_array + field->array_size * element_size, data, element_size);
-  field->array_size ++;
+  memcpy(field->data.as_array + field->array_size * element_size, data, element_size * n_new_elements);
+  field->array_size += n_new_elements;
   return 0;
+}
+
+int arrayFieldValuePushBack(cRosMessageField *field, const void* data, int element_size)
+{
+  return arrayFieldValuesPushBack(field, data, element_size, 1);
 }
 
 int cRosMessageFieldArrayPushBackInt8(cRosMessageField *field, int8_t val)
@@ -2474,13 +2482,13 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       case CROS_STD_MSGS_CHAR:
       case CROS_STD_MSGS_BYTE:
       {
-        size_t size = getMessageTypeSizeOf(field->type);
+        size_t elem_size = getMessageTypeSizeOf(field->type);
         if (field->is_array)
         {
           if (field->is_fixed_array)
           {
-            ret_err = dynBufferGetCurrentContent( field->data.as_array, buffer, size * field->array_size ); // equiv. to: memcpy(field->data.as_array, dynBufferGetCurrentData(buffer), size * field->array_size);
-            dynBufferMovePoseIndicator(buffer, size * field->array_size);
+            ret_err = dynBufferGetCurrentContent( field->data.as_array, buffer, elem_size * field->array_size ); // equiv. to: memcpy(field->data.as_array, dynBufferGetCurrentData(buffer), size * field->array_size);
+            dynBufferMovePoseIndicator(buffer, elem_size * field->array_size);
           }
           else
           {
@@ -2488,20 +2496,22 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
             cRosMessageFieldArrayClear(field);
             ret_err = dynBufferGetCurrentContent( (unsigned char *)&array_n_elems, buffer, sizeof(uint32_t) ); // equiv. to: array_n_elems = *((uint32_t*)dynBufferGetCurrentData(buffer));
             dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
-            int arr_elem_ind;
-            for(arr_elem_ind = 0; arr_elem_ind < array_n_elems && ret_err >= 0; arr_elem_ind++)
+            if(ret_err == 0)
             {
-              uint8_t elem_buf[8]; // Max. element size: 8 bytes
-              ret_err = dynBufferGetCurrentContent( (unsigned char *)elem_buf, buffer, size );
-              arrayFieldValuePushBack(field, (const void*)elem_buf, size);
-              dynBufferMovePoseIndicator(buffer, size);
+              if(dynBufferGetRemainingDataSize(buffer) >= array_n_elems*elem_size)
+              {
+                ret_err = arrayFieldValuesPushBack(field, (const void *)dynBufferGetCurrentData(buffer), elem_size, array_n_elems);
+                dynBufferMovePoseIndicator(buffer, array_n_elems*elem_size);
+              }
+              else
+                ret_err = -1; // Not enough data available in the packet buffer
             }
           }
         }
         else
         {
-          ret_err = dynBufferGetCurrentContent( field->data.opaque, buffer, size ); // equiv. to: memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), size);
-          dynBufferMovePoseIndicator(buffer, size);
+          ret_err = dynBufferGetCurrentContent( field->data.opaque, buffer, elem_size ); // equiv. to: memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), elem_size);
+          dynBufferMovePoseIndicator(buffer, elem_size);
         }
 
         break;
