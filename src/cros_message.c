@@ -1016,8 +1016,8 @@ int cRosMessageFieldCopy(cRosMessageField* new_field, cRosMessageField* orig_fie
               int n_str;
               for(n_str=0;n_str<orig_field->array_size && ret==0;n_str++)
               {
-                new_field->data.as_string_array[n_str] = strdup(orig_field->data.as_string_array[n_str]);
-                if(new_field->data.as_string_array[n_str] == NULL)
+                new_field->data.as_string_array[n_str] = (orig_field->data.as_string_array[n_str] != NULL)?strdup(orig_field->data.as_string_array[n_str]):NULL;
+                if(new_field->data.as_string_array[n_str] == NULL && orig_field->data.as_string_array[n_str] != NULL)
                   ret=-1;
               }
               if(ret != 0) // Error allocating memory for strings: free previously allocated string memory
@@ -1034,7 +1034,7 @@ int cRosMessageFieldCopy(cRosMessageField* new_field, cRosMessageField* orig_fie
               for(n_msg=0;n_msg<orig_field->array_size && ret==0;n_msg++)
               {
                 new_field->data.as_msg_array[n_msg] = cRosMessageCopyWithoutDef(orig_field->data.as_msg_array[n_msg]);
-                if(new_field->data.as_msg_array[n_msg] == NULL)
+                if(new_field->data.as_msg_array[n_msg] == NULL && orig_field->data.as_msg_array[n_msg] != NULL)
                   ret=-1;
               }
               if(ret != 0) // Error allocating memory for messages: free previously allocated message memory
@@ -1360,26 +1360,31 @@ int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src)
 {
   int ret;
 
-  m_dst->n_fields = m_src->n_fields;
-  if(m_src->md5sum != NULL) // If source message has a valid MD5 field, copy it
+  if(m_src != NULL && m_src != NULL)
   {
-    if(m_dst->md5sum != NULL)
+    m_dst->n_fields = m_src->n_fields;
+    if(m_src->md5sum != NULL) // If source message has a valid MD5 field, copy it
     {
-      strcpy(m_dst->md5sum, m_src->md5sum);
-      ret=0;
+      if(m_dst->md5sum != NULL)
+      {
+        strcpy(m_dst->md5sum, m_src->md5sum);
+        ret=0;
+      }
+      else
+      {
+        m_dst->md5sum = strdup(m_src->md5sum);
+        ret = (m_dst->md5sum != NULL)?0:-1;
+      }
     }
     else
     {
-      m_dst->md5sum = strdup(m_src->md5sum);
-      ret = (m_dst->md5sum != NULL)?0:-1;
+      free(m_dst->md5sum);
+      m_dst->md5sum=NULL;
+      ret=0;
     }
   }
   else
-  {
-    free(m_dst->md5sum);
-    m_dst->md5sum=NULL;
-    ret=0;
-  }
+    ret=-1;
   if(ret == 0) // If no error copying MD5 field, continue
   {
     // Assume that destination message has no fields (they are removed when cRosMessageQueueRemove() is executed)
@@ -1418,16 +1423,21 @@ int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src)
 cRosMessage *cRosMessageCopyWithoutDef(cRosMessage *m_src)
 {
   cRosMessage *m_dst;
-  m_dst = cRosMessageNew();
-  if(m_dst != NULL)
+  if(m_src != NULL)
   {
-    if(cRosMessageFieldsCopy(m_dst, m_src) != 0)
+    m_dst = cRosMessageNew();
+    if(m_dst != NULL)
     {
-      // Error copying fields: free the new message
-      cRosMessageFree(m_dst);
-      m_dst=NULL; // Return NULL (error indicator)
+      if(cRosMessageFieldsCopy(m_dst, m_src) != 0)
+      {
+        // Error copying fields: free the new message
+        cRosMessageFree(m_dst);
+        m_dst=NULL; // Return NULL (error indicator)
+      }
     }
   }
+  else
+    m_dst = NULL;
   return m_dst;
 }
 
@@ -1726,13 +1736,18 @@ void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
       }
       else
       {
-        if(field->type != CROS_CUSTOM_TYPE)
+        if(field->type == CROS_CUSTOM_TYPE || field->type == CROS_STD_MSGS_TIME ||
+           field->type == CROS_STD_MSGS_DURATION || field->type == CROS_STD_MSGS_HEADER)
         {
-        field->data.as_array = calloc(field_def_itr->array_size,field->size);
+          field->data.as_msg_array = (cRosMessage**)calloc(field_def_itr->array_size,sizeof(cRosMessage*));
+        }
+        else if(field->type == CROS_STD_MSGS_STRING)
+        {
+          field->data.as_string_array = (char **)calloc(field_def_itr->array_size,sizeof(char*));
         }
         else
         {
-          field->data.as_msg_array = calloc(field_def_itr->array_size,sizeof(cRosMessage*));
+          field->data.as_array = calloc(field_def_itr->array_size,field->size);
         }
         field->array_size = field_def_itr->array_size;
         field->array_capacity = field_def_itr->array_size;
@@ -2073,12 +2088,25 @@ int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val
       return -1;
     }
   }
-
-  char* element_val = (char*) calloc(strlen(val) + 1, sizeof(char));
-  strcpy(element_val, val);
-  field->data.as_string_array[field->array_size] = element_val;
-  field->array_size ++;
-  return 0;
+  int ret;
+  char* element_val;
+  ret=0;
+  if(val != NULL)
+  {
+    element_val = (char*)calloc(strlen(val) + sizeof(char), 1);
+    if(element_val != NULL)
+      strcpy(element_val, val);
+    else
+      ret=-1;
+  }
+  else
+    element_val = NULL;
+  if(ret == 0)
+  {
+    field->data.as_string_array[field->array_size] = element_val;
+    field->array_size ++;
+  }
+  return ret;
 }
 
 int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg)
@@ -2223,19 +2251,31 @@ int cRosMessageFieldArrayAtStringGet(cRosMessageField *field, int position, cons
 
 int cRosMessageFieldArrayAtStringSet(cRosMessageField *field, int position, const char* val)
 {
+  int ret;
   if(field->type != CROS_STD_MSGS_STRING || !field->is_array)
     return -1;
 
   char *current = field->data.as_string_array[position];
-  if (current != NULL)
-    free(current);
-
-  current = (char *)malloc(strlen(val) + 1);
-  strcpy(current, val);
-
+  ret = 0; // Default return value: success
+  if(val != NULL)
+  {
+    current = (char *)realloc(current, strlen(val) + sizeof(char));
+    if(current != NULL)
+      strcpy(current, val);
+    else
+      ret=-1;
+  }
+  else
+  {
+    if(current != NULL)
+    {
+      free(current);
+      current = NULL;
+    }
+  }
   field->data.as_string_array[position] = current;
 
-  return 0;
+  return ret;
 }
 
 int cRosMessageFieldArrayClear(cRosMessageField *field)
@@ -2346,16 +2386,20 @@ int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
       }
       case CROS_STD_MSGS_STRING:
       {
-        // CHECK-ME
         if(field->is_array)
         {
           int i;
           for( i = 0; i < field->array_size && ret_err >= 0; i++)
           {
-            const char* val = NULL;
-            cRosMessageFieldArrayAtStringGet(field, i, &val);
-            dynBufferPushBackInt32(buffer, strlen(val));
-            ret_err = dynBufferPushBackBuf(buffer, (unsigned char *)val, strlen(val));
+            const char* arr_elem_str = NULL;
+            size_t arr_elem_str_len;
+            cRosMessageFieldArrayAtStringGet(field, i, &arr_elem_str);
+            if(arr_elem_str != NULL)
+              arr_elem_str_len = strlen(arr_elem_str);
+            else
+              arr_elem_str_len = 0;
+            dynBufferPushBackInt32(buffer, arr_elem_str_len);
+            ret_err = dynBufferPushBackBuf(buffer, (unsigned char *)arr_elem_str, arr_elem_str_len);
           }
         }
         else
@@ -2433,8 +2477,6 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         size_t size = getMessageTypeSizeOf(field->type);
         if (field->is_array)
         {
-          cRosMessageFieldArrayClear(field);
-          size_t curr_data_size = field->array_size;
           if (field->is_fixed_array)
           {
             ret_err = dynBufferGetCurrentContent( field->data.as_array, buffer, size * field->array_size ); // equiv. to: memcpy(field->data.as_array, dynBufferGetCurrentData(buffer), size * field->array_size);
@@ -2442,15 +2484,16 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
           }
           else
           {
-            uint32_t array_size_bytes;
-            ret_err = dynBufferGetCurrentContent( (unsigned char *)&array_size_bytes, buffer, sizeof(uint32_t) ); // equiv. to: array_size_bytes = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            uint32_t array_n_elems;
+            cRosMessageFieldArrayClear(field);
+            ret_err = dynBufferGetCurrentContent( (unsigned char *)&array_n_elems, buffer, sizeof(uint32_t) ); // equiv. to: array_n_elems = *((uint32_t*)dynBufferGetCurrentData(buffer));
             dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
-            int arr_pos;
-            for(arr_pos = 0; arr_pos < array_size_bytes && ret_err >= 0; arr_pos+=size)
+            int arr_elem_ind;
+            for(arr_elem_ind = 0; arr_elem_ind < array_n_elems && ret_err >= 0; arr_elem_ind++)
             {
               uint8_t elem_buf[8]; // Max. element size: 8 bytes
-              ret_err = dynBufferGetCurrentContent( (unsigned char *)elem_buf, buffer, size ); // equiv. to: d = *((double*) dynBufferGetCurrentData(buffer));
-              arrayFieldValuePushBack(field, (const void*)elem_buf, size); //dynBufferGetCurrentData(buffer), size);
+              ret_err = dynBufferGetCurrentContent( (unsigned char *)elem_buf, buffer, size );
+              arrayFieldValuePushBack(field, (const void*)elem_buf, size);
               dynBufferMovePoseIndicator(buffer, size);
             }
           }
@@ -2465,30 +2508,34 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       }
       case CROS_STD_MSGS_STRING:
       {
-        // CHECK-ME
         if (field->is_array)
         {
-          cRosMessageFieldArrayClear(field);
-          uint32_t curr_data_size = field->array_size;
-          if(!field->is_fixed_array)
+          uint32_t curr_array_size;
+          if(field->is_fixed_array) // If it is a fixed array, use the fixed array size
+            curr_array_size = field->array_size;
+          else  // Otherwise, obtain the number of elements of the received array
           {
-            ret_err = dynBufferGetCurrentContent( (unsigned char *)&curr_data_size, buffer, sizeof(uint32_t) ); // equiv. to: curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            cRosMessageFieldArrayClear(field);
+            ret_err = dynBufferGetCurrentContent( (unsigned char *)&curr_array_size, buffer, sizeof(uint32_t) ); // equiv. to: curr_array_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
             dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
           }
 
-          unsigned int i;
-          for(i = 0; i < curr_data_size && ret_err >= 0; i++)
+          uint32_t elem_ind;
+          for(elem_ind = 0; elem_ind < curr_array_size && ret_err >= 0; elem_ind++)
           {
             uint32_t element_size;
             ret_err = dynBufferGetCurrentContent( (unsigned char *)&element_size, buffer, sizeof(uint32_t) ); // equiv. to: element_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
             dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
             if(ret_err >= 0)
             {
-              char* tmp_string = (char*)calloc(element_size + 1, sizeof(char));
+              char* tmp_string = (char *)calloc(element_size + 1, sizeof(char));
               if(tmp_string != NULL)
               {
-                ret_err = dynBufferGetCurrentContent( (unsigned char *)&tmp_string, buffer, element_size ); // equiv. to: memcpy(tmp_string, dynBufferGetCurrentData(buffer), element_size);
-                cRosMessageFieldArrayPushBackString(field, tmp_string);
+                ret_err = dynBufferGetCurrentContent( (unsigned char *)tmp_string, buffer, element_size ); // equiv. to: memcpy(tmp_string, dynBufferGetCurrentData(buffer), element_size);
+                if(field->is_fixed_array)
+                  ret_err = cRosMessageFieldArrayAtStringSet(field, elem_ind, tmp_string);
+                else
+                  ret_err = cRosMessageFieldArrayPushBackString(field, tmp_string);
                 dynBufferMovePoseIndicator(buffer, element_size);
                 free(tmp_string);
               }
@@ -2562,7 +2609,7 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       {
         if (field->is_array)
         {
-          cRosMessageFieldArrayClear(field);
+          cRosMessageFieldArrayClear(field); // If field is a fixed array, this function returns an error code and does nothing
           uint32_t curr_data_size = field->array_size;
           if(!field->is_fixed_array)
           {

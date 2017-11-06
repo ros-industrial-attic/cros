@@ -33,9 +33,9 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
 {
   PRINT_VDEBUG ( "dynBufferPushBackBuf()\n" );
 
-  if ( new_buf == NULL || n < 0 )
+  if ( n < 0  || (new_buf == NULL && n > 0)) // If n == 0, the function accepts NULL as new_buf since nothing have to be appended
   {
-    PRINT_ERROR ( "dynBufferPushBackBuf() : Invalid new buffer\n" );
+    PRINT_ERROR ( "dynBufferPushBackBuf() : Invalid function argument values: new buffer content must be different from NULL and no shorter than 0\n" );
     return -1;
   }
 
@@ -68,8 +68,11 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
     d_buf->data = new_d_buf;
   }
 
-  memcpy ( ( void * ) ( d_buf->data + d_buf->size ), ( void * ) new_buf, n );
-  d_buf->size += n;
+  if(n>0)
+  {
+    memcpy ( ( void * ) ( d_buf->data + d_buf->size ), ( void * ) new_buf, n );
+    d_buf->size += n;
+  }
 
   return d_buf->size;
 }
@@ -227,7 +230,7 @@ int dynBufferGetCurrentContent ( unsigned char *cont_buf, DynBuffer *d_buf, size
 {
    int ret_err;
 
-   if( d_buf->pos_offset + cont_buf_len > d_buf->size ) // THere is not enough content in the dynamic buffer
+   if( d_buf->pos_offset + cont_buf_len > d_buf->size ) // There is not enough content in the dynamic buffer
       ret_err=-1;
    else
    {
