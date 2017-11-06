@@ -572,7 +572,7 @@ static CallbackResponse manyPoints_pub_callback(DynBuffer *buffer, void* data_co
 
   cRosMessageFieldArrayPushBackMsg(limitedPoints, point_1);
   cRosMessage* test = NULL;
-  cRosMessageFieldArrayAtMsgGet(limitedPoints, 0, &test);
+  test = cRosMessageFieldArrayAtMsgGet(limitedPoints, 0);
 
   cRosMessage* point_2 = (cRosMessage*) calloc(1, sizeof(cRosMessage));
   cRosMessageInit(point_2);

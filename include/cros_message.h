@@ -169,11 +169,11 @@ float * cRosMessageFieldArrayAtFloat32(cRosMessageField *field, int position);
 
 double * cRosMessageFieldArrayAtFloat64(cRosMessageField *field, int position);
 
-int cRosMessageFieldArrayAtStringGet(cRosMessageField *field, int position, const char** ptr);
+char *cRosMessageFieldArrayAtStringGet(cRosMessageField *field, int position);
 
 int cRosMessageFieldArrayAtStringSet(cRosMessageField *field, int position, const char* val);
 
-int cRosMessageFieldArrayAtMsgGet(cRosMessageField *field, int position, cRosMessage** ptr);
+cRosMessage *cRosMessageFieldArrayAtMsgGet(cRosMessageField *field, int position);
 
 int cRosMessageFieldArrayAtMsgSet(cRosMessageField *field, int position, cRosMessage* val);
 

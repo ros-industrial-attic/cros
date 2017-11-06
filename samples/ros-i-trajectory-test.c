@@ -41,8 +41,8 @@ static CallbackResponse jointstates_sub_callback(cRosMessage *message, void* dat
     printf("Joint names:");
     for(i = 0; i < joints_size; i++)
     {
-        char* joint_name = NULL;
-        cRosMessageFieldArrayAtStringGet(field_name,i,(const char **)&joint_name);
+        char* joint_name;
+        joint_name = cRosMessageFieldArrayAtStringGet(field_name,i);
         printf(" %s", joint_name);
     }
     printf("\n");
