@@ -105,7 +105,7 @@ int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src);
 
 cRosMessage *cRosMessageCopyWithoutDef(cRosMessage *m_src);
 
-void cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
+int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
 
 void cRosMessageFree(cRosMessage *message);
 
