@@ -21,7 +21,6 @@
 
 #include "cros.h"
 
-
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
 unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
 struct sigaction old_int_signal_handler, old_term_signal_handler; //! Structures codifying the original handlers of SIGINT and SIGTERM signals (e.g. used when pressing Ctrl-C for the second time);
@@ -30,10 +29,9 @@ struct sigaction old_int_signal_handler, old_term_signal_handler; //! Structures
 static CallbackResponse callback_sub(cRosMessage *message, void* data_context)
 {
   cRosMessageField *data_field = cRosMessageGetField(message, "data");
-  if(data_field)
-  {
+  if(data_field != NULL)
     ROS_INFO(node, "I heard: [%s]\n", data_field->data.as_string);
-  }
+
   return 0;
 }
 
@@ -43,15 +41,20 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
   cRosMessageField *a_field = cRosMessageGetField(request, "a");
   cRosMessageField *b_field = cRosMessageGetField(request, "b");
 
-  int64_t a = a_field->data.as_int64;
-  int64_t b = b_field->data.as_int64;
+  if(a_field != NULL && a_field != NULL)
+  {
+    int64_t a = a_field->data.as_int64;
+    int64_t b = b_field->data.as_int64;
 
-  int64_t response_val = a+b;
+    int64_t response_val = a+b;
 
-  cRosMessageField *sum_field = cRosMessageGetField(response, "sum");
-  sum_field->data.as_int64 = response_val;
-
-  ROS_INFO(node,"Service add 2 ints. Arguments: {a: %lld, b: %lld}. Response: %lld\n", (long long)a, (long long)b, (long long)response_val);
+    cRosMessageField *sum_field = cRosMessageGetField(response, "sum");
+    if(sum_field != NULL)
+    {
+      sum_field->data.as_int64 = response_val;
+      ROS_INFO(node,"Service add 2 ints. Arguments: {a: %lld, b: %lld}. Response: %lld\n", (long long)a, (long long)b, (long long)response_val);
+    }
+  }
 
   return 0;
 }
@@ -110,6 +113,7 @@ int main(int argc, char **argv)
   if(cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0) < 0)
   {
     printf("cRosApiRegisterSubscriber() failed; did you run this program one directory above 'rosdb'?\n");
+    cRosNodeDestroy( node );
     return EXIT_FAILURE;
   }
 

@@ -431,6 +431,7 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
             cRosMessage msg_fn;
             cRosMessageInit(&msg_fn);
             cRosMessageBuild(&msg_fn,filename_dep.data);
+            dynStringRelease(&filename_dep);
             char *md5sum = calloc(strlen(msg_fn.md5sum)+1,sizeof(char));
             strcpy(md5sum,msg_fn.md5sum);
             cRosMessageRelease(&msg_fn);
@@ -913,7 +914,7 @@ int cRosMessageBuild(cRosMessage* message, const char* message_path)
   free(message_path_cpy);
   if (rc == -1)
   {
-    free(msg_def);
+    cRosMessageDefFree(msg_def);
     return -1;
   }
 
@@ -1065,7 +1066,8 @@ void printNSpaces(int n_spaces)
   for(spc_ind=0;spc_ind<n_spaces;spc_ind++)
     printf(" ");
 }
-#define MAX_NUM_MSG_ELEM_PRINT 5
+
+#define MAX_NUM_MSG_ELEM_PRINT 5 //! Maximum number of array elements that will be printed by cRosMessageFieldPrint()
 
 // This function prints a field of one message (msg_field) to console.
 void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
@@ -1074,15 +1076,14 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
   if(msg_field != NULL)
   {
     int elem_ind;
-    printf("nam:'%s' siz:%i cons:%i arr(is:%i isFix:%i siz:%i cap:%i) typ:%s ", \
+    printf("nam:'%s' siz:%i cons:%i arr(is:%i isFix:%i siz:%i cap:%i) typ:%s (%s):", \
            (msg_field->name!=NULL)?msg_field->name:"NULL", msg_field->size, msg_field->is_const, \
            msg_field->is_array, msg_field->is_fixed_array, msg_field->array_size, msg_field->array_capacity, \
-           (msg_field->type_s!=NULL)?msg_field->type_s:"NULL");
+           (msg_field->type_s!=NULL)?msg_field->type_s:"NULL", getMessageTypeDeclaration(msg_field->type));
     switch(msg_field->type)
     {
       case CROS_STD_MSGS_INT8:
       {
-        printf("(int8):");
         if(!msg_field->is_array)
           printf("%hi", msg_field->data.as_int8);
         else
@@ -1096,7 +1097,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_UINT8:
       {
-        printf("(uint8):");
         if(!msg_field->is_array)
           printf("%hu", msg_field->data.as_uint8);
         else
@@ -1110,7 +1110,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_INT16:
       {
-        printf("(int16):");
         if(!msg_field->is_array)
           printf("%hi", msg_field->data.as_int16);
         else
@@ -1124,7 +1123,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_UINT16:
       {
-        printf("(uint16):");
         if(!msg_field->is_array)
           printf("%hu", msg_field->data.as_uint16);
         else
@@ -1138,7 +1136,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_INT32:
       {
-        printf("(int32):");
         if(!msg_field->is_array)
           printf("%li", (long)msg_field->data.as_int32);
         else
@@ -1152,7 +1149,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_UINT32:
       {
-        printf("(uint32):");
         if(!msg_field->is_array)
           printf("%lu", (long unsigned)msg_field->data.as_uint32);
         else
@@ -1166,7 +1162,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_INT64:
       {
-        printf("(int64):");
         if(!msg_field->is_array)
           printf("%lli", (long long)msg_field->data.as_int64);
         else
@@ -1180,7 +1175,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_UINT64:
       {
-        printf("(uint64):");
         if(!msg_field->is_array)
           printf("%llu", (long long unsigned)msg_field->data.as_uint64);
         else
@@ -1194,7 +1188,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_FLOAT32:
       {
-        printf("(float32):");
         if(!msg_field->is_array)
           printf("%f", msg_field->data.as_float32);
         else
@@ -1208,7 +1201,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_FLOAT64:
       {
-        printf("(float64):");
         if(!msg_field->is_array)
           printf("%f", msg_field->data.as_float64);
         else
@@ -1222,7 +1214,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_BOOL:
       {
-        printf("(bool):");
         if(!msg_field->is_array)
           printf("%hu", msg_field->data.as_uint8);
         else
@@ -1236,7 +1227,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_CHAR:
       {
-        printf("(char):");
         if(!msg_field->is_array)
           printf("%hu", msg_field->data.as_uint8);
         else
@@ -1250,7 +1240,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_BYTE:
       {
-        printf("(byte):");
         if(!msg_field->is_array)
           printf("%hi", msg_field->data.as_int8);
         else
@@ -1264,7 +1253,6 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       }
       case CROS_STD_MSGS_STRING:
       {
-        printf("(string):");
         if(!msg_field->is_array)
           printf("'%s'", (msg_field->data.as_string!=NULL)?msg_field->data.as_string:"NULL");
         else
@@ -1281,33 +1269,12 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
         }
           break;
       }
-      // The value of these last types are printed after the switch statement because they share the same code
-      case CROS_STD_MSGS_TIME:
-      {
-        printf("(time):");
-        break;
-      }
-      case CROS_STD_MSGS_DURATION:
-      {
-        printf("(duration):");
-        break;
-      }
-      case CROS_STD_MSGS_HEADER:
-      {
-        printf("(header):");
-        break;
-      }
-      case CROS_CUSTOM_TYPE:
-      {
-        printf("(time):");
-        break;
-      }
       default:
       {
-        printf("(unknown type)");
         break;
       }
     }
+    // The value of these last types are printed after the switch statement because they share the same code
     if(msg_field->type == CROS_STD_MSGS_TIME || msg_field->type == CROS_STD_MSGS_DURATION ||
        msg_field->type == CROS_STD_MSGS_HEADER || msg_field->type == CROS_CUSTOM_TYPE)
     {
@@ -2865,6 +2832,8 @@ const char * getMessageTypeDeclaration(CrosMessageType type)
       return "byte";
     case CROS_STD_MSGS_HEADER:
       return "header";
+    case CROS_CUSTOM_TYPE:
+      return "custom";
     default:
       assert(0);
   }
