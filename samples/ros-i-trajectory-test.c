@@ -103,15 +103,15 @@ int main(int argc, char **argv)
     strncat(path, "/rosdb", sizeof(path));
     node = cRosNodeCreate(node_name, node_host, roscore_host, roscore_port, path, NULL);
 
-    int rc;
+    cRosErrCodePack err_cod;
     ROS_INFO(node, "cROS Node (version %.2f) created!\n", 0.9);
 
-    rc = cRosApiRegisterSubscriber(node, "/arm/joint_states", "sensor_msgs/JointState",
-                                   jointstates_sub_callback, NULL, NULL, 0);
-    if (rc == -1)
+    err_cod = cRosApiRegisterSubscriber(node, "/arm/joint_states", "sensor_msgs/JointState",
+                                   jointstates_sub_callback, NULL, NULL, 0, NULL);
+    if (err_cod != CROS_SUCCESS_ERR_PACK)
         return EXIT_FAILURE;
 
-    if (rc == -1)
+    if (err_cod != CROS_SUCCESS_ERR_PACK)
         return EXIT_FAILURE;
 
     unsigned char exit = 0;

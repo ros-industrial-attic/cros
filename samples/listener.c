@@ -99,6 +99,7 @@ int main(int argc, char **argv)
   // We need to tell our node where to find the .msg files that we'll be using
   char path[1024];
   char *node_name;
+  cRosErrCodePack err_cod;
 
   if(argc>1)
     node_name=argv[1];
@@ -110,17 +111,20 @@ int main(int argc, char **argv)
   node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
 
   // Create a subscriber and supply a callback for received messages
-  if(cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0) < 0)
+  err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, NULL);
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
-    printf("cRosApiRegisterSubscriber() failed; did you run this program one directory above 'rosdb'?\n");
+    cRosPrintErrCodePack(err_cod, "cRosApiRegisterSubscriber() failed; did you run this program one directory above 'rosdb'?");
     cRosNodeDestroy( node );
     return EXIT_FAILURE;
   }
 
   // Create a service provider and supply a callback for received calls
-  if(cRosApiRegisterServiceProvider(node,"/sum","roscpp_tutorials/TwoInts", callback_srv_add_two_ints, NULL, NULL) < 0)
+  err_cod = cRosApiRegisterServiceProvider(node,"/sum","roscpp_tutorials/TwoInts", callback_srv_add_two_ints, NULL, NULL, NULL);
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
-    printf("cRosApiRegisterServiceProvider() failed; did you run this program one directory above 'rosdb'?\n");
+    cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceProvider() failed; did you run this program one directory above 'rosdb'?");
+    cRosNodeDestroy( node );
     return EXIT_FAILURE;
   }
 

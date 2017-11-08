@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <linux/limits.h> // for PATH_MAX
 
 #include "cros_defs.h"
 #include "cros_api.h"
@@ -95,88 +96,89 @@ static void freeProviderContext(ProviderContext *context)
   }
 }
 
-static ProviderContext * newProviderContext(const char *provider_path, ProviderType type)
+static cRosErrCodePack newProviderContext(const char *provider_path, ProviderType type, ProviderContext **context_ptr)
 {
+  cRosErrCodePack ret_err;
+
+  ret_err = CROS_SUCCESS_ERR_PACK; // Default return value: success
+
   ProviderContext *context = (ProviderContext *)malloc(sizeof(ProviderContext));
   if (context == NULL)
-    goto clean;
+    return CROS_MEM_ALLOC_ERR;
 
   initProviderContext(context);
   context->type = type;
-  context->md5sum = (char*) calloc(1, 33);// 32 chars + '\0';
+  context->md5sum = (char*) calloc(sizeof(char), 33);// 32 chars + '\0';
   if (context->md5sum == NULL)
-    goto clean;
+  {
+    free(context);
+    return CROS_MEM_ALLOC_ERR;
+  }
 
-  int rc;
   switch(type)
   {
     case CROS_SUBSCRIBER:
     {
       context->incoming = cRosMessageNew();
-      if (context->incoming == NULL)
-        goto clean;
-
-      rc = cRosMessageBuild(context->incoming, provider_path);
-      if (rc != 0)
-        goto clean;
-
-      strcpy(context->md5sum, context->incoming->md5sum);
-      context->message_definition = strdup(context->incoming->msgDef->plain_text); // Alloc new mem so that it can be freed independently
+      if (context->incoming != NULL)
+      {
+        ret_err = cRosMessageBuild(context->incoming, provider_path);
+        if (ret_err == CROS_SUCCESS_ERR_PACK)
+        {
+          strcpy(context->md5sum, context->incoming->md5sum);
+          context->message_definition = strdup(context->incoming->msgDef->plain_text); // Alloc new mem so that it can be freed independently
+        }
+      }
+      else
+        ret_err = CROS_MEM_ALLOC_ERR;
       break;
     }
     case CROS_PUBLISHER:
     {
       context->outgoing = cRosMessageNew();
-      if (context->outgoing == NULL)
-        goto clean;
-
-      rc = cRosMessageBuild(context->outgoing, provider_path);
-      if (rc != 0)
-        goto clean;
-
-      strcpy(context->md5sum, context->outgoing->md5sum);
-      context->message_definition = strdup(context->outgoing->msgDef->plain_text);
+      if (context->outgoing != NULL)
+      {
+        ret_err = cRosMessageBuild(context->outgoing, provider_path);
+        if (ret_err == CROS_SUCCESS_ERR_PACK)
+        {
+          strcpy(context->md5sum, context->outgoing->md5sum);
+          context->message_definition = strdup(context->outgoing->msgDef->plain_text);
+        }
+      }
+      else
+        ret_err = CROS_MEM_ALLOC_ERR;
       break;
     }
     case CROS_SERVICE_PROVIDER:
     {
       context->incoming = cRosMessageNew();
-      if (context->incoming == NULL)
-        goto clean;
       context->outgoing = cRosMessageNew();
-      if (context->outgoing == NULL)
-        goto clean;
-
-      rc = cRosServiceBuildInner(context->incoming, context->outgoing, NULL, context->md5sum, provider_path);
-      if (rc != 0)
-        goto clean;
-
+      if (context->incoming != NULL && context->outgoing != NULL)
+        ret_err = cRosServiceBuildInner(context->incoming, context->outgoing, NULL, context->md5sum, provider_path);
+      else
+        ret_err = CROS_MEM_ALLOC_ERR;
       break;
     }
     case CROS_SERVICE_CALLER:
     {
       context->incoming = cRosMessageNew();
-      if (context->incoming == NULL)
-        goto clean;
       context->outgoing = cRosMessageNew();
-      if (context->outgoing == NULL)
-        goto clean;
-
-      rc = cRosServiceBuildInner(context->outgoing, context->incoming, &context->message_definition, context->md5sum, provider_path);
-      if (rc != 0)
-        goto clean;
-
+      if (context->incoming != NULL && context->outgoing != NULL)
+        ret_err = cRosServiceBuildInner(context->outgoing, context->incoming, &context->message_definition, context->md5sum, provider_path);
+      else
+        ret_err = CROS_MEM_ALLOC_ERR;
       break;
     }
     default:
       assert(0);
   }
 
-  return context;
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+    *context_ptr = context; // No error occurred: return the created context
+  else
+    freeProviderContext(context); // An error occurred: free the allocated memory and return the error code
 
-clean:
-  freeProviderContext(context);
-  return NULL;
+  return ret_err;
 }
 
 static CallbackResponse cRosNodePublisherCallback(DynBuffer *buffer, void* context_)
@@ -236,24 +238,35 @@ static void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
   context->status_callback(status, context->context);
 }
 
-int cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period,
-                                   ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay)
+cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period,
+                                   ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr)
 {
-  char path[256];
-  getSrvFilePath(node, path, 256, service_type);
-  ProviderContext *nodeContext = newProviderContext(path, CROS_SERVICE_CALLER);
-  if (nodeContext == NULL)
-    return -1;
+  cRosErrCodePack ret_err;
+  char path[PATH_MAX];
+  ProviderContext *nodeContext = NULL;
+  int svcidx;
 
-  nodeContext->api_callback = callback;
-  nodeContext->status_callback = status_callback;
-  nodeContext->context = context;
+  getSrvFilePath(node, path, PATH_MAX, service_type);
+  ret_err = newProviderContext(path, CROS_SERVICE_CALLER, &nodeContext);
+  if (ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    nodeContext->api_callback = callback;
+    nodeContext->status_callback = status_callback;
+    nodeContext->context = context;
 
-  // NB: Pass the private ProviderContext to the private api, not the user context
-  int rc = cRosNodeRegisterServiceCaller(node, nodeContext->message_definition, service_name, service_type, nodeContext->md5sum,
+    // NB: Pass the private ProviderContext to the private api, not the user context
+    svcidx = cRosNodeRegisterServiceCaller(node, nodeContext->message_definition, service_name, service_type, nodeContext->md5sum,
                                            loop_period, cRosNodeServiceCallerCallback, status_callback == NULL ? NULL : cRosNodeStatusCallback,
                                            nodeContext, persistent, tcp_nodelay);
-  return rc;
+    if(svcidx >= 0) // Success
+    {
+        if(svcidx_ptr != NULL)
+            *svcidx_ptr = svcidx; // Return the index of the created service caller
+    }
+    else
+        ret_err=CROS_MEM_ALLOC_ERR;
+  }
+  return ret_err;
 }
 
 void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx)
@@ -264,24 +277,34 @@ void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx)
   cRosNodeReleaseServiceCaller(svc);
 }
 
-int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
-                                   ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context)
+cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
+                                   ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context, int *svcidx_ptr)
 {
-  char path[256];
-  getSrvFilePath(node, path, 256, service_type);
-  ProviderContext *nodeContext = newProviderContext(path, CROS_SERVICE_PROVIDER);
-  if (nodeContext == NULL)
-    return -1;
+  cRosErrCodePack ret_err;
+  char path[PATH_MAX];
+  ProviderContext *nodeContext = NULL;
+  int svcidx;
 
-  nodeContext->api_callback = callback;
-  nodeContext->status_callback = status_callback;
-  nodeContext->context = context;
+  getSrvFilePath(node, path, PATH_MAX, service_type);
+  ret_err = newProviderContext(path, CROS_SERVICE_PROVIDER, &nodeContext);
+  if (ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    nodeContext->api_callback = callback;
+    nodeContext->status_callback = status_callback;
+    nodeContext->context = context;
 
-  // NB: Pass the private ProviderContext to the private api, not the user context
-  int rc = cRosNodeRegisterServiceProvider(node, service_name, service_type, nodeContext->md5sum,
-                                           cRosNodeServiceProviderCallback, status_callback == NULL ? NULL : cRosNodeStatusCallback,
-                                           nodeContext);
-  return rc;
+    // NB: Pass the private ProviderContext to the private api, not the user context
+    svcidx = cRosNodeRegisterServiceProvider(node, service_name, service_type, nodeContext->md5sum, cRosNodeServiceProviderCallback,
+                                              status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
+    if(svcidx >= 0) // Success
+    {
+        if(svcidx_ptr != NULL)
+            *svcidx_ptr = svcidx; // Return the index of the created service caller
+    }
+    else
+        ret_err=CROS_MEM_ALLOC_ERR;
+  }
+  return ret_err;
 }
 
 int cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx)
@@ -301,24 +324,35 @@ void cRosApiReleaseServiceProvider(CrosNode *node, int svcidx)
   cRosNodeReleaseServiceProvider(svc);
 }
 
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type,
-                              SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay)
+cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type,
+                              SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr)
 {
-  char path[256];
-  cRosGetMsgFilePath(node, path, 256, topic_type);
-  ProviderContext *nodeContext = newProviderContext(path, CROS_SUBSCRIBER);
-  if (nodeContext == NULL)
-    return -1;
+  cRosErrCodePack ret_err;
+  char path[PATH_MAX];
+  ProviderContext *nodeContext = NULL;
+  int subidx;
 
-  nodeContext->api_callback = callback;
-  nodeContext->status_callback = status_callback;
-  nodeContext->context = context;
+  cRosGetMsgFilePath(node, path, PATH_MAX, topic_type);
+  ret_err = newProviderContext(path, CROS_SUBSCRIBER, &nodeContext);
+  if (ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    nodeContext->api_callback = callback;
+    nodeContext->status_callback = status_callback;
+    nodeContext->context = context;
 
   // NB: Pass the private ProviderContext to the private api, not the user context
-  int rc = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
+    subidx = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
                                   nodeContext->md5sum, cRosNodeSubscriberCallback,
                                   status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext, tcp_nodelay);
-  return rc;
+    if(subidx >= 0) // Success
+    {
+        if(subidx_ptr != NULL)
+            *subidx_ptr = subidx; // Return the index of the created service caller
+    }
+    else
+        ret_err=CROS_MEM_ALLOC_ERR;
+  }
+  return ret_err;
 }
 
 int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
@@ -338,24 +372,35 @@ void cRosApiReleaseSubscriber(CrosNode *node, int subidx)
   cRosNodeReleaseSubscriber(sub);
 }
 
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period,
-                             PublisherApiCallback callback, NodeStatusCallback status_callback, void *context)
+cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period,
+                             PublisherApiCallback callback, NodeStatusCallback status_callback, void *context, int *pubidx_ptr)
 {
-  char path[256];
-  cRosGetMsgFilePath(node, path, 256, topic_type);
-  ProviderContext *nodeContext = newProviderContext(path, CROS_PUBLISHER);
-  if (nodeContext == NULL)
-    return -1;
+  cRosErrCodePack ret_err;
+  char path[PATH_MAX];
+  ProviderContext *nodeContext = NULL;
+  int pubidx;
 
-  nodeContext->api_callback = callback;
-  nodeContext->status_callback = status_callback;
-  nodeContext->context = context;
+  cRosGetMsgFilePath(node, path, PATH_MAX, topic_type);
+  ret_err = newProviderContext(path, CROS_PUBLISHER, &nodeContext);
+  if (ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    nodeContext->api_callback = callback;
+    nodeContext->status_callback = status_callback;
+    nodeContext->context = context;
 
-  // NB: Pass the private ProviderContext to the private api, not the user context
-  int rc = cRosNodeRegisterPublisher(node, nodeContext->message_definition, topic_name, topic_type,
+    // NB: Pass the private ProviderContext to the private api, not the user context
+    pubidx = cRosNodeRegisterPublisher(node, nodeContext->message_definition, topic_name, topic_type,
                                   nodeContext->md5sum, loop_period, cRosNodePublisherCallback,
                                   status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
-  return rc;
+    if(pubidx >= 0) // Success
+    {
+        if(pubidx_ptr != NULL)
+            *pubidx_ptr = pubidx; // Return the index of the created service caller
+    }
+    else
+        ret_err=CROS_MEM_ALLOC_ERR;
+  }
+  return ret_err;
 }
 
 int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)

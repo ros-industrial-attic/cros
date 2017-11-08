@@ -311,18 +311,35 @@ char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps)
     return full_text;
 }
 
-void initCrosMsg(cRosMessageDef* msg)
+cRosErrCodePack initCrosMsg(cRosMessageDef* msg)
 {
-  msg->constants = (msgConst*) malloc(sizeof(msgConst));
-  initMsgConst(msg->constants);
-  msg->first_const = msg->constants;
-  msg->fields = (msgFieldDef*) calloc(1, sizeof(msgFieldDef));
-  initFieldDef(msg->fields);
-  msg->first_field = msg->fields;
-  msg->name = NULL;
-  msg->package = NULL;
-  msg->plain_text = NULL;
-  msg->root_dir = NULL;
+  cRosErrCodePack ret_err;
+  if(msg != NULL)
+  {
+    msg->constants = (msgConst*) malloc(sizeof(msgConst));
+    msg->fields = (msgFieldDef*) calloc(1, sizeof(msgFieldDef));
+    if(msg->constants != NULL && msg->fields != NULL)
+    {
+      initMsgConst(msg->constants);
+      msg->first_const = msg->constants;
+      initFieldDef(msg->fields);
+      msg->first_field = msg->fields;
+      msg->name = NULL;
+      msg->package = NULL;
+      msg->plain_text = NULL;
+      msg->root_dir = NULL;
+      ret_err = CROS_SUCCESS_ERR_PACK;
+    }
+    else
+    {
+      free(msg->constants);
+      free(msg->fields);
+      ret_err = CROS_MEM_ALLOC_ERR;
+    }
+  }
+  else
+    ret_err = CROS_BAD_PARAM_ERR;
+  return ret_err;
 }
 
 void initMsgConst(msgConst *msg)
@@ -780,13 +797,21 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
     return EXIT_SUCCESS;
 }
 
-int loadFromFileMsg(char* filename, cRosMessageDef* msg)
+cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg)
 {
+    cRosErrCodePack ret_err;
+
     FILE *f = fopen(filename, "rb");
     if (f == NULL)
-      return -1;
+      return CROS_OPEN_MSG_FILE_ERR;
 
     char* file_tokenized = (char*) calloc(strlen(filename)+1, sizeof(char));
+    if(file_tokenized == NULL)
+    {
+      fclose(f);
+      return CROS_MEM_ALLOC_ERR;
+    }
+
     strcpy(file_tokenized, filename);
     char* token_pack = NULL;
     char* token_root = NULL;
@@ -796,6 +821,13 @@ int loadFromFileMsg(char* filename, cRosMessageDef* msg)
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);
     char *msg_text = malloc(fsize + 1);
+    if(msg_text == NULL)
+    {
+      fclose(f);
+      free(file_tokenized);
+      return CROS_MEM_ALLOC_ERR;
+    }
+
     fread(msg_text, fsize, 1, f);
     fclose(f);
 
@@ -823,19 +855,28 @@ int loadFromFileMsg(char* filename, cRosMessageDef* msg)
     }
 
     msg->root_dir = (char*) malloc ((strlen(file_tokenized)+1) * sizeof(char)); // msg->root_dir[0] = '\0';
-    strcpy(msg->root_dir,file_tokenized);
-
     msg->package = (char*) malloc ((strlen(token_pack)+1) * sizeof(char)); // msg->package[0] = '\0';
-    strcpy(msg->package,token_pack);
-
     msg->name = (char*) malloc ((strlen(token_name)+1) * sizeof(char)); // msg->name[0] = '\0';
-    strcpy(msg->name,token_name);
+    if(msg->root_dir != NULL && msg->package != NULL && msg->name != NULL)
+    {
+      strcpy(msg->root_dir,file_tokenized);
+      strcpy(msg->package,token_pack);
+      strcpy(msg->name,token_name);
+      loadFromStringMsg(msg_text, msg);
+      ret_err = CROS_SUCCESS_ERR_PACK;
+    }
+    else
+    {
+      free(msg->root_dir);
+      free(msg->package);
+      free(msg->name);
+      ret_err = CROS_MEM_ALLOC_ERR;
+    }
 
-    loadFromStringMsg(msg_text, msg);
     free(msg_text);
-
     free(file_tokenized);
-    return 0;
+
+    return ret_err;
 }
 
 cRosMessage *build_time_field(void)
@@ -903,24 +944,34 @@ cRosMessage *build_header_field(void)
   return header;
 }
 
-int cRosMessageBuild(cRosMessage* message, const char* message_path)
+cRosErrCodePack cRosMessageBuild(cRosMessage* message, const char* message_path)
 {
-  int ret;
+  cRosErrCodePack ret;
   cRosMessageDef* msg_def = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
-  initCrosMsg(msg_def);
-  char* message_path_cpy = calloc(strlen(message_path) + 1, sizeof(char));
-  strcpy(message_path_cpy,message_path);
-  int rc = loadFromFileMsg(message_path_cpy,msg_def);
-  free(message_path_cpy);
-  if (rc == -1)
-  {
-    cRosMessageDefFree(msg_def);
-    return -1;
-  }
+  if(msg_def == NULL)
+    return CROS_MEM_ALLOC_ERR;
 
-  //message->msgDef = msg_def;
-  ret = cRosMessageBuildFromDef(message, msg_def);
-  cRosMessageDefFree(msg_def);
+  ret = initCrosMsg(msg_def);
+  if(ret == CROS_SUCCESS_ERR_PACK)
+  {
+    char* message_path_cpy = calloc(strlen(message_path) + 1, sizeof(char));
+    if(message_path_cpy != NULL)
+    {
+      strcpy(message_path_cpy,message_path);
+      ret = loadFromFileMsg(message_path_cpy,msg_def);
+      free(message_path_cpy);
+      if (ret == CROS_SUCCESS_ERR_PACK)
+        ret = cRosMessageBuildFromDef(message, msg_def); // message->msgDef <== msg_def;
+      else
+        ret = cRosAddErrCodeIfErr(ret, CROS_LOAD_MSG_FILE_ERR); // the file could not be loaded, add the CROS_LOAD_MSG_FILE_ERR error code
+    }
+    else
+      ret = CROS_MEM_ALLOC_ERR;
+
+    cRosMessageDefFree(msg_def);
+  }
+  else
+    free(msg_def);
 
   return ret;
 }
@@ -1585,7 +1636,7 @@ cRosMessage *cRosMessageNewBuild(char *msg_root_dir, char *msg_type)
       strcat(msg_file_path, DIR_SEPARATOR_STR);
       strcat(msg_file_path, msg_type);
       strcat(msg_file_path, ".msg");
-      if(cRosMessageBuild(new_msg, msg_file_path) != 0)
+      if(cRosMessageBuild(new_msg, msg_file_path) != CROS_SUCCESS_ERR_PACK)
       { // Error while building message: free message and return error (NULL)
         cRosMessageFree(new_msg);
         new_msg=NULL;
@@ -1598,10 +1649,10 @@ cRosMessage *cRosMessageNewBuild(char *msg_root_dir, char *msg_type)
   return new_msg;
 }
 
-int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
+cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
 {
-  int ret;
-  ret = 0; // Default return value: success
+  cRosErrCodePack ret;
+  ret = CROS_SUCCESS_ERR_PACK; // Default return value: success
   DynString output;
   dynStringInit(&output);
 
@@ -1626,7 +1677,7 @@ int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
   field_def_itr =  msg_def->first_field;
   cRosMessageField** msg_field_itr = message->fields;
 
-  while(field_def_itr->next != NULL && ret == 0)
+  while(field_def_itr->next != NULL && ret == CROS_SUCCESS_ERR_PACK)
   {
     *msg_field_itr = (cRosMessageField*) malloc(sizeof(cRosMessageField));
     cRosMessageField* field = *msg_field_itr;
@@ -1677,7 +1728,7 @@ int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
         {
           field->data.as_array = calloc(field->array_capacity,field->size);
           if(field->data.as_array == NULL)
-            ret=-1;
+            ret=CROS_MEM_ALLOC_ERR;
         }
         break;
       }
@@ -1687,7 +1738,7 @@ int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
         {
           field->data.as_string_array = (char **)calloc(field->array_capacity,sizeof(char *));
           if(field->data.as_string_array == NULL)
-            ret=-1;
+            ret=CROS_MEM_ALLOC_ERR;
         }
         break;
       }
@@ -1702,7 +1753,7 @@ int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
           if(field->data.as_msg_array != NULL)
           {
             int msg_ind;
-            for(msg_ind=0;msg_ind<field->array_size && ret == 0;msg_ind++)
+            for(msg_ind=0;msg_ind<field->array_size && ret == CROS_SUCCESS_ERR_PACK;msg_ind++)
             {
               if(field->type == CROS_STD_MSGS_TIME)
                 cRosMessageFieldArrayAtMsgSet(field, msg_ind, build_time_field());
@@ -1714,11 +1765,11 @@ int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
                 cRosMessageFieldArrayAtMsgSet(field, msg_ind, cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s));
 
               if(field->data.as_msg_array[msg_ind] == NULL)
-                ret = -1;
+                ret = CROS_MEM_ALLOC_ERR;
             }
           }
           else
-            ret=-1;
+            ret=CROS_MEM_ALLOC_ERR;
         }
         else
         {
@@ -1732,7 +1783,7 @@ int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
             field->data.as_msg = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s);
 
           if(field->data.as_msg == NULL)
-            ret = -1;
+            ret = CROS_MEM_ALLOC_ERR;
         }
         break;
       }

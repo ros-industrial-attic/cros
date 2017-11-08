@@ -10,21 +10,61 @@
 #include "cros_defs.h"
 #include "md5.h"
 
-void initCrosSrv(cRosSrvDef* srv)
+cRosErrCodePack initCrosSrv(cRosSrvDef* srv)
 {
+    cRosErrCodePack ret_err;
+
+    if(srv == NULL)
+        return CROS_BAD_PARAM_ERR;
+
     srv->request = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
-    initCrosMsg(srv->request);
     srv->response = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
-    initCrosMsg(srv->response);
-    srv->name = NULL;
-    srv->package = NULL;
-    srv->plain_text = NULL;
-    srv->root_dir = NULL;
+    if(srv->request != NULL && srv->response != NULL)
+    {
+        ret_err = initCrosMsg(srv->request);
+        if(ret_err == CROS_SUCCESS_ERR_PACK)
+        {
+            ret_err = initCrosMsg(srv->response);
+            if(ret_err == CROS_SUCCESS_ERR_PACK)
+            {
+                srv->name = NULL;
+                srv->package = NULL;
+                srv->plain_text = NULL;
+                srv->root_dir = NULL;
+                ret_err = CROS_SUCCESS_ERR_PACK;
+            }
+            else
+            {
+                cRosMessageDefFree(srv->request);
+                free(srv->request);
+                free(srv->response);
+                ret_err = CROS_MEM_ALLOC_ERR;
+            }
+        }
+        else
+        {
+            free(srv->request);
+            free(srv->response);
+            ret_err = CROS_MEM_ALLOC_ERR;
+        }
+    }
+    else
+    {
+        free(srv->request);
+        free(srv->response);
+        ret_err = CROS_MEM_ALLOC_ERR;
+    }
+    return ret_err;
 }
 
-int loadFromFileSrv(char* filename, cRosSrvDef* srv)
+cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
 {
-    char* file_tokenized = (char*) malloc(strlen(filename)+1);
+    cRosErrCodePack ret_err;
+
+    char* file_tokenized = (char*) malloc(strlen(filename)+sizeof(char));
+    if(file_tokenized == NULL)
+        return CROS_MEM_ALLOC_ERR;
+
     file_tokenized[0] = '\0';
     strcpy(file_tokenized, filename);
     char* token_pack = NULL;
@@ -35,17 +75,33 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
 
     if(f != NULL)
     {
+        ret_err=CROS_SUCCESS_ERR_PACK;
+
         fseek(f, 0, SEEK_END);
         long fsize = ftell(f);
         fseek(f, 0, SEEK_SET);
         char *srv_req = NULL;
         char *srv_res = NULL;
         char *srv_text = malloc(fsize + 1);
+        if(srv_text == NULL)
+        {
+            fclose(f);
+            free(file_tokenized);
+            return CROS_MEM_ALLOC_ERR;
+        }
+
         fread(srv_text, fsize, 1, f);
         fclose(f);
 
         srv_text[fsize] = '\0';
         srv->plain_text = malloc(strlen(srv_text) + 1);
+        if(srv->plain_text == NULL)
+        {
+            free(srv_text);
+            free(file_tokenized);
+            return CROS_MEM_ALLOC_ERR;
+        }
+
         memcpy(srv->plain_text,srv_text,strlen(srv_text) + 1);
 
         //splitting msg_text into the request response parts
@@ -84,14 +140,24 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
             it++;
         }
 
-        srv->root_dir = (char*) malloc (strlen(file_tokenized)+1); srv->root_dir[0] = '\0';
-        strcpy(srv->root_dir,file_tokenized);
-
-        srv->package = (char*) malloc (strlen(token_pack)+1); srv->package[0] = '\0';
-        strcpy(srv->package,token_pack);
-
-        srv->name = (char*) malloc (strlen(token_name)+1); srv->name[0] = '\0';
-        strcpy(srv->name,token_name);
+        srv->root_dir = (char*) malloc (strlen(file_tokenized)+sizeof(char)); srv->root_dir[0] = '\0';
+        srv->package = (char*) malloc (strlen(token_pack)+sizeof(char)); srv->package[0] = '\0';
+        srv->name = (char*) malloc (strlen(token_name)+sizeof(char)); srv->name[0] = '\0';
+        if(srv->root_dir != NULL && srv->package != NULL && srv->name != NULL)
+        {
+            strcpy(srv->root_dir,file_tokenized);
+            strcpy(srv->package,token_pack);
+            strcpy(srv->name,token_name);
+        }
+        else
+        {
+            free(srv->root_dir);
+            free(srv->package);
+            free(srv->name);
+            free(srv_text);
+            free(file_tokenized);
+            return CROS_MEM_ALLOC_ERR;
+        }
 
         if(srv_req != NULL)
         {
@@ -109,9 +175,11 @@ int loadFromFileSrv(char* filename, cRosSrvDef* srv)
 
         free(srv_text);
     }
+    else
+      ret_err=CROS_OPEN_SVC_FILE_ERR;
 
     free(file_tokenized);
-    return EXIT_SUCCESS;
+    return ret_err;
 }
 
 //  Compute dependencies of the specified service file
@@ -178,28 +246,43 @@ void cRosServiceInit(cRosService* service)
 {
   cRosMessageInit(&service->request);
   cRosMessageInit(&service->response);
-  service->md5sum = (char*) malloc(33);// 32 chars + '\0';
+  service->md5sum = (char*) malloc(33*sizeof(char));// 32 chars + '\0';
 }
 
-void cRosServiceBuild(cRosService* service, const char* filepath)
+cRosErrCodePack cRosServiceBuild(cRosService* service, const char* filepath)
 {
-  cRosServiceBuildInner(&service->request, &service->response, NULL, service->md5sum, filepath);
+  return cRosServiceBuildInner(&service->request, &service->response, NULL, service->md5sum, filepath);
 }
 
-int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **message_definition, char *md5sum, const char* filepath)
+cRosErrCodePack cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **message_definition, char *md5sum, const char* filepath)
 {
+  cRosErrCodePack ret_err;
+
   cRosSrvDef* srv = (cRosSrvDef*) malloc(sizeof(cRosSrvDef));
-  initCrosSrv(srv);
-  char* copy_filepath = malloc(strlen(filepath)+1);
+  if(srv == NULL)
+    return CROS_MEM_ALLOC_ERR;
+
+  ret_err = initCrosSrv(srv);
+  if(ret_err != CROS_SUCCESS_ERR_PACK)
+  {
+    free(srv);
+    return ret_err;
+  }
+  char* copy_filepath = malloc(strlen(filepath)+sizeof(char));
+  if(copy_filepath == NULL)
+  {
+    cRosServiceDefFree(srv);
+    return CROS_MEM_ALLOC_ERR;
+  }
   *copy_filepath = '\0';
   strcpy(copy_filepath,filepath);
 
-  int rc = loadFromFileSrv(copy_filepath,srv);
+  ret_err = loadFromFileSrv(copy_filepath, srv);
   free(copy_filepath);
-  if (rc != 0)
+  if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
-    free(srv);
-    return -1;
+    cRosServiceDefFree(srv);
+    return ret_err;
   }
 
   unsigned char* res = NULL;
@@ -235,29 +318,25 @@ int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **me
 
   if(srv->request->plain_text != NULL)
   {
-    cRosMessageBuildFromDef(request, srv->request);
+    ret_err = cRosMessageBuildFromDef(request, srv->request);
   }
 
-  if(srv->response->plain_text != NULL)
+  if(ret_err == CROS_SUCCESS_ERR_PACK && srv->response->plain_text != NULL)
   {
-    cRosMessageBuildFromDef(response, srv->response);
+    ret_err = cRosMessageBuildFromDef(response, srv->response);
   }
 
-  if(srv->plain_text != NULL && message_definition != NULL)
+  if(ret_err == CROS_SUCCESS_ERR_PACK && srv->plain_text != NULL && message_definition != NULL)
   {
      *message_definition=(char *)malloc((strlen(srv->plain_text)+1)*sizeof(char));
      if(*message_definition != NULL)
-     {
         strcpy(*message_definition,srv->plain_text);
-     }
      else
-     {
-        free(srv);
-        return -1;
-     }
+       ret_err = CROS_MEM_ALLOC_ERR;
   }
+
   cRosServiceDefFree(srv);
-  return 0;
+  return ret_err;
 }
 
 void cRosServiceDefFree(cRosSrvDef* service_def)

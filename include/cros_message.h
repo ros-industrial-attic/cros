@@ -2,6 +2,7 @@
 #define _CROS_MESSAGE_H_
 
 #include "cros_node.h"
+#include "cros_err_codes.h"
 
 /*! \defgroup cros_message cROS TCPROS
  *
@@ -95,7 +96,7 @@ cRosMessage * cRosMessageNew();
 
 void cRosMessageInit(cRosMessage *message);
 
-int cRosMessageBuild(cRosMessage* message, const char* message_path);
+cRosErrCodePack cRosMessageBuild(cRosMessage* message, const char* message_path);
 
 void cRosMessageFieldsPrint(cRosMessage *msg, int n_indent);
 
@@ -105,7 +106,7 @@ int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src);
 
 cRosMessage *cRosMessageCopyWithoutDef(cRosMessage *m_src);
 
-int cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
+cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
 
 void cRosMessageFree(cRosMessage *message);
 

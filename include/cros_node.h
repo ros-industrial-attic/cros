@@ -17,6 +17,7 @@
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
 #include "cros_api_call.h"
+#include "cros_err_codes.h"
 
 /*! \defgroup cros_node cROS Node */
 
@@ -315,9 +316,9 @@ CrosNode *cRosNodeCreate(char* node_name, char *node_host, char *roscore_host, u
  *          object previously crated with cRosNodeCreate()
  *
  *  \param n A pointer to the CrosNode object to be released
- *  \return 0 on success. Otherwise an error code
+ *  \return Pointer to the created node on success. Otherwise NULL
  */
-int cRosNodeDestroy( CrosNode *n );
+cRosErrCodePack cRosNodeDestroy( CrosNode *n );
 
 /*! \brief Perform a loop of the cROS node main cycle
  *
@@ -334,9 +335,9 @@ int cRosNodeDestroy( CrosNode *n );
  *    // If you want, do here something
  *    cRosNodeDoEventsLoop( node );
  *  }
- *  \return 0 on success
+ *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
-int cRosNodeDoEventsLoop( CrosNode *n );
+cRosErrCodePack cRosNodeDoEventsLoop( CrosNode *n );
 
 /*! \brief Start the cROS node main cycle
  *
@@ -344,9 +345,9 @@ int cRosNodeDoEventsLoop( CrosNode *n );
  *  \param n A pointer to a CrosNode object (e.g., created with cRosNodeCreate())
  *  \param exit Pointer to an unsigned char variable: cRosNodeStart() exit if this variable
  *              is not zero
- *  \return 0 on success
+ *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
-int cRosNodeStart( CrosNode *n, unsigned char *exit_flag );
+cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned char *exit_flag );
 
 XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/

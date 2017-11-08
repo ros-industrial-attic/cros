@@ -3,6 +3,7 @@
 
 #include "cros_node.h"
 #include "cros_message.h"
+#include "cros_err_codes.h"
 
 /*! \defgroup cros_service cROS TCPROS
  *
@@ -24,7 +25,7 @@ typedef struct cRosService cRosService;
 
 cRosService * cRosServiceNew();
 void cRosServiceInit(cRosService* service);
-void cRosServiceBuild(cRosService* service, const char* filepath);
+cRosErrCodePack cRosServiceBuild(cRosService* service, const char* filepath);
 void cRosServiceRelease(cRosService* service);
 void cRosServiceFree(cRosService* service);
 

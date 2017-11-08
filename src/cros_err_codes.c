@@ -6,31 +6,31 @@
 // Populate the error message list global variable using the messages defined before (ERROR_CODE_LIST_DEF) but
 // using the format defined by MSG_COD_ELEM for them
 #define MSG_COD_ELEM(code,msg) {code,msg},
-struct cROSErrCodeListElem CROSErrCodeList[]=
+struct cRosErrCodeListElem CRosErrCodeList[]=
 {
   ERROR_CODE_LIST_DEF
   {LAST_ERR_LIST_CODE, NULL} // Last value of the list (marker)
 };
 #undef MSG_COD_ELEM
 
-const char *cRosGetErrCodeStr(cROSErrCode err_code)
+const char *cRosGetErrCodeStr(cRosErrCode err_code)
 {
   int msg_ind;
   const char *ret_msg;
 
   // Search for a message in the error message list according to the specified message code
   ret_msg=NULL;
-  for(msg_ind=0;CROSErrCodeList[msg_ind].code!=LAST_ERR_LIST_CODE && ret_msg==NULL;msg_ind++)
+  for(msg_ind=0;CRosErrCodeList[msg_ind].code!=LAST_ERR_LIST_CODE && ret_msg==NULL;msg_ind++)
   {
-    if(CROSErrCodeList[msg_ind].code == err_code) // We have found a message with the specified code
-      ret_msg = CROSErrCodeList[msg_ind].msg; // Use the found message as return value
+    if(CRosErrCodeList[msg_ind].code == err_code) // We have found a message with the specified code
+      ret_msg = CRosErrCodeList[msg_ind].msg; // Use the found message as return value
   }
   return ret_msg;
 }
 
-cROSErrCodePack cRosAddErrCodeIfErr(cROSErrCodePack prev_err_pack, cROSErrCode err_code)
+cRosErrCodePack cRosAddErrCodeIfErr(cRosErrCodePack prev_err_pack, cRosErrCode err_code)
 {
-  cROSErrCodePack new_err_pack;
+  cRosErrCodePack new_err_pack;
 
   if(prev_err_pack == CROS_SUCCESS_ERR_PACK) // If no error stored in the error pack
     new_err_pack = prev_err_pack; // do not add any error code to the pack
@@ -40,29 +40,29 @@ cROSErrCodePack cRosAddErrCodeIfErr(cROSErrCodePack prev_err_pack, cROSErrCode e
   return new_err_pack;
 }
 
-cROSErrCodePack cRosRemoveLastErrCode(cROSErrCodePack prev_err_pack)
+cRosErrCodePack cRosRemoveLastErrCode(cRosErrCodePack prev_err_pack)
 {
-  cROSErrCodePack new_err_pack;
+  cRosErrCodePack new_err_pack;
 
   new_err_pack = prev_err_pack >> 8; // Remove the last error code from the error pack (8 least-significant bits)
 
   return new_err_pack;
 }
 
-cROSErrCode cRosGetLastErrCode(cROSErrCodePack err_pack)
+cRosErrCode cRosGetLastErrCode(cRosErrCodePack err_pack)
 {
-  cROSErrCode last_err_code;
+  cRosErrCode last_err_code;
 
   last_err_code = err_pack & 0xFFU; // Get the last error code from the error pack (8 least-significant bits)
 
   return last_err_code;
 }
 
-int cROSPrintErrCodePack(cROSErrCodePack err_cod_pack, const char *fmt_str, ...)
+int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...)
 {
   int n_prn_chars;
   const char *msg_str;
-  cROSErrCode curr_err_cod;
+  cRosErrCode curr_err_cod;
 
   n_prn_chars=0;
 

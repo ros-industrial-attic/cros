@@ -1,6 +1,8 @@
 #ifndef _CROS_MESSAGE_INTERNAL_H_
 #define _CROS_MESSAGE_INTERNAL_H_
 
+#include "cros_err_codes.h"
+
 static const char* FILEEXT_MSG = "msg";
 
 // e.g. std_msgs/String
@@ -95,7 +97,7 @@ void cRosMD5Readable(unsigned char* data, DynString* output);
 
 void getMD5Txt(cRosMessageDef* msg, DynString* buffer);
 
-void initCrosMsg(cRosMessageDef* msg);
+cRosErrCodePack initCrosMsg(cRosMessageDef* msg);
 
 void initMsgConst(msgConst *msg);
 
@@ -105,7 +107,7 @@ void initFieldDef(msgFieldDef* field);
 
 int loadFromStringMsg(char* text, cRosMessageDef* msg);
 
-int loadFromFileMsg(char* filename, cRosMessageDef* msg);
+cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg);
 
 void cRosMessageDefFree(cRosMessageDef *msgDef);
 

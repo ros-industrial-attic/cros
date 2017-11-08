@@ -1859,21 +1859,21 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
   int rc = 0;
 
   rc = cRosApiRegisterPublisher(new_n,"/rosout","rosgraph_msgs/Log", 100,
-                                  callback_pub_log, NULL, new_n);
+                                  callback_pub_log, NULL, new_n, NULL);
   if (rc == -1)
   {
     PRINT_ERROR ( "cRosNodeCreate(): Error registering rosout\n" );
   }
 
   rc = cRosApiRegisterServiceProvider(new_n,"~get_loggers","roscpp/GetLoggers",
-                                      callback_srv_get_loggers, NULL, (void*) new_n);
+                                      callback_srv_get_loggers, NULL, (void *)new_n, NULL);
   if (rc == -1)
   {
     PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers\n" );
   }
 
   rc = cRosApiRegisterServiceProvider(new_n,"~set_logger_level","roscpp/SetLoggerLevel",
-                                      callback_srv_set_logger_level, NULL, (void*) new_n);
+                                      callback_srv_set_logger_level, NULL, (void *)new_n, NULL);
   if (rc == -1)
   {
     PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers\n" );
@@ -1958,20 +1958,24 @@ int cRosNodeUnregisterAll(CrosNode *n)
   return ret_err;
 }
 
-int cRosNodeDestroy ( CrosNode *n )
+cRosErrCodePack cRosNodeDestroy ( CrosNode *n )
 {
-  int ret;
+  cRosErrCodePack ret_err;
+  int unreg_ret;
   PRINT_VDEBUG ( "cRosNodeDestroy()\n" );
 
   if ( n == NULL )
-    return 0;
+    return CROS_BAD_PARAM_ERR;
 
   cRosNodePauseAllCallersPublishers( n );
-  ret = cRosNodeUnregisterAll(n);
-  if(ret == 0)
+  unreg_ret = cRosNodeUnregisterAll(n);
+  if(unreg_ret == 0)
   {
-    ret = cRosNodeWaitForAllUnregistrations( n );
+    unreg_ret = cRosNodeWaitForAllUnregistrations( n );
+    ret_err = (unreg_ret == 0)? CROS_SUCCESS_ERR_PACK: CROS_UNREG_TIMEOUT_ERR;
   }
+  else
+    ret_err=CROS_UNSPECIFIED_ERR;
 
   xmlrpcProcessRelease( &(n->xmlrpc_listner_proc) );
 
@@ -2018,7 +2022,7 @@ int cRosNodeDestroy ( CrosNode *n )
   for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS; i++)
     cRosNodeReleaseParameterSubscrition(&n->paramsubs[i]);
 
-  return ret;
+  return ret_err;
 }
 
 int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
@@ -2588,15 +2592,15 @@ void printNodeProcState( CrosNode *n )
   PRINT_DEBUG("%s\n",stat_str);
 }
 
-int cRosNodeDoEventsLoop ( CrosNode *n )
+cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n )
 {
-  int ret;
+  cRosErrCodePack ret_err;
   PRINT_VDEBUG ( "cRosNodeDoEventsLoop ()\n" );
 
   int nfds = -1;
   fd_set r_fds, w_fds, err_fds;
   int i = 0;
-  ret = 0; // Default return value: success
+  ret_err = CROS_SUCCESS_ERR_PACK; // Default return value: success
 
   #if CROS_DEBUG_LEVEL >= 2
   printNodeProcState( n );
@@ -2898,8 +2902,8 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
     }
     else
     {
-      PRINT_INFO("cRosNodeDoEventsLoop() : select() function failed. errno=%i\n", errno);
-      ret=-1;
+      PRINT_ERROR("cRosNodeDoEventsLoop() : select() function failed. errno=%i\n", errno);
+      ret_err=CROS_SELECT_FD_ERR;
     }
   }
   else if( n_set == 0 )
@@ -2945,7 +2949,7 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
         else
         {
           PRINT_ERROR ( "cRosApiPrepareRequest() : Can't allocate memory\n");
-          ret=-1;
+          ret_err=CROS_MEM_ALLOC_ERR;
         }
       }
       else
@@ -2959,7 +2963,7 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
       handleXmlrpcClientError( n, 0 );
     }
 
-    for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS && ret==0; i++ )
+    for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS && ret_err==CROS_SUCCESS_ERR_PACK; i++ )
     {
       if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
             n->tcpros_server_proc[i].wake_up_time_ms <= cur_time &&
@@ -2978,7 +2982,7 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
       }
     }
 
-    for( i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS && ret==0; i++ )
+    for( i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS && ret_err==CROS_SUCCESS_ERR_PACK; i++ )
     {
       if( n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
             n->rpcros_client_proc[i].wake_up_time_ms <= cur_time &&
@@ -3194,17 +3198,17 @@ int cRosNodeDoEventsLoop ( CrosNode *n )
       }
     }
   }
-  return ret;
+  return ret_err;
 }
 
-int cRosNodeStart( CrosNode *n, unsigned char *exit_flag )
+cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned char *exit_flag )
 {
-  int ret=0;
+  cRosErrCodePack ret = CROS_SUCCESS_ERR_PACK;
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
-  while( ret==0 && !(*exit_flag) )
-  {
-    ret=cRosNodeDoEventsLoop( n );
-  }
+
+  while( ret == CROS_SUCCESS_ERR_PACK && !(*exit_flag) )
+    ret = cRosNodeDoEventsLoop( n );
+
   return ret;
 }
 

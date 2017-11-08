@@ -659,6 +659,7 @@ int main(int argc, char **argv)
   node = cRosNodeCreate( node_name, node_host, roscore_host, roscore_port, path, NULL);
 
   int rc;
+  cRosErrCodePack err_cod;
 
 #ifndef CROS_MESSAGE_SERIALIZATION_TEST
   rc = cRosNodeRegisterPublisher ( node, "string data\n\n", "/topic_clock", "std_msgs/String",
@@ -691,9 +692,9 @@ int main(int argc, char **argv)
   if (rc == -1)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterSubscriber(node, "/gripperjoints", "gripping_robot/GripperJoints",
-                                 gripperjointstate_callbacknewapi, getNodeStatusCallback, NULL, 0);
-  if (rc == -1)
+  err_cod = cRosApiRegisterSubscriber(node, "/gripperjoints", "gripping_robot/GripperJoints",
+                                 gripperjointstate_callbacknewapi, getNodeStatusCallback, NULL, 0, NULL);
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
 /*
