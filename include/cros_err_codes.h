@@ -16,7 +16,7 @@
   MSG_COD_ELEM(CROS_MEM_ALLOC_ERR, "Error allocating memory") \
   MSG_COD_ELEM(CROS_BAD_PARAM_ERR, "An invalid value has been specified for at least one of the input parameters") \
   MSG_COD_ELEM(CROS_OPEN_MSG_FILE_ERR, "The file defining the topic message cannot be opened") \
-  MSG_COD_ELEM(CROS_LOAD_MSG_FILE_ERR, "Error loading the message difinition file") \
+  MSG_COD_ELEM(CROS_LOAD_MSG_FILE_ERR, "Error loading the message definition file") \
   MSG_COD_ELEM(CROS_OPEN_SVC_FILE_ERR, "The file defining the service cannot be opened") \
   MSG_COD_ELEM(CROS_UNREG_TIMEOUT_ERR, "The unregistration from the ROS master was abandoned before it finished because was taking too long") \
   MSG_COD_ELEM(CROS_SELECT_FD_ERR, "An error ocurred while monitoring the socket file descriptors (select() function)") \
@@ -24,8 +24,10 @@
   MSG_COD_ELEM(CROS_PARAM_SUB_IND_ERR, "The provided parameter subscriber index does not corresponds to a valid subscriber to be unsubscribed") \
   MSG_COD_ELEM(CROS_TOPIC_PUB_IND_ERR, "The provided topic publisher index does not corresponds to a valid publisher to be unregistered") \
   MSG_COD_ELEM(CROS_TOPIC_SUB_IND_ERR, "The provided topic subscriber index does not corresponds to a valid subscriber to be unregistered") \
-  MSG_COD_ELEM(CROS_SVC_FILE_DELIM_ERR, "The delimiter string between resquest and response definition could not be found in the service definition file")
-
+  MSG_COD_ELEM(CROS_SVC_FILE_DELIM_ERR, "The delimiter string between resquest and response definition could not be found in the service definition file") \
+  MSG_COD_ELEM(CROS_FILE_ENTRY_SYNTAX_ERR, "The definition file contains an entry that is syntactically incorrect") \
+  MSG_COD_ELEM(CROS_LOAD_SVC_FILE_REQ_ERR, "Error loading the service request definition in the file") \
+  MSG_COD_ELEM(CROS_LOAD_SVC_FILE_RES_ERR, "Error loading the service response definition in the file")
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 

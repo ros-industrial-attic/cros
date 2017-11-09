@@ -25,7 +25,7 @@ typedef struct t_srvDef cRosSrvDef;
 cRosErrCodePack cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **message_definition, char *md5sum, const char* filepath);
 cRosErrCodePack initCrosSrv(cRosSrvDef* srv);
 
-int getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);
+cRosErrCodePack getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);
 
 //  Compute full text of service, including text of embedded
 //  types.  The text of the main srv is listed first. Embedded

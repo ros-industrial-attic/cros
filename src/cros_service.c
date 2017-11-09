@@ -155,27 +155,43 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
             strcpy(srv->name,token_name);
         }
         else
-        {
-            free(srv->root_dir);
-            free(srv->package);
-            free(srv->name);
-            free(srv_text);
-            free(file_tokenized);
-            return CROS_MEM_ALLOC_ERR;
-        }
+          ret_err=CROS_MEM_ALLOC_ERR;
 
         if(srv_req != NULL)
         {
           srv->request->package = strdup(srv->package);
           srv->request->root_dir = strdup(srv->root_dir);
-          loadFromStringMsg(srv_req, srv->request);
+          if(srv->request->package != NULL && srv->request->root_dir != NULL)
+          {
+            ret_err=loadFromStringMsg(srv_req, srv->request);
+            ret_err=cRosAddErrCodeIfErr(ret_err, CROS_LOAD_SVC_FILE_REQ_ERR); // If loadFromStringMsg() failed, add more info to the error-code pack, indicating the context
+          }
+          else
+            ret_err=CROS_MEM_ALLOC_ERR;
         }
 
         if(strlen(srv_res) != 0)
         {
           srv->response->package = strdup(srv->package);
           srv->response->root_dir = strdup(srv->root_dir);
-          loadFromStringMsg(srv_res, srv->response);
+          if(srv->response->package != NULL && srv->response->root_dir != NULL)
+          {
+            ret_err=loadFromStringMsg(srv_res, srv->response);
+            ret_err=cRosAddErrCodeIfErr(ret_err, CROS_LOAD_SVC_FILE_RES_ERR); // If loadFromStringMsg() failed, add more another error code to the to the error-code pack indicating the context
+          }
+          else
+            ret_err=CROS_MEM_ALLOC_ERR;
+        }
+
+        if(ret_err != CROS_SUCCESS_ERR_PACK) // An error occurred, free allocated memory before exiting
+        {
+          free(srv->response->root_dir);
+          free(srv->response->package);
+          free(srv->request->root_dir);
+          free(srv->request->package);
+          free(srv->root_dir);
+          free(srv->package);
+          free(srv->name);
         }
 
         free(srv_text);
@@ -184,16 +200,22 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
       ret_err=CROS_OPEN_SVC_FILE_ERR;
 
     free(file_tokenized);
+
     return ret_err;
 }
 
 //  Compute dependencies of the specified service file
-int getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps)
+cRosErrCodePack getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps)
 {
-    loadFromFileSrv(filename, srv);
-    getDependenciesMsg(srv->request,deps);
-    getDependenciesMsg(srv->response,deps);
-    return EXIT_SUCCESS;
+    cRosErrCodePack ret_err;
+    ret_err = loadFromFileSrv(filename, srv);
+    if(ret_err == CROS_SUCCESS_ERR_PACK)
+    {
+        ret_err = getDependenciesMsg(srv->request,deps);
+        if(ret_err == CROS_SUCCESS_ERR_PACK)
+            ret_err = getDependenciesMsg(srv->response,deps);
+    }
+    return ret_err;
 }
 
 //  Compute full text of service, including text of embedded

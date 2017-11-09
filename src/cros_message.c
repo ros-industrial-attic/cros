@@ -156,15 +156,17 @@ int containsDep(msgDep* iterator, char* depName)
 }
 
 //Add the list of message types that spec depends on to depends.
-int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
+cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
 {
+    cRosErrCodePack ret_err = CROS_SUCCESS_ERR_PACK; // Default return value
+
     //move on until you reach the head
     while(msgDeps->next != NULL) msgDeps = msgDeps->next;
     msgDep* currentDep = msgDeps ;
 
     msgFieldDef* fields = msg->first_field;
 
-    while(fields->next != NULL)
+    while(fields->next != NULL && ret_err == CROS_SUCCESS_ERR_PACK)
     {
         msgFieldDef* currentField = fields;
 
@@ -240,28 +242,33 @@ int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                 strcat(path,currentDep->msg->name);
                 strcat(path,".msg");
 
-                loadFromFileMsg(path,currentDep->msg);
-                msgDep* next = malloc(sizeof(msgDep));
-                next->msg = NULL;
-                next->prev = currentDep;
-                currentDep->next = next;
-                currentDep = next;
-                getDependenciesMsg(currentDep->prev->msg, currentDep);
+                ret_err = loadFromFileMsg(path,currentDep->msg);
+                if(ret_err == CROS_SUCCESS_ERR_PACK)
+                {
+                    msgDep* next = malloc(sizeof(msgDep));
+                    next->msg = NULL;
+                    next->prev = currentDep;
+                    currentDep->next = next;
+                    currentDep = next;
+                    ret_err = getDependenciesMsg(currentDep->prev->msg, currentDep);
+                }
             }
 
             free(base_type);
         }
         fields = fields->next;
     }
-    return EXIT_SUCCESS;
+    return ret_err;
 }
 
 //  Compute dependencies of the specified message file
-int getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps)
+cRosErrCodePack getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps)
 {
-    loadFromFileMsg(filename, msg);
-    getDependenciesMsg(msg,deps);
-    return EXIT_SUCCESS;
+    cRosErrCodePack ret_err;
+    ret_err = loadFromFileMsg(filename, msg);
+    if(ret_err == CROS_SUCCESS_ERR_PACK)
+        ret_err = getDependenciesMsg(msg,deps);
+    return ret_err;
 }
 
 //  Compute full text of message, including text of embedded
@@ -535,21 +542,24 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
         else
         {
             DynString filename_dep;
+            char *msg_name_str;
+
             dynStringInit(&filename_dep);
             dynStringPushBackStr(&filename_dep,msg->root_dir);
             dynStringPushBackStr(&filename_dep,DIR_SEPARATOR_STR);
-            dynStringPushBackStr(&filename_dep,base_msg_type(type_decl));
+            msg_name_str = base_msg_type(type_decl);
+            dynStringPushBackStr(&filename_dep, msg_name_str);
+            free(msg_name_str);
             dynStringPushBackStr(&filename_dep,".msg");
 
             cRosMessage msg_fn;
             cRosMessageInit(&msg_fn);
             cRosMessageBuild(&msg_fn,filename_dep.data);
             dynStringRelease(&filename_dep);
-            char *md5sum = calloc(strlen(msg_fn.md5sum)+1,sizeof(char));
-            strcpy(md5sum,msg_fn.md5sum);
+
+            dynStringPushBackStr(buffer, msg_fn.md5sum);
             cRosMessageRelease(&msg_fn);
 
-            dynStringPushBackStr(buffer, md5sum);
             dynStringPushBackStr(buffer," ");
             dynStringPushBackStr(buffer,fields_it->name);
             dynStringPushBackStr(buffer,"\n");
@@ -613,22 +623,18 @@ void cRosMessageFieldInit(cRosMessageField *field)
   }
 }
 
-int loadFromStringMsg(char* text, cRosMessageDef* msg)
-{
 //  Load message specification from a string:
 //  types, names, constants
-
+cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
+{
     char* new_line = NULL;
     char* new_line_saveptr = NULL;
     const char* delimiter = "\n";
 
     int txt_len = strlen(text);
-    msg->plain_text = (char*) malloc((strlen(text)+1)*sizeof(char));
+    msg->plain_text = strdup(text);
     if(msg->plain_text == NULL)
-        return -1;
-    memcpy(msg->plain_text,"\0",1);
-    strcpy(msg->plain_text,text);
-    int plain_txt_len = strlen(msg->plain_text);
+        return CROS_MEM_ALLOC_ERR;
 
     new_line = strtok_r(text, delimiter, &new_line_saveptr);
     while(new_line != NULL)
@@ -707,7 +713,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
         {
             free(entry_type);
             free(msg_entry);
-            return -1;
+            return CROS_FILE_ENTRY_SYNTAX_ERR;
         }
 
         char* const_char_ptr = strpbrk(entry_name, CHAR_CONST);
@@ -794,7 +800,7 @@ int loadFromStringMsg(char* text, cRosMessageDef* msg)
         new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
     }
 
-    return EXIT_SUCCESS;
+    return CROS_SUCCESS_ERR_PACK;
 }
 
 cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg)
@@ -862,8 +868,8 @@ cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg)
       strcpy(msg->root_dir,file_tokenized);
       strcpy(msg->package,token_pack);
       strcpy(msg->name,token_name);
-      loadFromStringMsg(msg_text, msg);
-      ret_err = CROS_SUCCESS_ERR_PACK;
+      ret_err = loadFromStringMsg(msg_text, msg);
+      ret_err = cRosAddErrCodeIfErr(ret_err, CROS_LOAD_MSG_FILE_ERR); // If an error occurred (the file could not be loaded), add more info (CROS_LOAD_MSG_FILE_ERR error code)
     }
     else
     {
@@ -962,8 +968,6 @@ cRosErrCodePack cRosMessageBuild(cRosMessage* message, const char* message_path)
       free(message_path_cpy);
       if (ret == CROS_SUCCESS_ERR_PACK)
         ret = cRosMessageBuildFromDef(message, msg_def); // message->msgDef <== msg_def;
-      else
-        ret = cRosAddErrCodeIfErr(ret, CROS_LOAD_MSG_FILE_ERR); // the file could not be loaded, add the CROS_LOAD_MSG_FILE_ERR error code
     }
     else
       ret = CROS_MEM_ALLOC_ERR;

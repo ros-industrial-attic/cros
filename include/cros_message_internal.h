@@ -82,7 +82,7 @@ struct t_msgDep
 
 typedef struct t_msgDep msgDep;
 
-int getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps);
+cRosErrCodePack getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps);
 
 //  Compute full text of message, including text of embedded
 //  types.  The text of the main msg is listed first. Embedded
@@ -91,7 +91,7 @@ int getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps);
 //  the text of the embedded type.
 char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps);
 
-int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps);
+cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps);
 
 void cRosMD5Readable(unsigned char* data, DynString* output);
 
@@ -105,7 +105,7 @@ void initCrosDep(msgDep* dep);
 
 void initFieldDef(msgFieldDef* field);
 
-int loadFromStringMsg(char* text, cRosMessageDef* msg);
+cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg);
 
 cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg);
 
