@@ -56,6 +56,8 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
 
     if (paramx_updated && paramy_updated && paramz_updated)
     {
+      cRosErrCodePack err_cod;
+
       XmlrpcParam param;
       xmlrpcParamInit(&param);
       xmlrpcParamSetStruct(&param);
@@ -68,9 +70,10 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
       xmlrpcParamArrayPushBackInt(array, 2);
       xmlrpcParamArrayPushBackInt(array, 4);
 
-      int rc = cRosApiSetParam(node, "/testparam", &param, setParamCallback, NULL);
-      if (rc == -1)
-        exit(1);
+      err_cod = cRosApiSetParam(node, "/testparam", &param, setParamCallback, NULL);
+      if (err_cod != CROS_SUCCESS_ERR_PACK)
+        cRosPrintErrCodePack(err_cod, "cRosApiSetParam() failed");
+
       paramx_updated = 0;
       paramy_updated = 0;
       paramz_updated = 0;
@@ -87,22 +90,30 @@ int main(int argc, char **argv)
        *node_host = default_host,
        *roscore_host = default_host;
   unsigned short roscore_port = 11311;
+  char path[1024];
+  cRosErrCodePack err_cod;
 
   srand(time(NULL));
 
-  char path[1024];
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path));
   node = cRosNodeCreate(node_name, node_host, roscore_host, roscore_port, path, NULL);
 
-  int rc;
-  rc = cRosApiSubscribeParam(node,"/testparam", getNodeStatusCallback, NULL);
-  if (rc == -1)
+  err_cod = cRosApiSubscribeParam(node,"/testparam", getNodeStatusCallback, NULL, NULL);
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "cRosApiSubscribeParam() failed");
+    cRosNodeDestroy( node );
     return EXIT_FAILURE;
+  }
 
-  rc = cRosApiGetParamNames(node, getParamNamesCallback, NULL);
-  if (rc == -1)
+  err_cod = cRosApiGetParamNames(node, getParamNamesCallback, NULL);
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "cRosApiGetParamNames() failed");
+    cRosNodeDestroy( node );
     return EXIT_FAILURE;
+  }
 
 
   unsigned char exit = 0;

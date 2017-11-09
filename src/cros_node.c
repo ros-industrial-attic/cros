@@ -1856,30 +1856,28 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
    * Registering logging callback
    */
 
-  int rc = 0;
+  cRosErrCodePack ret_err;
 
-  rc = cRosApiRegisterPublisher(new_n,"/rosout","rosgraph_msgs/Log", 100,
+  ret_err = cRosApiRegisterPublisher(new_n,"/rosout","rosgraph_msgs/Log", 100,
                                   callback_pub_log, NULL, new_n, NULL);
-  if (rc == -1)
+  if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
     PRINT_ERROR ( "cRosNodeCreate(): Error registering rosout\n" );
   }
 
-  rc = cRosApiRegisterServiceProvider(new_n,"~get_loggers","roscpp/GetLoggers",
+  ret_err = cRosApiRegisterServiceProvider(new_n,"~get_loggers","roscpp/GetLoggers",
                                       callback_srv_get_loggers, NULL, (void *)new_n, NULL);
-  if (rc == -1)
+  if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
     PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers\n" );
   }
 
-  rc = cRosApiRegisterServiceProvider(new_n,"~set_logger_level","roscpp/SetLoggerLevel",
+  ret_err = cRosApiRegisterServiceProvider(new_n,"~set_logger_level","roscpp/SetLoggerLevel",
                                       callback_srv_set_logger_level, NULL, (void *)new_n, NULL);
-  if (rc == -1)
+  if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
     PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers\n" );
   }
-
-  //current_node = new_n;
 
   return new_n;
 }
@@ -1909,16 +1907,20 @@ int cRosUnregistrationCompleted(CrosNode *n)
   return(unreg_finished);
 }
 
-int cRosNodeWaitForAllUnregistrations(CrosNode *n)
+cRosErrCodePack cRosNodeWaitForAllUnregistrations(CrosNode *n)
 {
-  int ret;
+  int unreg_incomp;
+  cRosErrCodePack ret_err=CROS_SUCCESS_ERR_PACK;
   uint64_t start_time;
 
   start_time = cRosClockGetTimeMs();
-  while( (ret = !cRosUnregistrationCompleted(n)) && start_time + CN_UNREGISTRATION_TIMEOUT > cRosClockGetTimeMs())
-    cRosNodeDoEventsLoop( n );
+  while( start_time + CN_UNREGISTRATION_TIMEOUT > cRosClockGetTimeMs() && ret_err == CROS_SUCCESS_ERR_PACK && (unreg_incomp = !cRosUnregistrationCompleted(n)))
+    ret_err=cRosNodeDoEventsLoop( n );
 
-  return ret;
+  if(ret_err == CROS_SUCCESS_ERR_PACK && unreg_incomp)
+    ret_err = CROS_UNREG_TIMEOUT_ERR; // the unregistration process could not be completed
+
+  return ret_err;
 }
 
 void cRosNodePauseAllCallersPublishers(CrosNode *n)
@@ -1935,23 +1937,24 @@ void cRosNodePauseAllCallersPublishers(CrosNode *n)
 }
 
 
-int cRosNodeUnregisterAll(CrosNode *n)
+cRosErrCodePack cRosNodeUnregisterAll(CrosNode *n)
 {
-  int i, ret_err=0;
+  int i;
+  cRosErrCodePack ret_err=CROS_SUCCESS_ERR_PACK;
 
-  for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS && ret_err == 0; i++)
+  for ( i = 0; i < CN_MAX_PUBLISHED_TOPICS && ret_err == CROS_SUCCESS_ERR_PACK; i++)
     if(n->pubs[i].topic_name != NULL)
       ret_err = cRosApiUnregisterPublisher(n, i);
 
-  for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS && ret_err == 0; i++)
+  for ( i = 0; i < CN_MAX_SUBSCRIBED_TOPICS && ret_err == CROS_SUCCESS_ERR_PACK; i++)
     if(n->subs[i].topic_name != NULL)
       ret_err = cRosApiUnregisterSubscriber(n, i);
 
-  for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS && ret_err == 0; i++)
+  for ( i = 0; i < CN_MAX_SERVICE_PROVIDERS && ret_err == CROS_SUCCESS_ERR_PACK; i++)
     if(n->service_providers[i].service_name != NULL)
       ret_err = cRosApiUnregisterServiceProvider(n, i);
 
-  for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS && ret_err == 0; i++)
+  for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS && ret_err == CROS_SUCCESS_ERR_PACK; i++)
     if(n->paramsubs[i].parameter_key != NULL)
       ret_err = cRosApiUnsubscribeParam(n, i);
 
@@ -1961,21 +1964,16 @@ int cRosNodeUnregisterAll(CrosNode *n)
 cRosErrCodePack cRosNodeDestroy ( CrosNode *n )
 {
   cRosErrCodePack ret_err;
-  int unreg_ret;
+
   PRINT_VDEBUG ( "cRosNodeDestroy()\n" );
 
   if ( n == NULL )
     return CROS_BAD_PARAM_ERR;
 
   cRosNodePauseAllCallersPublishers( n );
-  unreg_ret = cRosNodeUnregisterAll(n);
-  if(unreg_ret == 0)
-  {
-    unreg_ret = cRosNodeWaitForAllUnregistrations( n );
-    ret_err = (unreg_ret == 0)? CROS_SUCCESS_ERR_PACK: CROS_UNREG_TIMEOUT_ERR;
-  }
-  else
-    ret_err=CROS_UNSPECIFIED_ERR;
+  ret_err = cRosNodeUnregisterAll(n);
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+    ret_err = cRosNodeWaitForAllUnregistrations( n );
 
   xmlrpcProcessRelease( &(n->xmlrpc_listner_proc) );
 
@@ -2488,7 +2486,7 @@ int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx)
     return 0;
 }
 
-int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context)
+cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context, int *paramsubidx_ptr)
 {
   PRINT_VDEBUG ( "cRosApiSubscribeParam()\n" );
   PRINT_INFO ( "Subscribing to parameter %s\n", key);
@@ -2497,23 +2495,23 @@ int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback ca
   {
     PRINT_ERROR ( "cRosApiSubscribeParam() : Can't register a new parameter subscription: \
                   reached the maximum number of parameters\n");
-    return -1;
+    return CROS_MANY_PARAM_ERR;
   }
 
   char *parameter_key = ( char * ) malloc ( ( strlen ( key ) + 1 ) * sizeof ( char ) );
   if (parameter_key == NULL)
   {
     PRINT_ERROR ( "cRosApiSubscribeParam() : Can't allocate memory\n" );
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   strcpy (parameter_key, key);
 
   int paramsubidx;
-  int it = 0;
-  for (; it < CN_MAX_PARAMETER_SUBSCRIPTIONS; it++)
+  int it;
+  for (it = 0; it < CN_MAX_PARAMETER_SUBSCRIPTIONS; it++)
   {
-    if (node->subs[it].topic_name == NULL)
+    if (node->paramsubs[it].parameter_key == NULL)
     {
       paramsubidx = it;
       break;
@@ -2527,21 +2525,29 @@ int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback ca
 
   node->n_paramsubs++;
 
-  int rc = enqueueParameterSubscription(node, paramsubidx);
-  if (rc == -1)
-    return -1;
-
-  return 0;
+  int callid = enqueueParameterSubscription(node, paramsubidx);
+  if (callid == -1)
+  {
+    free(parameter_key);
+    sub->parameter_key = NULL;
+    node->n_paramsubs--;
+    return CROS_MEM_ALLOC_ERR;
+  }
+  if(paramsubidx_ptr != NULL)
+    *paramsubidx_ptr = paramsubidx;
+  return CROS_SUCCESS_ERR_PACK;
 }
 
-int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx)
+cRosErrCodePack cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx)
 {
+  int caller_id;
+
   if (paramsubidx < 0 || paramsubidx >= CN_MAX_PARAMETER_SUBSCRIPTIONS)
-    return -1;
+    return CROS_BAD_PARAM_ERR;
 
   ParameterSubscription *sub = &node->paramsubs[paramsubidx];
   if (sub->parameter_key == NULL)
-    return -1;
+    return CROS_SUB_IND_PARAM_ERR;
 
   XmlrpcProcess *coreproc = &node->xmlrpc_client_proc[0];
   if (coreproc->current_call != NULL
@@ -2552,11 +2558,9 @@ int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx)
     closeXmlrpcProcess(coreproc);
   }
 
-  int rc = enqueueParameterUnsubscription(node, paramsubidx);
-  if (rc == -1)
-    return -1;
+  caller_id = enqueueParameterUnsubscription(node, paramsubidx);
 
-  return 0;
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
 void printNodeProcState( CrosNode *n )
@@ -3203,13 +3207,13 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n )
 
 cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned char *exit_flag )
 {
-  cRosErrCodePack ret = CROS_SUCCESS_ERR_PACK;
+  cRosErrCodePack ret_err = CROS_SUCCESS_ERR_PACK;
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
 
-  while( ret == CROS_SUCCESS_ERR_PACK && !(*exit_flag) )
-    ret = cRosNodeDoEventsLoop( n );
+  while( ret_err == CROS_SUCCESS_ERR_PACK && !(*exit_flag) )
+    ret_err = cRosNodeDoEventsLoop( n );
 
-  return ret;
+  return ret_err;
 }
 
 int enqueueSubscriberAdvertise(CrosNode *node, int subidx)

@@ -123,8 +123,12 @@ int main(int argc, char **argv)
   printf("Elapsed time: %.1fms\n", elapsed_time);
 
   // All done: free memory and unregister from ROS master
-  if( cRosNodeDestroy( node ) != 0)
-    printf("cRosNodeDestroy() failed; Error unregistering from ROS master\n");
+  err_cod=cRosNodeDestroy( node );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unregistering from ROS master");
+    return EXIT_FAILURE;
+  }
 
   return EXIT_SUCCESS;
 }

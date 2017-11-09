@@ -13,7 +13,7 @@
  *  \param callback Pointer to the callback function that will be called to generate the (raw) packet data of type topic_type
  *  \param status_callback Pointer to the status callback function
  *  \param data_context Pointer to user data than will be passed to the callback function as context information. Can be NULL
- *  \return Returns 0 on success, -1 on failure (e.g., the maximum number of publisher topics has been reached)
+ *  \return Returns the index of the created publisher on success, -1 on failure (e.g., the maximum number of publisher topics has been reached)
  */
 int cRosNodeRegisterPublisher(CrosNode *n, const char *message_definition, const char *topic_name,
                               const char *topic_type, const char *md5sum, int loop_period,
@@ -30,7 +30,7 @@ int cRosNodeRegisterPublisher(CrosNode *n, const char *message_definition, const
  *  \param data_context Pointer to user data than will be passed to the callback function as context information. Can be NULL
  *  \param tcp_nodelay If this parameter is 1, the publisher is asked to disable the Nagle algorithm for the socket,
  *         so small packets are sent immediately, reducing the latency but increasing the bandwidth usage.
- *  \return Returns 0 on success, -1 on failure (e.g., the maximum number of subscriber topics has been reached)
+ *  \return Returns the index of the created subscriber on success, -1 on failure (e.g., the maximum number of subscriber topics has been reached)
  */
 int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum,
@@ -44,7 +44,7 @@ int cRosNodeRegisterSubscriber(CrosNode *n, const char *message_definition,
  *  \param callback Pointer to the callback function that will be called when a service request is received
  *  \param status_callback Pointer to the status callback function
  *  \param data_context Pointer to user data than will be passed to the callback function as context information. Can be NULL
- *  \return Returns 0 on success, -1 on failure (e.g., the maximum number of subscriber topics has been reached)
+ *  \return Returns the index of the created service provider on success, -1 on failure (e.g., the maximum number of service providers has been reached)
  */
 int cRosNodeRegisterServiceProvider(CrosNode *n, const char *service_name,
                                     const char *service_type, const char *md5sum,
@@ -63,7 +63,7 @@ int cRosNodeRegisterServiceProvider(CrosNode *n, const char *service_name,
  *         This reduces bandwidth usage and latency. Otherwise the parameter value should be to 0.
  *  \param tcp_nodelay If this parameter is 1, the service provider is asked to disable the Nagle algorithm for the socket,
  *         so small packets are sent immediately, reducing the latency but increasing the bandwidth usage.
- *  \return Returns 0 on success, -1 on failure (e.g., the maximum number of services has been reached)
+ *  \return Returns the index of the created service caller on success, -1 on failure (e.g., the maximum number of services has been reached)
  */
 int cRosNodeRegisterServiceCaller(CrosNode *n, const char *message_definition, const char *service_name,
                                     const char *service_type, const char *md5sum, int loop_period,

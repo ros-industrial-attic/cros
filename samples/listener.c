@@ -135,7 +135,12 @@ int main(int argc, char **argv)
   cRosNodeStart( node, &exit_flag );
 
   // Free memory and unregister
-  if (cRosNodeDestroy( node ) != 0)
-    printf("cRosNodeDestroy() failed; Error unregistering from ROS master\n");
+  err_cod=cRosNodeDestroy( node );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unregistering from ROS master");
+    return EXIT_FAILURE;
+  }
+
   return EXIT_SUCCESS;
 }

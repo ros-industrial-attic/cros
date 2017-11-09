@@ -306,13 +306,13 @@ typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void *con
 cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period, ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr);
 void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx);
 cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context, int *svcidx_ptr);
-int cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx);
+cRosErrCodePack cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx);
 void cRosApiReleaseServiceProvider(CrosNode *node, int svcidx);
 cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr);
-int cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
+cRosErrCodePack cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
 void cRosApiReleaseSubscriber(CrosNode *node, int subidx);
 cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context, int *pubidx_ptr);
-int cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
+cRosErrCodePack cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
 void cRosApiReleasePublisher(CrosNode *node, int pubidx);
 
 // Master api: name service and system state
@@ -368,15 +368,15 @@ int cRosApiGetSubscriptions(CrosNode *node, const char* host, int port, GetSubsc
 int cRosApiGetPublications(CrosNode *node, const char* host, int port, GetSubscriptionsCallback callback, void *context);
 
 // Parameter Server API: subscribe/unsubscribe params
-int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context);
-int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx);
+cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context, int *paramsubidx_ptr);
+cRosErrCodePack cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx);
 
 // Parameter Server API: other methods
-int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context);
-int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context);
-int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context);
-int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context);
-int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context);
-int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context);
+cRosErrCodePack cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context);
+cRosErrCodePack cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context);
+cRosErrCodePack cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context);
+cRosErrCodePack cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context);
+cRosErrCodePack cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context);
+cRosErrCodePack cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context);
 
 #endif // _CROS_API_H_

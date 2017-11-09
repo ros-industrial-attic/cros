@@ -307,13 +307,14 @@ cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *servi
   return ret_err;
 }
 
-int cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx)
+cRosErrCodePack cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx)
 {
+  int ret_err;
   ServiceProviderNode *service = &node->service_providers[svcidx];
   ProviderContext *context = (ProviderContext *)service->context;
-  int rc = cRosNodeUnregisterServiceProvider(node, svcidx);
+  ret_err = cRosNodeUnregisterServiceProvider(node, svcidx);
 
-  return rc;
+  return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;
 }
 
 void cRosApiReleaseServiceProvider(CrosNode *node, int svcidx)
@@ -355,13 +356,14 @@ cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name
   return ret_err;
 }
 
-int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
+cRosErrCodePack cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
 {
+  int ret_err;
   SubscriberNode *sub = &node->subs[subidx];
   ProviderContext *context = (ProviderContext *)sub->context;
-  int rc = cRosNodeUnregisterSubscriber(node, subidx);
+  ret_err = cRosNodeUnregisterSubscriber(node, subidx);
 
-  return rc;
+  return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;
 }
 
 void cRosApiReleaseSubscriber(CrosNode *node, int subidx)
@@ -403,13 +405,14 @@ cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name,
   return ret_err;
 }
 
-int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
+cRosErrCodePack cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
 {
+  int ret_err;
   PublisherNode *pub = &node->pubs[pubidx];
   ProviderContext *context = (ProviderContext *)pub->context;
-  int rc = cRosNodeUnregisterPublisher(node, pubidx);
+  ret_err = cRosNodeUnregisterPublisher(node, pubidx);
 
-  return rc;
+  return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;
 }
 
 void cRosApiReleasePublisher(CrosNode *node, int pubidx)
@@ -691,13 +694,15 @@ int cRosApiGetPublications(CrosNode *node, const char* host, int port,
   return enqueueSlaveApiCall(node, call, host, port);
 }
 
-int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context)
+cRosErrCodePack cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context)
 {
+  int caller_id;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiDeleteParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_DELETE_PARAM;
@@ -709,16 +714,19 @@ int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback call
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id=enqueueMasterApiCall(node, call);
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context)
+cRosErrCodePack cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context)
 {
+  int caller_id, vec_size;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiSetParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   XmlrpcParam param;
@@ -727,7 +735,7 @@ int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetPara
   {
     PRINT_ERROR ( "cRosApiSetParam() : Can't allocate memory\n");
     freeRosApiCall(call);
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_SET_PARAM;
@@ -738,24 +746,27 @@ int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetPara
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
-  rc = xmlrpcParamVectorPushBack(&call->params, &param);
-  if (rc == -1)
+  vec_size = xmlrpcParamVectorPushBack(&call->params, &param);
+  if (vec_size == -1)
   {
     freeRosApiCall(call);
     xmlrpcParamRelease(&param);
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
-  return enqueueMasterApiCall(node, call);
+  caller_id=enqueueMasterApiCall(node, call);
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context)
+cRosErrCodePack cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context)
 {
+  int caller_id;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_PARAM;
@@ -767,16 +778,19 @@ int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context)
+cRosErrCodePack cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context)
 {
+  int caller_id;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiSearchParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_SEARCH_PARAM;
@@ -788,16 +802,19 @@ int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback call
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context)
+cRosErrCodePack cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context)
 {
+  int caller_id;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiHasParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_HAS_PARAM;
@@ -809,16 +826,18 @@ int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context)
+cRosErrCodePack cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetParamNames() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_PARAM_NAMES;
@@ -829,7 +848,9 @@ int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *c
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
 LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)

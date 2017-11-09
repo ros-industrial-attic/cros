@@ -19,7 +19,10 @@
   MSG_COD_ELEM(CROS_LOAD_MSG_FILE_ERR, "Error loading the message difinition file") \
   MSG_COD_ELEM(CROS_OPEN_SVC_FILE_ERR, "The file defining the service cannot be opened") \
   MSG_COD_ELEM(CROS_UNREG_TIMEOUT_ERR, "The unregistration from the ROS master was abandoned before it finished because was taking too long") \
-  MSG_COD_ELEM(CROS_SELECT_FD_ERR, "An error ocurred while monitoring the socket file descriptors (select() function)")
+  MSG_COD_ELEM(CROS_SELECT_FD_ERR, "An error ocurred while monitoring the socket file descriptors (select() function)") \
+  MSG_COD_ELEM(CROS_MANY_PARAM_ERR, "The maximum number of paramter subscriptions has been reached") \
+  MSG_COD_ELEM(CROS_SUB_IND_PARAM_ERR, "The provided parameter subscriber index does not corresponds to a valid subscriber to be unregistered")
+
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 

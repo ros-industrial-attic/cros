@@ -3,11 +3,11 @@
  *         associated substructures, functions and macros.
  *
  *  This ROS node can implement at the same time several:
- *  - Subscribers
- *  - Publishers
+ *  - Topic subscribers
+ *  - Topic publishers
  *  - Service providers (servers)
  *  - Service callers (clients)
- *
+ *  - Parameter subscriber
  */
 
 #ifndef _CROS_NODE_H_
