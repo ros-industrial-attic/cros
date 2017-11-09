@@ -1147,7 +1147,9 @@ void xmlrpcParamInit( XmlrpcParam *param )
 void xmlrpcParamRelease ( XmlrpcParam *param )
 {
   PRINT_VDEBUG ( "xmlrpcParamReleaseData()\n" );
-  int i;
+
+  free(param->member_name);
+
   switch ( param->type )
   {
   case XMLRPC_PARAM_BOOL:
@@ -1167,6 +1169,7 @@ void xmlrpcParamRelease ( XmlrpcParam *param )
   case XMLRPC_PARAM_STRUCT:
     if ( param->data.as_array != NULL )
     {
+      int i;
       for ( i = 0; i< param->array_n_elem; i++ )
         xmlrpcParamRelease ( & ( param->data.as_array[i] ) );
       free ( param->data.as_array );
