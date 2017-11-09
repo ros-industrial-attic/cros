@@ -43,7 +43,7 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
     param2 = &status->parameter_value->data.as_array[2];
   }
 
-  if (status->state == CROS_STATUS_PARAM_UPDATE && param2->array_n_elem != 4)
+  if (status->state == CROS_STATUS_PARAM_UPDATE)
   {
     if (strcmp(status->parameter_key, "/testparam/x/") == 0)
       paramx_updated = 1;
@@ -71,7 +71,9 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
       int rc = cRosApiSetParam(node, "/testparam", &param, setParamCallback, NULL);
       if (rc == -1)
         exit(1);
-
+      paramx_updated = 0;
+      paramy_updated = 0;
+      paramz_updated = 0;
       xmlrpcParamRelease(&param);
     }
   }

@@ -842,7 +842,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
-        PRINT_INFO( "doWithTcprosServerSocket() : Client disconnected\n" );
+        PRINT_INFO( "doWithTcprosServerSocket() : Client disconnected?\n" );
         handleTcprosServerError( n, i );
         break;
     }
@@ -893,7 +893,7 @@ static void doWithTcprosServerSocket( CrosNode *n, int i )
       case TCPIPSOCKET_DISCONNECTED:
       case TCPIPSOCKET_FAILED:
       default:
-        PRINT_INFO( "doWithTcprosServerSocket() : Client disconnected\n" );
+        PRINT_INFO( "doWithTcprosServerSocket() : Client disconnected?\n" );
         handleTcprosServerError(n, i);
         break;
     }

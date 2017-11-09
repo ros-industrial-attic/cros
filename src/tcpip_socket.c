@@ -383,13 +383,13 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
     }
     else if ( errno == ENOTCONN || errno == ECONNRESET )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : socket disconnectd\n" );
+      PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : socket disconnected\n" );
       s->connected = 0;
       return  TCPIPSOCKET_DISCONNECTED;
     }
     else
     {
-      PRINT_ERROR ( "tcpIpSocketWriteBuffer() : Write failed\n" );
+      PRINT_ERROR ( "tcpIpSocketWriteBuffer() : Write failed. errno: %i\n" ,errno);
       return TCPIPSOCKET_FAILED;
     }
   }
