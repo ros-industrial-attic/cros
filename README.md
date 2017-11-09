@@ -4,10 +4,11 @@ cROS is a library written in stadard c-language that provides a single thread
 implementation of the  basic features required to implement a ROS
 (Robot Operating System) node.
 This ROS node supports the concurrent operation as several:
- * Subscribers
- * Publishers
+ * Topic subscribers
+ * Topic Publishers
  * Service providers (servers)
  * Service callers (clients)
+ * Parameter subscribers
 
 ### Requirements
 

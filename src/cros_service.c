@@ -94,7 +94,7 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
         fclose(f);
 
         srv_text[fsize] = '\0';
-        srv->plain_text = malloc(strlen(srv_text) + 1);
+        srv->plain_text = strdup(srv_text); // equiv. to malloc() + memcpy()
         if(srv->plain_text == NULL)
         {
             free(srv_text);
@@ -102,10 +102,14 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
             return CROS_MEM_ALLOC_ERR;
         }
 
-        memcpy(srv->plain_text,srv_text,strlen(srv_text) + 1);
-
         //splitting msg_text into the request response parts
         srv_res = strstr(srv_text, SRV_DELIMITER);
+        if(srv_res == NULL)
+        {
+            free(srv_text);
+            free(file_tokenized);
+            return CROS_SVC_FILE_DELIM_ERR;
+        }
 
         //if the srv has some request parameters
         if(srv_res != srv_text)
@@ -115,8 +119,9 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
           srv_req = srv_text;
         }
 
-        //move over the delimiter and the new line char
-        srv_res += strlen(SRV_DELIMITER) + 1;
+        srv_res += strlen(SRV_DELIMITER); // skip the delimiter
+        if(*srv_res == '\n')
+          srv_res++; // skip the new line char
 
         char* tok = strtok(file_tokenized,"/.");
 

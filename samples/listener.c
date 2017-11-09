@@ -93,7 +93,7 @@ int set_signal_handler(void)
      }
    return(ret);
   }
-#include "cros_err_codes.h"
+
 int main(int argc, char **argv)
 {
   // We need to tell our node where to find the .msg files that we'll be using

@@ -1862,21 +1862,21 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
                                   callback_pub_log, NULL, new_n, NULL);
   if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
-    PRINT_ERROR ( "cRosNodeCreate(): Error registering rosout\n" );
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering rosout. Error: %i\n", cRosGetLastErrCode(ret_err));
   }
 
   ret_err = cRosApiRegisterServiceProvider(new_n,"~get_loggers","roscpp/GetLoggers",
                                       callback_srv_get_loggers, NULL, (void *)new_n, NULL);
   if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
-    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers\n" );
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers. Error: %i\n", cRosGetLastErrCode(ret_err));
   }
 
   ret_err = cRosApiRegisterServiceProvider(new_n,"~set_logger_level","roscpp/SetLoggerLevel",
                                       callback_srv_set_logger_level, NULL, (void *)new_n, NULL);
   if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
-    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers\n" );
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers. Error: %i\n", cRosGetLastErrCode(ret_err));
   }
 
   return new_n;
@@ -2547,7 +2547,7 @@ cRosErrCodePack cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx)
 
   ParameterSubscription *sub = &node->paramsubs[paramsubidx];
   if (sub->parameter_key == NULL)
-    return CROS_SUB_IND_PARAM_ERR;
+    return CROS_PARAM_SUB_IND_ERR;
 
   XmlrpcProcess *coreproc = &node->xmlrpc_client_proc[0];
   if (coreproc->current_call != NULL

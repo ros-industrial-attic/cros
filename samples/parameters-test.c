@@ -1,21 +1,45 @@
+/*! \file parameters-test.c
+ *  \brief The file is an example of cROS usage implementing a parameter subscriber. This sample
+ *         can be used together with rosparam or MATLAB to prove the operation of parameter sharing
+ *         between two nodes.
+ *
+ *  It creates a parameter subscriber to the key /testparam. Each time this parameter is updated by
+ *  other node the master node informs about it and the callback function getNodeStatusCallback() is executed.
+ *  This function checks if the parameters /testparam/x, /testparam/y and /testparam/z have been updated.
+ *  When all of these parameters are updated by other node, the function changes their value to
+ *  {x: 5, y: hello, z: [0,1,2,4]} and continues checking again when all the them change.
+ *  - With ROS core it can be tested by running:
+ *  $ rosparam set /testparam "{x: 3, y: ciao, z: [1,2,3]}"
+ *  - With MATLAB R2015a (or more recent) it can be tested by running:
+ *  >> rosinit
+ *  >> rosparam('set', '/testparam/x', int32(3))
+ *  >> rosparam('set', '/testparam/y', 'ciao')
+ *  >> rosparam('set', '/testparam/z', {int32(1),int32(2),int32(3)})
+ *  To exit safely press Ctrl-C or 'kill' the process once. If this actions are repeated, the process
+ *  will be finished immediately.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 #include <time.h>
+#include <unistd.h>
+
+#include <errno.h>
+#include <signal.h>
 
 #include <cros_defs.h>
 #include "cros_node.h"
 #include "cros_api.h"
 #include "cros_clock.h"
 
-#include <unistd.h>
-
 CrosNode *node;
 uint64_t start_timer = 0;
 int paramx_updated = 0;
 int paramy_updated = 0;
 int paramz_updated = 0;
+unsigned char exit_flag = 0; //! ROS-node loop exit flag. When it is set to 1 the cRosNodeStart() function exits
+struct sigaction old_int_signal_handler, old_term_signal_handler; //! Structures codifying the original handlers of SIGINT and SIGTERM signals (e.g. used when pressing Ctrl-C for the second time);
 
 void getParamNamesCallback(int callid, GetParamNamesResult *result, void *context)
 {
@@ -27,11 +51,9 @@ void setParamCallback(int callid, SetParamResult *result, void *context)
   // OK
 }
 
-// Testato con:
-// $ rosparam set /testparam "{x: 3, y: ciao, z: [1,2,3]}"
-
 static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
 {
+/*
   XmlrpcParam *param0;
   XmlrpcParam *param1;
   XmlrpcParam *param2;
@@ -42,7 +64,7 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
     param1 = &status->parameter_value->data.as_array[1];
     param2 = &status->parameter_value->data.as_array[2];
   }
-
+*/
   if (status->state == CROS_STATUS_PARAM_UPDATE)
   {
     if (strcmp(status->parameter_key, "/testparam/x/") == 0)
@@ -82,6 +104,41 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
   }
 }
 
+// This callback function should be called when the main process receives a SIGINT or
+// SIGTERM signal.
+// Function set_signal_handler() should be called to set this function as the handler of
+// these signals
+static void exit_deamon_handler(int sig)
+{
+  printf("Signal %i received: exiting safely.\n", sig);
+  sigaction(SIGINT, &old_int_signal_handler, NULL);
+  sigaction(SIGTERM, &old_term_signal_handler, NULL);
+  exit_flag = 1; // Indicate the exit of cRosNodeStart loop (safe exit)
+}
+
+// Sets the signal handler functions of SIGINT and SIGTERM: exit_deamon_handler
+int set_signal_handler(void)
+  {
+   int ret;
+   struct sigaction act;
+
+   memset (&act, '\0', sizeof(act));
+
+   act.sa_handler = exit_deamon_handler;
+   // If the signal handler is invoked while a system call or library function call is blocked,
+   // then the we want the call to be automatically restarted after the signal handler returns
+   // instead of making the call fail with the error EINTR.
+   act.sa_flags=SA_RESTART;
+   if(sigaction(SIGINT, &act, &old_int_signal_handler) == 0 && sigaction(SIGTERM, &act,  &old_term_signal_handler) == 0)
+      ret=0;
+   else
+     {
+      ret=errno;
+      printf("Error setting termination signal handler. errno=%d\n",errno);
+     }
+   return(ret);
+  }
+
 int main(int argc, char **argv)
 {
   char *default_node_name = "/Gripper",
@@ -115,10 +172,19 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
+  // Function exit_deamon_handler() will be called when Ctrl-C is pressed or kill is executed
+  set_signal_handler();
 
-  unsigned char exit = 0;
-  cRosNodeStart( node, &exit );
-  cRosNodeDestroy( node );
+  // Run the main loop until exit_flag is 1
+  cRosNodeStart( node, &exit_flag );
+
+  // Free memory and unregister
+  err_cod=cRosNodeDestroy( node );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unsubscribing in ROS master");
+    return EXIT_FAILURE;
+  }
 
   return EXIT_SUCCESS;
 }

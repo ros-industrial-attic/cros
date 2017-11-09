@@ -310,8 +310,13 @@ cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *servi
 cRosErrCodePack cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx)
 {
   int ret_err;
+  if (svcidx < 0 || svcidx >= CN_MAX_SERVICE_PROVIDERS)
+    return CROS_BAD_PARAM_ERR;
+
   ServiceProviderNode *service = &node->service_providers[svcidx];
-  ProviderContext *context = (ProviderContext *)service->context;
+  if (service->service_name == NULL)
+    return CROS_TOPIC_SUB_IND_ERR;
+
   ret_err = cRosNodeUnregisterServiceProvider(node, svcidx);
 
   return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;
@@ -359,8 +364,13 @@ cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name
 cRosErrCodePack cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
 {
   int ret_err;
+  if (subidx < 0 || subidx >= CN_MAX_SUBSCRIBED_TOPICS)
+    return CROS_BAD_PARAM_ERR;
+
   SubscriberNode *sub = &node->subs[subidx];
-  ProviderContext *context = (ProviderContext *)sub->context;
+  if (sub->topic_name == NULL)
+    return CROS_TOPIC_SUB_IND_ERR;
+
   ret_err = cRosNodeUnregisterSubscriber(node, subidx);
 
   return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;
@@ -408,8 +418,13 @@ cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name,
 cRosErrCodePack cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
 {
   int ret_err;
+  if (pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
+    return CROS_BAD_PARAM_ERR;
+
   PublisherNode *pub = &node->pubs[pubidx];
-  ProviderContext *context = (ProviderContext *)pub->context;
+  if (pub->topic_name == NULL)
+    return CROS_TOPIC_PUB_IND_ERR;
+
   ret_err = cRosNodeUnregisterPublisher(node, pubidx);
 
   return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;

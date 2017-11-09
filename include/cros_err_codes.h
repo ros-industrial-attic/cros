@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 ///////////////////////////////// ERROR messages /////////////////////////////////
-//! Definition of all the error code. One code per line. Up to 256 error code
+//! Definition of all the error codes. One code per line. Up to 255 error codes
 #define ERROR_CODE_LIST_DEF \
   MSG_COD_ELEM(CROS_NO_ERR, "Operation completed successfully") \
   MSG_COD_ELEM(CROS_UNSPECIFIED_ERR, "An unspecified error occurred") \
@@ -21,7 +21,10 @@
   MSG_COD_ELEM(CROS_UNREG_TIMEOUT_ERR, "The unregistration from the ROS master was abandoned before it finished because was taking too long") \
   MSG_COD_ELEM(CROS_SELECT_FD_ERR, "An error ocurred while monitoring the socket file descriptors (select() function)") \
   MSG_COD_ELEM(CROS_MANY_PARAM_ERR, "The maximum number of paramter subscriptions has been reached") \
-  MSG_COD_ELEM(CROS_SUB_IND_PARAM_ERR, "The provided parameter subscriber index does not corresponds to a valid subscriber to be unregistered")
+  MSG_COD_ELEM(CROS_PARAM_SUB_IND_ERR, "The provided parameter subscriber index does not corresponds to a valid subscriber to be unsubscribed") \
+  MSG_COD_ELEM(CROS_TOPIC_PUB_IND_ERR, "The provided topic publisher index does not corresponds to a valid publisher to be unregistered") \
+  MSG_COD_ELEM(CROS_TOPIC_SUB_IND_ERR, "The provided topic subscriber index does not corresponds to a valid subscriber to be unregistered") \
+  MSG_COD_ELEM(CROS_SVC_FILE_DELIM_ERR, "The delimiter string between resquest and response definition could not be found in the service definition file")
 
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
