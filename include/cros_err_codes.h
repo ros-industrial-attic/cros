@@ -25,10 +25,11 @@
   MSG_COD_ELEM(CROS_TOPIC_PUB_IND_ERR, "The provided topic publisher index does not corresponds to a valid publisher to be unregistered") \
   MSG_COD_ELEM(CROS_TOPIC_SUB_IND_ERR, "The provided topic subscriber index does not corresponds to a valid subscriber to be unregistered") \
   MSG_COD_ELEM(CROS_SVC_FILE_DELIM_ERR, "The delimiter string between resquest and response definition could not be found in the service definition file") \
-  MSG_COD_ELEM(CROS_FILE_ENTRY_SYNTAX_ERR, "The definition file contains an entry that is syntactically incorrect") \
+  MSG_COD_ELEM(CROS_FILE_ENTRY_TYPE_ERR, "The definition file contains an entry that specifies and incorrect data type") \
   MSG_COD_ELEM(CROS_LOAD_SVC_FILE_REQ_ERR, "Error loading the service request definition in the file") \
   MSG_COD_ELEM(CROS_LOAD_SVC_FILE_RES_ERR, "Error loading the service response definition in the file") \
-  MSG_COD_ELEM(CROS_CREATE_CUSTOM_MSG_ERR, "Error loading the specified custom message definition file or creating a message of its type")
+  MSG_COD_ELEM(CROS_CREATE_CUSTOM_MSG_ERR, "Error loading the specified custom message definition file or creating a message of its type") \
+  MSG_COD_ELEM(CROS_FILE_ENTRY_NO_SEP_ERR, "The definition file contains an entry that is syntactically incorrect (a white space is expected between data type and data name)")
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 

@@ -642,7 +642,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
         //printf("%s\n", new_line);
         char* iterator = new_line;
         int comment_char_found = 0;
-        int char_count = 0;
+        int char_count = 0; // Number of characters in the line before the comment
 
         //strip comments and new line
         while(((char)*iterator) != '\0')
@@ -661,38 +661,41 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
         {
           if(char_count == 0)
           {
-            new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
-            continue;
+              new_line = strtok_r(NULL, delimiter, &new_line_saveptr);
+              continue;
           }
           else
           {
-            //remove spaces among the message entry and the comment
+            //remove spaces between the message entry and the comment
             while(*(new_line + char_count - 1) == ' ')
             {
-             char_count--;
+                char_count--;
             }
           }
         }
 
         char* msg_entry = (char*) calloc(char_count + 1, sizeof(char)); // type/name
-        strncpy(msg_entry, new_line,char_count);
-        char* entry_type = NULL;
-        char* entry_name = NULL;
-        char* entry_const_val = NULL;
+        strncpy(msg_entry, new_line, char_count);
+        char* entry_type;
+        char* entry_name;
 
         char* msg_entry_itr = msg_entry;
-        entry_type = msg_entry;
 
-        while(*(msg_entry_itr++) != ' ');
-        *(msg_entry_itr - 1) = '\0';
+        while(*msg_entry_itr != '\0' && *(msg_entry_itr++) != ' '); // Skip character at the beginning of the line until a space is found
+        if(*(msg_entry_itr - 1) != ' ') // Error no space found
+        {
+            free(msg_entry);
+            return CROS_FILE_ENTRY_NO_SEP_ERR;
+        }
+        *(msg_entry_itr - 1) = '\0'; // Convert the found space into a \0
 
         entry_name = (char*) calloc(strlen(msg_entry_itr) + 1, sizeof(char));
         strcpy(entry_name, msg_entry_itr);
-        entry_type = base_msg_type(entry_type);
+        entry_type = base_msg_type(msg_entry); // Return the type of the entry in a new allocated memory string
 
         char* filled_count = msg_entry_itr;
 
-        while(*filled_count != '\0')
+        while(*filled_count != '\0') // ??? Any purpose here
         {
             if(*filled_count == ' ')
             {
@@ -711,15 +714,17 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
 
         if(!is_valid_msg_type(entry_type))
         {
+            free(entry_name);
             free(entry_type);
             free(msg_entry);
-            return CROS_FILE_ENTRY_SYNTAX_ERR;
+            return CROS_FILE_ENTRY_TYPE_ERR;
         }
 
         char* const_char_ptr = strpbrk(entry_name, CHAR_CONST);
 
         if( const_char_ptr != NULL)
         {
+            char* entry_const_val;
             if(strcmp(entry_type, "string") == 0)
             {
                 //  String constants
@@ -774,7 +779,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
               else
               {
                 current->type_s = entry_type;
-                entry_type = NULL;
+                entry_type = NULL; // Indicate that it must not be freed later since it is used
               }
             }
 
@@ -792,7 +797,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
             msg->fields = next;
         }
 
-        if (entry_type)
+        if (entry_type != NULL)
           free(entry_type);
 
         free(msg_entry);

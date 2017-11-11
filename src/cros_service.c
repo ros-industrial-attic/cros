@@ -170,7 +170,7 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
             ret_err=CROS_MEM_ALLOC_ERR;
         }
 
-        if(strlen(srv_res) != 0)
+        if(ret_err == CROS_SUCCESS_ERR_PACK && strlen(srv_res) != 0)
         {
           srv->response->package = strdup(srv->package);
           srv->response->root_dir = strdup(srv->root_dir);
@@ -192,6 +192,13 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
           free(srv->root_dir);
           free(srv->package);
           free(srv->name);
+          srv->name = NULL;
+          srv->package = NULL;
+          srv->root_dir = NULL;
+          srv->request->package = NULL;
+          srv->request->root_dir = NULL;
+          srv->response->package = NULL;
+          srv->response->root_dir = NULL;
         }
 
         free(srv_text);
@@ -301,8 +308,8 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage *request, cRosMessage *respons
     cRosServiceDefFree(srv);
     return CROS_MEM_ALLOC_ERR;
   }
-  *copy_filepath = '\0';
-  strcpy(copy_filepath,filepath);
+
+  strcpy(copy_filepath, filepath);
 
   ret_err = loadFromFileSrv(copy_filepath, srv);
   free(copy_filepath);
