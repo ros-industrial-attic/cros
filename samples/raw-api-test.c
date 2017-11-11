@@ -481,127 +481,124 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
 
 static CallbackResponse point_sub_callback(DynBuffer *buffer, void* data_context)
 {
-  cRosMessage point;
-  cRosMessageInit(&point);
-  cRosMessageBuild(&point,
-                      "/home/nico/Desktop/test_msgs/geometry_msgs/Point.msg");
+  cRosMessage *msg_point;
+
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/geometry_msgs", "Point", &msg_point);
   size_t buffer_offset = 0;
-  cRosMessageDeserialize(&point, buffer);
+  cRosMessageDeserialize(msg_point, buffer);
+  cRosMessageFree(msg_point);
+
   return 0;
 }
 
 static CallbackResponse manyStrings_sub_callback(DynBuffer *buffer, void* data_context)
 {
-  cRosMessage manyStrings;
-  cRosMessageInit(&manyStrings);
-  cRosMessageBuild(&manyStrings,
-                      "/home/nico/Desktop/test_msgs/gripping_robot/StringMixes.msg");
+  cRosMessage *manyStrings_msg;
+
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/gripping_robot", "StringMixes", &manyStrings_msg);
   size_t buffer_offset = 0;
-  cRosMessageDeserialize(&manyStrings, buffer);
+  cRosMessageDeserialize(manyStrings_msg, buffer);
+  cRosMessageFree(manyStrings_msg);
+
   return 0;
 }
 
 static CallbackResponse manyPoints_sub_callback(DynBuffer *buffer, void* data_context)
 {
-  cRosMessage manyPoints;
-  cRosMessageInit(&manyPoints);
-  cRosMessageBuild(&manyPoints,
-                      "/home/nico/Desktop/test_msgs/gripping_robot/PointMixes.msg");
+  cRosMessage *manyPoints_msg;
+
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/gripping_robot", "PointMixes", &manyPoints_msg);
   size_t buffer_offset = 0;
-  cRosMessageDeserialize(&manyPoints, buffer);
+  cRosMessageDeserialize(manyPoints_msg, buffer);
+  cRosMessageFree(manyPoints_msg);
+
   return 0;
 }
 
 static CallbackResponse point_pub_callback(DynBuffer *buffer, void* data_context)
 {
-  cRosMessage point;
-  cRosMessageInit(&point);
-  cRosMessageBuild(&point,
-                      "/home/nico/Desktop/test_msgs/geometry_msgs/Point.msg");
-  cRosMessageField* point_x = cRosMessageGetField(&point,"x");
+  cRosMessage *point_msg;
+
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/geometry_msgs", "Point", &point_msg);
+  cRosMessageField* point_x = cRosMessageGetField(point_msg,"x");
   point_x->data.as_float64 = 1.5;
-  cRosMessageField* point_y = cRosMessageGetField(&point,"y");
+  cRosMessageField* point_y = cRosMessageGetField(point_msg,"y");
   point_y->data.as_float64 = 1.6;
-  cRosMessageField* point_z = cRosMessageGetField(&point,"z");
+  cRosMessageField* point_z = cRosMessageGetField(point_msg,"z");
   point_z->data.as_float64 = 1.57;
-  cRosMessageSerialize(&point, buffer);
+  cRosMessageSerialize(point_msg, buffer);
+  cRosMessageFree(point_msg);
+
   return 0;
 }
 
 static CallbackResponse manyStrings_pub_callback(DynBuffer *buffer, void* data_context)
 {
-  cRosMessage* manyStrings = calloc(1,sizeof(cRosMessage));
-  cRosMessageInit(manyStrings);
-  cRosMessageBuild(manyStrings,
-                      "/home/nico/Desktop/test_msgs/gripping_robot/StringMixes.msg");
+  cRosMessage* manyStrings_msg;
 
-  cRosMessageField* limitedStrings = cRosMessageGetField(manyStrings,"limitedStrings");
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/gripping_robot", "StringMixes", &manyStrings_msg);
+  cRosMessageField* limitedStrings = cRosMessageGetField(manyStrings_msg,"limitedStrings");
 
   cRosMessageFieldArrayPushBackString(limitedStrings, "Ciao");
   cRosMessageFieldArrayPushBackString(limitedStrings, "amico");
   cRosMessageFieldArrayPushBackString(limitedStrings, "mio");
 
-  //  cRosMessageField* unlimitedStrings = cRosMessageGetField(&manyStrings,"unlimitedStrings");
+  //  cRosMessageField* unlimitedStrings = cRosMessageGetField(manyStrings_msg,"unlimitedStrings");
   //
   //  cRosMessageFieldArrayPushBackString(unlimitedStrings, "come");
   //  cRosMessageFieldArrayPushBackString(unlimitedStrings, "stai?");
 
-  cRosMessageSerialize(manyStrings, buffer);
+  cRosMessageSerialize(manyStrings_msg, buffer);
+  cRosMessageFree(manyStrings_msg);
+
   return 0;
 }
 
 static CallbackResponse manyPoints_pub_callback(DynBuffer *buffer, void* data_context)
 {
-  cRosMessage manyPoints;
-  cRosMessageInit(&manyPoints);
-  cRosMessageBuild(&manyPoints,
-                      "/home/nico/Desktop/test_msgs/gripping_robot/PointMixes.msg");
+  cRosMessage *manyPoints_msg;
 
-  cRosMessageField* limitedPoints = cRosMessageGetField(&manyPoints,"limitedPoints");
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/gripping_robot", "PointMixes", &manyPoints_msg);
 
-  cRosMessage* point_1 = (cRosMessage*) calloc(1, sizeof(cRosMessage));
-  cRosMessageInit(point_1);
-  cRosMessageBuild(point_1,
-                      "/home/nico/Desktop/test_msgs/geometry_msgs/Point.msg");
-  cRosMessageField* point_1x = cRosMessageGetField(point_1,"x");
+  cRosMessageField* limitedPoints = cRosMessageGetField(manyPoints_msg,"limitedPoints");
+
+  cRosMessage* point_1_msg;
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/geometry_msgs", "Point", &point_1_msg);
+  cRosMessageField* point_1x = cRosMessageGetField(point_1_msg,"x");
   point_1x->data.as_float64 = 1.5;
-  cRosMessageField* point_1y = cRosMessageGetField(point_1,"y");
+  cRosMessageField* point_1y = cRosMessageGetField(point_1_msg,"y");
   point_1y->data.as_float64 = 1.6;
-  cRosMessageField* point_1z = cRosMessageGetField(point_1,"z");
+  cRosMessageField* point_1z = cRosMessageGetField(point_1_msg,"z");
   point_1z->data.as_float64 = 1.57;
 
-  cRosMessageFieldArrayPushBackMsg(limitedPoints, point_1);
+  cRosMessageFieldArrayPushBackMsg(limitedPoints, point_1_msg);
   cRosMessage* test = NULL;
   test = cRosMessageFieldArrayAtMsgGet(limitedPoints, 0);
 
-  cRosMessage* point_2 = (cRosMessage*) calloc(1, sizeof(cRosMessage));
-  cRosMessageInit(point_2);
-  cRosMessageBuild(point_2,
-                      "/home/nico/Desktop/test_msgs/geometry_msgs/Point.msg");
-
-  cRosMessageField* point_2x = cRosMessageGetField(point_2,"x");
+  cRosMessage* point_2_msg;
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/geometry_msgs", "Point", &point_2_msg);
+  cRosMessageField* point_2x = cRosMessageGetField(point_2_msg,"x");
   point_2x->data.as_float64 = 2.5;
-  cRosMessageField* point_2y = cRosMessageGetField(point_2,"y");
+  cRosMessageField* point_2y = cRosMessageGetField(point_2_msg,"y");
   point_2y->data.as_float64 = 2.6;
-  cRosMessageField* point_2z = cRosMessageGetField(point_2,"z");
+  cRosMessageField* point_2z = cRosMessageGetField(point_2_msg,"z");
   point_2z->data.as_float64 = 2.57;
 
-  cRosMessage* point_3 = (cRosMessage*) calloc(1, sizeof(cRosMessage));
-  cRosMessageInit(point_3);
-  cRosMessageBuild(point_3,
-                      "/home/nico/Desktop/test_msgs/geometry_msgs/Point.msg");
-
-  cRosMessageField* point_3x = cRosMessageGetField(point_3,"x");
+  cRosMessage* point_3_msg;
+  cRosMessageNewBuild("/home/nico/Desktop/test_msgs/geometry_msgs", "Point", &point_3_msg);
+  cRosMessageField* point_3x = cRosMessageGetField(point_3_msg,"x");
   point_3x->data.as_float64 = 1.5;
-  cRosMessageField* point_3y = cRosMessageGetField(point_3,"y");
+  cRosMessageField* point_3y = cRosMessageGetField(point_3_msg,"y");
   point_3y->data.as_float64 = 1.6;
-  cRosMessageField* point_3z = cRosMessageGetField(point_3,"z");
+  cRosMessageField* point_3z = cRosMessageGetField(point_3_msg,"z");
   point_3z->data.as_float64 = 1.57;
 
-  cRosMessageFieldArrayPushBackMsg(limitedPoints, point_2);
-  cRosMessageFieldArrayPushBackMsg(limitedPoints, point_3);
+  cRosMessageFieldArrayPushBackMsg(limitedPoints, point_2_msg);
+  cRosMessageFieldArrayPushBackMsg(limitedPoints, point_3_msg);
 
-  cRosMessageSerialize(&manyPoints, buffer);
+  cRosMessageSerialize(manyPoints_msg, buffer);
+  cRosMessageFree(manyPoints_msg);
+
   return 0;
 }
 

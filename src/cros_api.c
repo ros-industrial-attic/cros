@@ -119,34 +119,22 @@ static cRosErrCodePack newProviderContext(const char *provider_path, ProviderTyp
   {
     case CROS_SUBSCRIBER:
     {
-      context->incoming = cRosMessageNew();
-      if (context->incoming != NULL)
+      ret_err = cRosMessageNewBuild(NULL, provider_path, &context->incoming);
+      if (ret_err == CROS_SUCCESS_ERR_PACK)
       {
-        ret_err = cRosMessageBuild(context->incoming, provider_path);
-        if (ret_err == CROS_SUCCESS_ERR_PACK)
-        {
-          strcpy(context->md5sum, context->incoming->md5sum);
-          context->message_definition = strdup(context->incoming->msgDef->plain_text); // Alloc new mem so that it can be freed independently
-        }
+        strcpy(context->md5sum, context->incoming->md5sum);
+        context->message_definition = strdup(context->incoming->msgDef->plain_text); // Alloc new mem so that it can be freed independently
       }
-      else
-        ret_err = CROS_MEM_ALLOC_ERR;
       break;
     }
     case CROS_PUBLISHER:
     {
-      context->outgoing = cRosMessageNew();
-      if (context->outgoing != NULL)
+      ret_err = cRosMessageNewBuild(NULL, provider_path, &context->outgoing);
+      if (ret_err == CROS_SUCCESS_ERR_PACK)
       {
-        ret_err = cRosMessageBuild(context->outgoing, provider_path);
-        if (ret_err == CROS_SUCCESS_ERR_PACK)
-        {
-          strcpy(context->md5sum, context->outgoing->md5sum);
-          context->message_definition = strdup(context->outgoing->msgDef->plain_text);
-        }
+        strcpy(context->md5sum, context->outgoing->md5sum);
+        context->message_definition = strdup(context->outgoing->msgDef->plain_text);
       }
-      else
-        ret_err = CROS_MEM_ALLOC_ERR;
       break;
     }
     case CROS_SERVICE_PROVIDER:

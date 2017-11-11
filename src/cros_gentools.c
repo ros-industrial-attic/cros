@@ -17,12 +17,18 @@ char* cRosGentoolsMD5(char* filename)
 
 	if(strcmp(file_ext,FILEEXT_MSG) == 0)
 	{
-	  cRosMessage msg;
-	  cRosMessageInit(&msg);
-	  cRosMessageBuild(&msg,filename);
-	  char *md5sum = calloc(strlen(msg.md5sum)+1,sizeof(char));
-	  strcpy(md5sum,msg.md5sum);
-	  cRosMessageRelease(&msg);
+	  char *md5sum;
+	  cRosMessage *msg=NULL;
+	  cRosMessageNewBuild(NULL, filename, &msg);
+	  if(msg != NULL)
+      {
+	    md5sum = calloc(strlen(msg->md5sum)+1,sizeof(char));
+	    if(md5sum != NULL)
+  	      strcpy(md5sum,msg->md5sum);
+        cRosMessageFree(msg);
+      }
+      else
+        md5sum=NULL;
 	  return md5sum;
 	}
 

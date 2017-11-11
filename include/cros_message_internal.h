@@ -95,7 +95,7 @@ cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps);
 
 void cRosMD5Readable(unsigned char* data, DynString* output);
 
-void getMD5Txt(cRosMessageDef* msg, DynString* buffer);
+cRosErrCodePack getMD5Txt(cRosMessageDef* msg, DynString* buffer);
 
 cRosErrCodePack initCrosMsg(cRosMessageDef* msg);
 

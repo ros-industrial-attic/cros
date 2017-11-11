@@ -1605,13 +1605,11 @@ static CallbackResponse callback_srv_get_loggers(cRosMessage *request, cRosMessa
 {
   cRosMessageField* loggers = cRosMessageGetField(response, "loggers");
 
-  cRosMessage* logger_msg = cRosMessageNew();
+  cRosMessage* logger_msg;
 
   CrosNode* node = (CrosNode*) context;
-  char path[256];
 
-  cRosGetMsgFilePath(node, path, 256, "roscpp/Logger");
-  cRosMessageBuild(logger_msg,path);
+  cRosMessageNewBuild(node->message_root_path, "roscpp/Logger", &logger_msg);
 
   cRosMessageField* logger = cRosMessageGetField(logger_msg, "name");
   cRosMessageSetFieldValueString(logger, "ros.cros_node");

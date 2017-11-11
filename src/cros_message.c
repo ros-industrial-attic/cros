@@ -380,6 +380,7 @@ void initFieldDef(msgFieldDef* field)
 unsigned char* getMD5Msg(cRosMessageDef* msg)
 {
     DynString buffer;
+    cRosErrCodePack ret_err;
     unsigned char* result = (unsigned char*) malloc(16);
     int i;
 
@@ -400,7 +401,8 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
 
     msgFieldDef* fields_it = msg->first_field;
 
-    while(fields_it->next != NULL)
+    ret_err = CROS_SUCCESS_ERR_PACK;
+    while(ret_err == CROS_SUCCESS_ERR_PACK && fields_it->next != NULL)
     {
         const char *type_decl = getMessageTypeDeclarationField(fields_it);
 
@@ -445,26 +447,21 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
         }
         else
         {
-            DynString filename_dep;
-            dynStringInit(&filename_dep);
-            dynStringPushBackStr(&filename_dep,msg->root_dir);
-            dynStringPushBackStr(&filename_dep,DIR_SEPARATOR_STR);
-            dynStringPushBackStr(&filename_dep, type_decl);
-            dynStringPushBackStr(&filename_dep,".msg");
+            cRosMessage *msg_fn;
+            ret_err = cRosMessageNewBuild(msg->root_dir, type_decl, &msg_fn);
+            if(ret_err == CROS_SUCCESS_ERR_PACK)
+            {
+                char *md5sum = calloc(strlen(msg_fn->md5sum)+1,sizeof(char));
+                strcpy(md5sum,msg_fn->md5sum);
+                cRosMessageFree(msg_fn);
 
-            cRosMessage msg_fn;
-            cRosMessageInit(&msg_fn);
-            cRosMessageBuild(&msg_fn,filename_dep.data);
-            dynStringRelease(&filename_dep);
-            char *md5sum = calloc(strlen(msg_fn.md5sum)+1,sizeof(char));
-            strcpy(md5sum,msg_fn.md5sum);
-            cRosMessageRelease(&msg_fn);
+                dynStringPushBackStr(&buffer, md5sum);
+                dynStringPushBackStr(&buffer," ");
+                dynStringPushBackStr(&buffer,fields_it->name);
+                dynStringPushBackStr(&buffer,"\n");
+                free(md5sum);
+            }
 
-            dynStringPushBackStr(&buffer, md5sum);
-            dynStringPushBackStr(&buffer," ");
-            dynStringPushBackStr(&buffer,fields_it->name);
-            dynStringPushBackStr(&buffer,"\n");
-            free(md5sum);
         }
         fields_it = fields_it->next;
     }
@@ -478,16 +475,18 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
     MD5_Final(result, &md5_t);
     dynStringRelease(&buffer);
 
-    return result;
+    return (ret_err == CROS_SUCCESS_ERR_PACK)? result : NULL;
 }
 
-void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
+cRosErrCodePack getMD5Txt(cRosMessageDef* msg, DynString* buffer)
 {
     int i;
+    cRosErrCodePack ret_err;
 
     msgConst* const_it = msg->first_const;
 
-    while(const_it->next != NULL)
+    ret_err = CROS_SUCCESS_ERR_PACK;
+    while(ret_err == CROS_SUCCESS_ERR_PACK && const_it->next != NULL)
     {
         const char *type_decl = getMessageTypeDeclarationConst(const_it);
         dynStringPushBackStr(buffer,type_decl);
@@ -541,31 +540,27 @@ void getMD5Txt(cRosMessageDef* msg, DynString* buffer)
         }
         else
         {
-            DynString filename_dep;
             char *msg_name_str;
+            cRosMessage *msg_fn;
 
-            dynStringInit(&filename_dep);
-            dynStringPushBackStr(&filename_dep,msg->root_dir);
-            dynStringPushBackStr(&filename_dep,DIR_SEPARATOR_STR);
             msg_name_str = base_msg_type(type_decl);
-            dynStringPushBackStr(&filename_dep, msg_name_str);
+
+            ret_err = cRosMessageNewBuild(msg->root_dir, msg_name_str, &msg_fn);
             free(msg_name_str);
-            dynStringPushBackStr(&filename_dep,".msg");
+            if(ret_err == CROS_SUCCESS_ERR_PACK)
+            {
+                dynStringPushBackStr(buffer, msg_fn->md5sum);
+                cRosMessageFree(msg_fn);
 
-            cRosMessage msg_fn;
-            cRosMessageInit(&msg_fn);
-            cRosMessageBuild(&msg_fn,filename_dep.data);
-            dynStringRelease(&filename_dep);
+                dynStringPushBackStr(buffer," ");
+                dynStringPushBackStr(buffer,fields_it->name);
+                dynStringPushBackStr(buffer,"\n");
+            }
 
-            dynStringPushBackStr(buffer, msg_fn.md5sum);
-            cRosMessageRelease(&msg_fn);
-
-            dynStringPushBackStr(buffer," ");
-            dynStringPushBackStr(buffer,fields_it->name);
-            dynStringPushBackStr(buffer,"\n");
         }
         fields_it = fields_it->next;
     }
+    return ret_err;
 }
 
 void cRosMD5Readable(unsigned char* data, DynString* output)
@@ -722,7 +717,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
 
         char* const_char_ptr = strpbrk(entry_name, CHAR_CONST);
 
-        if( const_char_ptr != NULL)
+        if( const_char_ptr != NULL) // The entry is a constant definition
         {
             char* entry_const_val;
             if(strcmp(entry_type, "string") == 0)
@@ -761,7 +756,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
             next->prev = current;
             msg->constants = next;
         }
-        else
+        else // The entry is a data type declaration
         {
             msgFieldDef* current = msg->fields;
 
@@ -955,7 +950,7 @@ cRosMessage *build_header_field(void)
   return header;
 }
 
-cRosErrCodePack cRosMessageBuild(cRosMessage* message, const char* message_path)
+cRosErrCodePack cRosMessageDefBuild(cRosMessageDef **msg_def_ptr, const char *msg_root_dir, const char *msg_type)
 {
   cRosErrCodePack ret;
   cRosMessageDef* msg_def = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
@@ -965,19 +960,34 @@ cRosErrCodePack cRosMessageBuild(cRosMessage* message, const char* message_path)
   ret = initCrosMsg(msg_def);
   if(ret == CROS_SUCCESS_ERR_PACK)
   {
-    char* message_path_cpy = calloc(strlen(message_path) + 1, sizeof(char));
-    if(message_path_cpy != NULL)
+    char* msg_file_path;
+    if(msg_root_dir != NULL) // If msg_root_dir parameter is not NULL, the file path is composed, otherwise, msg_type is used directly as file path
     {
-      strcpy(message_path_cpy,message_path);
-      ret = loadFromFileMsg(message_path_cpy,msg_def);
-      free(message_path_cpy);
-      if (ret == CROS_SUCCESS_ERR_PACK)
-        ret = cRosMessageBuildFromDef(message, msg_def); // message->msgDef <== msg_def;
+      msg_file_path = (char *)malloc(strlen(msg_root_dir) + strlen(DIR_SEPARATOR_STR) + strlen(msg_type) + strlen(FILEEXT_MSG) + 2);
+      if(msg_file_path != NULL)
+      {
+        strcpy(msg_file_path, msg_root_dir);
+        strcat(msg_file_path, DIR_SEPARATOR_STR);
+        strcat(msg_file_path, msg_type);
+        strcat(msg_file_path, ".");
+        strcat(msg_file_path, FILEEXT_MSG);
+      }
+      else
+        ret = CROS_MEM_ALLOC_ERR;
     }
     else
-      ret = CROS_MEM_ALLOC_ERR;
+      msg_file_path = (char *)msg_type;
+    if(ret == CROS_SUCCESS_ERR_PACK)
+    {
+      ret = loadFromFileMsg(msg_file_path, msg_def);
+      if(msg_root_dir != NULL)
+        free(msg_file_path);
 
-    cRosMessageDefFree(msg_def);
+      if (ret == CROS_SUCCESS_ERR_PACK)
+        *msg_def_ptr = msg_def;
+      else
+        cRosMessageDefFree(msg_def);
+    }
   }
   else
     free(msg_def);
@@ -1631,34 +1641,33 @@ int cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_ms
     return(ret);
 }
 
-cRosErrCodePack cRosMessageNewBuild(char *msg_root_dir, char *msg_type, cRosMessage **new_msg_ptr)
+cRosErrCodePack cRosMessageNewBuild(const char *msg_root_dir, const char *msg_type, cRosMessage **new_msg_ptr)
 {
   cRosErrCodePack ret_err;
   cRosMessage *new_msg;
 
-  char *msg_file_path = calloc(strlen(msg_root_dir) + strlen(DIR_SEPARATOR_STR) +
-                      strlen(msg_type) + strlen(".msg") + 1, sizeof(char)); // +1 because of the string terminating '\0'
-  if(msg_file_path != NULL)
+  if(new_msg_ptr != NULL)
   {
     new_msg = cRosMessageNew();
     if(new_msg != NULL)
     {
-      strcat(msg_file_path, msg_root_dir);
-      strcat(msg_file_path, DIR_SEPARATOR_STR);
-      strcat(msg_file_path, msg_type);
-      strcat(msg_file_path, ".msg");
-      ret_err = cRosMessageBuild(new_msg, msg_file_path);
+      cRosMessageDef *msg_def;
+      ret_err = cRosMessageDefBuild(&msg_def, msg_root_dir, msg_type);
       if(ret_err == CROS_SUCCESS_ERR_PACK)
-        *new_msg_ptr = new_msg;
+      {
+        ret_err = cRosMessageBuildFromDef(new_msg, msg_def); // Copy msg_def into message->msgDef and build the message (original msg_def can be freed after the copy)
+        if(ret_err == CROS_SUCCESS_ERR_PACK)
+          *new_msg_ptr = new_msg;
+        cRosMessageDefFree(msg_def);
+      }
       else // Error while building message: free message and return the obtained error code
         cRosMessageFree(new_msg);
     }
     else
       ret_err = CROS_MEM_ALLOC_ERR;
-    free(msg_file_path);
   }
   else
-    ret_err = CROS_MEM_ALLOC_ERR;
+    ret_err = CROS_BAD_PARAM_ERR;
   return ret_err;
 }
 
