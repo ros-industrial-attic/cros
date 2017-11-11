@@ -1465,28 +1465,35 @@ static void doWithRpcrosServerSocket(CrosNode *n, int i)
 /*
  * Services, publisher and support functions for the logging feature
  */
-static CrosLogLevel stringToLogLevel(const char* level_str)
+static int stringToLogLevel(const char* level_str, CrosLogLevel *level_num)
 {
-  if(strncmp("Info",level_str, strlen(level_str)) == 0)
+  int ret;
+  ret = 0; // Default return value: success
+  if(strcasecmp("Info",level_str) == 0)
   {
-    return CROS_LOGLEVEL_INFO;
+    *level_num = CROS_LOGLEVEL_INFO;
   }
-  else if(strncmp("Debug",level_str, strlen(level_str)) == 0)
+  else if(strcasecmp("Debug",level_str) == 0)
   {
-    return CROS_LOGLEVEL_DEBUG;
+    *level_num = CROS_LOGLEVEL_DEBUG;
   }
-  else if(strncmp("Warn",level_str, strlen(level_str)) == 0)
+  else if(strcasecmp("Warn",level_str) == 0)
   {
-    return CROS_LOGLEVEL_WARN;
+    *level_num = CROS_LOGLEVEL_WARN;
   }
-  else if(strncmp("Error",level_str, strlen(level_str)) == 0)
+  else if(strcasecmp("Error",level_str) == 0)
   {
-    return CROS_LOGLEVEL_ERROR;
+    *level_num = CROS_LOGLEVEL_ERROR;
   }
-  else // Fatal
+  else if(strcasecmp("Fatal",level_str) == 0)
   {
-    return CROS_LOGLEVEL_FATAL;
+    *level_num = CROS_LOGLEVEL_FATAL;
   }
+  else
+  {
+    ret = -1; // Unknown input level string: return error
+  }
+  return ret;
 }
 
 static char* LogLevelToString(CrosLogLevel log_level)
@@ -1589,7 +1596,8 @@ static CallbackResponse callback_srv_set_logger_level(cRosMessage *request, cRos
   cRosMessageField* level = cRosMessageGetField(request, "level");
   const char* level_str = level->data.as_string;
   CrosNode* node = (CrosNode*) context;
-  node->log_level = stringToLogLevel(level_str);
+  if(stringToLogLevel(level_str, &node->log_level) == 0)
+    PRINT_INFO( "callback_srv_set_logger_level() : Node debug level changed to %i\n", node->log_level);
   return 0;
 }
 
@@ -2119,7 +2127,7 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
   strncat ( srv_serviceresponse_type, "Response", strlen("Response") +1 );
   strncpy ( srv_md5sum, md5sum, strlen(md5sum) + 1 );
 
-  PRINT_INFO ( "Registering service (provide) %s type %s \n", srv_service_name, srv_service_type);
+  PRINT_INFO ( "Registering service provider %s type %s \n", srv_service_name, srv_service_type);
 
   int serviceidx = -1;
   int it = 0;
@@ -2294,7 +2302,7 @@ int cRosNodeRegisterServiceCaller(CrosNode *node, const char *message_definition
   strncat ( srv_serviceresponse_type, "Response", strlen("Response") +1 );
   strncpy ( srv_md5sum, md5sum, strlen(md5sum) + 1 );
 
-  PRINT_INFO ( "Registering service (call) %s type %s \n", srv_service_name, srv_service_type);
+  PRINT_INFO ( "Starting service caller %s type %s \n", srv_service_name, srv_service_type);
 
   int serviceidx = -1;
   int it = 0;

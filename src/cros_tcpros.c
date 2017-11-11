@@ -619,17 +619,27 @@ TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_i
 
   if( header_flags == ( header_flags & TCPROS_SERVICECALL_HEADER_FLAGS) || header_flags == ( header_flags & TCPROS_SERVICECALL_MATLAB_HEADER_FLAGS) )
   {
+    int svc_name_match = 0;
     int i = 0;
     for( i = 0 ; i < n->n_service_providers; i++)
     {
-      if( strcmp( n->service_providers[i].service_name, dynStringGetData(&(server_proc->service))) == 0 &&
-          strcmp( n->service_providers[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0
-          )
+      if( strcmp( n->service_providers[i].service_name, dynStringGetData(&(server_proc->service))) == 0)
       {
-        service_found = 1;
-        server_proc->service_idx = i;
-        break;
+        svc_name_match = 1;
+        if(strcmp( n->service_providers[i].md5sum, dynStringGetData(&(server_proc->md5sum))) == 0)
+        {
+          service_found = 1;
+          server_proc->service_idx = i;
+          break;
+        }
       }
+    }
+    if( ! service_found )
+    {
+      if(svc_name_match == 0)
+        PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Received a service call header specifying a unknown service name\n");
+      else
+        PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Received a service call header specifying a known service name with a wrong MD5 sum\n");
     }
   }
   else if( header_flags == ( header_flags & TCPROS_SERVICEPROBE_HEADER_FLAGS) || header_flags == ( header_flags & TCPROS_SERVICEPROBE_MATLAB_HEADER_FLAGS) )
@@ -644,16 +654,17 @@ TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_i
         break;
       }
     }
+    if( ! service_found )
+      PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Received a service probe header specifying a unknown service name\n");
   }
   else
   {
-    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Missing fields\n");
+    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Received a service call header missing fields\n");
     ret = TCPROS_PARSER_ERROR;
   }
 
   if( ! service_found )
   {
-    PRINT_ERROR("cRosMessageParseServiceCallerHeader() : Wrong service, type or md5sum\n");
     server_proc->service_idx = -1;
     ret = TCPROS_PARSER_ERROR;
   }

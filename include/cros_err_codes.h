@@ -15,7 +15,7 @@
   MSG_COD_ELEM(CROS_UNSPECIFIED_ERR, "An unspecified error occurred") \
   MSG_COD_ELEM(CROS_MEM_ALLOC_ERR, "Error allocating memory") \
   MSG_COD_ELEM(CROS_BAD_PARAM_ERR, "An invalid value has been specified for at least one of the input parameters") \
-  MSG_COD_ELEM(CROS_OPEN_MSG_FILE_ERR, "The file defining the topic message cannot be opened") \
+  MSG_COD_ELEM(CROS_OPEN_MSG_FILE_ERR, "The file defining the message cannot be opened") \
   MSG_COD_ELEM(CROS_LOAD_MSG_FILE_ERR, "Error loading the message definition file") \
   MSG_COD_ELEM(CROS_OPEN_SVC_FILE_ERR, "The file defining the service cannot be opened") \
   MSG_COD_ELEM(CROS_UNREG_TIMEOUT_ERR, "The unregistration from the ROS master was abandoned before it finished because was taking too long") \
@@ -27,7 +27,8 @@
   MSG_COD_ELEM(CROS_SVC_FILE_DELIM_ERR, "The delimiter string between resquest and response definition could not be found in the service definition file") \
   MSG_COD_ELEM(CROS_FILE_ENTRY_SYNTAX_ERR, "The definition file contains an entry that is syntactically incorrect") \
   MSG_COD_ELEM(CROS_LOAD_SVC_FILE_REQ_ERR, "Error loading the service request definition in the file") \
-  MSG_COD_ELEM(CROS_LOAD_SVC_FILE_RES_ERR, "Error loading the service response definition in the file")
+  MSG_COD_ELEM(CROS_LOAD_SVC_FILE_RES_ERR, "Error loading the service response definition in the file") \
+  MSG_COD_ELEM(CROS_CREATE_CUSTOM_MSG_ERR, "Error loading the specified custom message definition file or creating a message of its type")
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 

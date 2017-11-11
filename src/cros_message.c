@@ -749,7 +749,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
               current->type_s = entry_type;
               entry_type = NULL;
             }
-            current->value = strdup(entry_const_val); // strdup() will allocate a memory buffer that is independent of '->value' memory buffer so that it can freed independently as well
+            current->value = strdup(entry_const_val); // strdup() will allocate a memory buffer that is independent of entry_name memory buffer so that it can freed independently as well
             current->next = (msgConst*)malloc(sizeof(msgConst));
             msgConst* next = current->next;
             initMsgConst(next);
@@ -1626,9 +1626,11 @@ int cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_ms
     return(ret);
 }
 
-cRosMessage *cRosMessageNewBuild(char *msg_root_dir, char *msg_type)
+cRosErrCodePack cRosMessageNewBuild(char *msg_root_dir, char *msg_type, cRosMessage **new_msg_ptr)
 {
+  cRosErrCodePack ret_err;
   cRosMessage *new_msg;
+
   char *msg_file_path = calloc(strlen(msg_root_dir) + strlen(DIR_SEPARATOR_STR) +
                       strlen(msg_type) + strlen(".msg") + 1, sizeof(char)); // +1 because of the string terminating '\0'
   if(msg_file_path != NULL)
@@ -1640,17 +1642,19 @@ cRosMessage *cRosMessageNewBuild(char *msg_root_dir, char *msg_type)
       strcat(msg_file_path, DIR_SEPARATOR_STR);
       strcat(msg_file_path, msg_type);
       strcat(msg_file_path, ".msg");
-      if(cRosMessageBuild(new_msg, msg_file_path) != CROS_SUCCESS_ERR_PACK)
-      { // Error while building message: free message and return error (NULL)
+      ret_err = cRosMessageBuild(new_msg, msg_file_path);
+      if(ret_err == CROS_SUCCESS_ERR_PACK)
+        *new_msg_ptr = new_msg;
+      else // Error while building message: free message and return the obtained error code
         cRosMessageFree(new_msg);
-        new_msg=NULL;
-      }
     }
+    else
+      ret_err = CROS_MEM_ALLOC_ERR;
     free(msg_file_path);
   }
   else
-    new_msg = NULL;
-  return new_msg;
+    ret_err = CROS_MEM_ALLOC_ERR;
+  return ret_err;
 }
 
 cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
@@ -1751,29 +1755,47 @@ cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* ms
       case CROS_STD_MSGS_HEADER:
       case CROS_CUSTOM_TYPE:
       {
+        cRosMessage *new_msg;
         if(field_def_itr->is_array)
         {
           field->data.as_msg_array = (cRosMessage **)calloc(field->array_capacity,sizeof(cRosMessage *));
           if(field->data.as_msg_array != NULL)
           {
             int msg_ind;
+
+            if(field->array_size == 0 && field->type == CROS_CUSTOM_TYPE) // Just try to load the file to discard any program when it really has to be loaded
+            {
+              ret = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s, &new_msg);
+              ret = cRosAddErrCodeIfErr(ret, CROS_CREATE_CUSTOM_MSG_ERR); // If the message could not be created, add more info to the error code pack
+              if(ret == CROS_SUCCESS_ERR_PACK)
+                cRosMessageFree(new_msg);
+            }
             for(msg_ind=0;msg_ind<field->array_size && ret == CROS_SUCCESS_ERR_PACK;msg_ind++)
             {
+              new_msg = NULL;
               if(field->type == CROS_STD_MSGS_TIME)
-                cRosMessageFieldArrayAtMsgSet(field, msg_ind, build_time_field());
+                new_msg = build_time_field();
               else if(field->type == CROS_STD_MSGS_DURATION)
-                cRosMessageFieldArrayAtMsgSet(field, msg_ind, build_duration_field());
+                new_msg = build_duration_field();
               else if(field->type == CROS_STD_MSGS_HEADER)
-                cRosMessageFieldArrayAtMsgSet(field, msg_ind, build_header_field());
+                new_msg = build_header_field();
               else if(field->type == CROS_CUSTOM_TYPE)
-                cRosMessageFieldArrayAtMsgSet(field, msg_ind, cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s));
+              {
+                ret = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s, &new_msg);
+                ret = cRosAddErrCodeIfErr(ret, CROS_CREATE_CUSTOM_MSG_ERR); // If the message could not be created, add more info to the error code pack
+              }
 
-              if(field->data.as_msg_array[msg_ind] == NULL)
-                ret = CROS_MEM_ALLOC_ERR;
+              if(new_msg != NULL) // New message created: insert it into the array
+                cRosMessageFieldArrayAtMsgSet(field, msg_ind, new_msg);
+              else // Error creating the new message
+              {
+                if(field->type == CROS_STD_MSGS_TIME || field->type == CROS_STD_MSGS_DURATION || field->type == CROS_STD_MSGS_HEADER)
+                  ret = CROS_MEM_ALLOC_ERR;
+              }
             }
           }
           else
-            ret=CROS_MEM_ALLOC_ERR;
+            ret = CROS_MEM_ALLOC_ERR;
         }
         else
         {
@@ -1784,9 +1806,12 @@ cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* ms
           else if(field->type == CROS_STD_MSGS_HEADER)
             field->data.as_msg = build_header_field();
           else if(field->type == CROS_CUSTOM_TYPE)
-            field->data.as_msg = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s);
+          {
+            ret = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s, &field->data.as_msg);
+            ret = cRosAddErrCodeIfErr(ret, CROS_CREATE_CUSTOM_MSG_ERR);
+          }
 
-          if(field->data.as_msg == NULL)
+          if(field->data.as_msg == NULL && (field->type == CROS_STD_MSGS_TIME || field->type == CROS_STD_MSGS_DURATION || field->type == CROS_STD_MSGS_HEADER))
             ret = CROS_MEM_ALLOC_ERR;
         }
         break;
@@ -2647,6 +2672,7 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
               for(msg_ind = field->array_size;msg_ind < received_arr_siz && ret_err == 0;msg_ind++)
               {
                 cRosMessage *new_msg;
+                new_msg = NULL;
                 if(field->type == CROS_STD_MSGS_TIME)
                   new_msg = build_time_field();
                 else if(field->type == CROS_STD_MSGS_DURATION)
@@ -2654,7 +2680,7 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
                 else if(field->type == CROS_STD_MSGS_HEADER)
                   new_msg = build_header_field();
                 else if(field->type == CROS_CUSTOM_TYPE)
-                  new_msg = cRosMessageNewBuild(message->msgDef->root_dir, field->type_s);
+                   cRosMessageNewBuild(message->msgDef->root_dir, field->type_s, &new_msg);
 
                 if(new_msg != NULL)
                   cRosMessageFieldArrayPushBackMsg(field, new_msg);

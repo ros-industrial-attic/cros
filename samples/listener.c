@@ -110,7 +110,7 @@ int main(int argc, char **argv)
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
 
-  // Create a subscriber and supply a callback for received messages
+  // Create a subscriber to topic /chatter of type "std_msgs/String" and supply a callback for received messages
   err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, NULL);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  // Create a service provider and supply a callback for received calls
+  // Create a service provider named /sum of type "roscpp_tutorials/TwoInts" and supply a callback for received calls
   err_cod = cRosApiRegisterServiceProvider(node,"/sum","roscpp_tutorials/TwoInts", callback_srv_add_two_ints, NULL, NULL, NULL);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
