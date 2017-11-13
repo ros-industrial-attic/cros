@@ -38,7 +38,8 @@ char* cRosGentoolsMD5(char* filename)
       cRosServiceInit(&srv);
       cRosServiceBuild(&srv,filename);
       char *md5sum = calloc(strlen(srv.md5sum)+1,sizeof(char));
-      strcpy(md5sum,srv.md5sum);
+      if(md5sum != NULL)
+        strcpy(md5sum,srv.md5sum);
       cRosServiceRelease(&srv);
       return md5sum;
 	}

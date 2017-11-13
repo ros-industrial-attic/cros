@@ -34,6 +34,7 @@ static const char* HEADER_DEFAULT_TYPEDEF =
 "# 0: no frame\n"
 "string frame_id\n\n";
 
+
 struct t_msgFieldDef
 {
     CrosMessageType type;
@@ -43,6 +44,7 @@ struct t_msgFieldDef
     int array_size;
     struct t_msgFieldDef* prev;
     struct t_msgFieldDef* next;
+    cRosMessageDef* child_msg_def; // Stores the definition of a type defined trough a custom message file
 };
 
 typedef struct t_msgFieldDef msgFieldDef;
@@ -108,6 +110,8 @@ void initFieldDef(msgFieldDef* field);
 cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg);
 
 cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg);
+
+cRosErrCodePack cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_msg_def );
 
 void cRosMessageDefFree(cRosMessageDef *msgDef);
 

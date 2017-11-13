@@ -139,22 +139,12 @@ static cRosErrCodePack newProviderContext(const char *provider_path, ProviderTyp
     }
     case CROS_SERVICE_PROVIDER:
     {
-      context->incoming = cRosMessageNew();
-      context->outgoing = cRosMessageNew();
-      if (context->incoming != NULL && context->outgoing != NULL)
-        ret_err = cRosServiceBuildInner(context->incoming, context->outgoing, NULL, context->md5sum, provider_path);
-      else
-        ret_err = CROS_MEM_ALLOC_ERR;
+      ret_err = cRosServiceBuildInner(&context->incoming, &context->outgoing, NULL, context->md5sum, provider_path);
       break;
     }
     case CROS_SERVICE_CALLER:
     {
-      context->incoming = cRosMessageNew();
-      context->outgoing = cRosMessageNew();
-      if (context->incoming != NULL && context->outgoing != NULL)
-        ret_err = cRosServiceBuildInner(context->outgoing, context->incoming, &context->message_definition, context->md5sum, provider_path);
-      else
-        ret_err = CROS_MEM_ALLOC_ERR;
+      ret_err = cRosServiceBuildInner(&context->outgoing, &context->incoming, &context->message_definition, context->md5sum, provider_path);
       break;
     }
     default:

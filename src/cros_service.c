@@ -271,16 +271,23 @@ char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps)
 
 cRosService * cRosServiceNew()
 {
-  cRosService *ret = (cRosService *)calloc(1, sizeof(cRosService));
-  cRosServiceInit(ret);
-  return ret;
+  cRosService *ret_svc = (cRosService *)calloc(1, sizeof(cRosService));
+  if(ret_svc != NULL)
+     cRosServiceInit(ret_svc);
+  return ret_svc;
 }
 
-void cRosServiceInit(cRosService* service)
+cRosErrCodePack cRosServiceInit(cRosService* service)
 {
-  cRosMessageInit(&service->request);
-  cRosMessageInit(&service->response);
+  cRosErrCodePack ret_err;
+
+  service->request = NULL;
+  service->response = NULL;
   service->md5sum = (char*) malloc(33*sizeof(char));// 32 chars + '\0';
+
+  ret_err = (service->md5sum != NULL)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
+
+  return ret_err;
 }
 
 cRosErrCodePack cRosServiceBuild(cRosService* service, const char* filepath)
@@ -288,9 +295,19 @@ cRosErrCodePack cRosServiceBuild(cRosService* service, const char* filepath)
   return cRosServiceBuildInner(&service->request, &service->response, NULL, service->md5sum, filepath);
 }
 
-cRosErrCodePack cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **message_definition, char *md5sum, const char* filepath)
+cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **response_ptr, char **message_definition, char *md5sum, const char* filepath)
 {
   cRosErrCodePack ret_err;
+  cRosMessage *request, *response;
+
+  request = cRosMessageNew();
+  response = cRosMessageNew();
+  if(request == NULL || response == NULL)
+  {
+    cRosMessageFree(request);
+    cRosMessageFree(response);
+    return CROS_MEM_ALLOC_ERR;
+  }
 
   cRosSrvDef* srv = (cRosSrvDef*) malloc(sizeof(cRosSrvDef));
   if(srv == NULL)
@@ -370,6 +387,16 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage *request, cRosMessage *respons
   }
 
   cRosServiceDefFree(srv);
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    *request_ptr = request;
+    *response_ptr = response;
+  }
+  else
+  {
+    cRosMessageFree(request);
+    cRosMessageFree(response);
+  }
   return ret_err;
 }
 
@@ -395,8 +422,8 @@ void cRosServiceFree(cRosService* service)
 
 void cRosServiceRelease(cRosService* service)
 {
-  cRosMessageRelease(&service->request);
-  cRosMessageRelease(&service->response);
+  cRosMessageFree(service->request);
+  cRosMessageFree(service->response);
   free(service->md5sum);
   service->md5sum = NULL;
 }

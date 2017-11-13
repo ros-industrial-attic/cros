@@ -22,7 +22,7 @@ struct t_srvDef
 
 typedef struct t_srvDef cRosSrvDef;
 
-cRosErrCodePack cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char **message_definition, char *md5sum, const char* filepath);
+cRosErrCodePack cRosServiceBuildInner(cRosMessage **request, cRosMessage **response, char **message_definition, char *md5sum, const char* filepath);
 cRosErrCodePack initCrosSrv(cRosSrvDef* srv);
 
 cRosErrCodePack getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);

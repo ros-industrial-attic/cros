@@ -96,7 +96,7 @@ cRosMessage * cRosMessageNew();
 
 void cRosMessageInit(cRosMessage *message);
 
-cRosErrCodePack cRosMessageBuild(cRosMessage* message, const char *msg_root_dir, const char *msg_type);
+cRosErrCodePack cRosMessageDefBuild(cRosMessageDef **msg_def_ptr, const char *msg_root_dir, const char *msg_type);
 
 cRosErrCodePack cRosMessageNewBuild(const char *msg_root_dir, const char *msg_type, cRosMessage **new_msg_ptr);
 
