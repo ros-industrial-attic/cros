@@ -161,21 +161,27 @@ static cRosErrCodePack newProviderContext(const char *provider_path, ProviderTyp
 
 static CallbackResponse cRosNodePublisherCallback(DynBuffer *buffer, void* context_)
 {
+  cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)context_;
 
   // Cast to the appropriate public api callback and invoke it on the user context
   PublisherApiCallback publisherApiCallback = (SubscriberApiCallback)context->api_callback;
   CallbackResponse rc = publisherApiCallback(context->outgoing, context->context);
 
-  cRosMessageSerialize(context->outgoing, buffer);
+  ret_err = cRosMessageSerialize(context->outgoing, buffer);
+  if(ret_err != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(ret_err, "cRosNodePublisherCallback() failed encoding the packet to send");
 
   return rc;
 }
 
 static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* context_)
 {
+  cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)context_;
-  cRosMessageDeserialize(context->incoming, buffer);
+  ret_err = cRosMessageDeserialize(context->incoming, buffer);
+  if(ret_err != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(ret_err, "cRosNodeSubscriberCallback() failed decoding the received packet");
 
   // Cast to the appropriate public api callback and invoke it on the user context
   SubscriberApiCallback subscriberApiCallback = (SubscriberApiCallback)context->api_callback;
@@ -184,28 +190,42 @@ static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* cont
 
 static CallbackResponse cRosNodeServiceCallerCallback(DynBuffer *request, DynBuffer *response, int call_resp_flag, void* contex_)
 {
+  cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)contex_;
   if(call_resp_flag)
-    cRosMessageDeserialize(context->incoming, response);
+  {
+    ret_err = cRosMessageDeserialize(context->incoming, response);
+    if(ret_err != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(ret_err, "cRosNodeServiceCallerCallback() failed decoding the received packet");
+  }
 
   ServiceCallerApiCallback serviceCallerApiCallback = (ServiceCallerApiCallback)context->api_callback;
   CallbackResponse rc = serviceCallerApiCallback(context->outgoing, context->incoming, call_resp_flag, context->context);
 
   if(!call_resp_flag)
-     cRosMessageSerialize(context->outgoing, request);
+  {
+    ret_err = cRosMessageSerialize(context->outgoing, request);
+    if(ret_err != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(ret_err, "cRosNodeServiceCallerCallback() failed encoding the packet to send");
+  }
 
   return rc;
 }
 
 static CallbackResponse cRosNodeServiceProviderCallback(DynBuffer *request, DynBuffer *response, void* contex_)
 {
+  cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)contex_;
-  cRosMessageDeserialize(context->incoming, request);
+  ret_err = cRosMessageDeserialize(context->incoming, request);
+  if(ret_err != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(ret_err, "cRosNodeServiceProviderCallback() failed decoding the received packet");
 
   ServiceProviderApiCallback serviceProviderApiCallback = (ServiceProviderApiCallback)context->api_callback;
   CallbackResponse rc = serviceProviderApiCallback(context->incoming, context->outgoing, context->context);
 
-  cRosMessageSerialize(context->outgoing, response);
+  ret_err = cRosMessageSerialize(context->outgoing, response);
+  if(ret_err != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(ret_err, "cRosNodeServiceProviderCallback() failed encoding the packet to send");
 
   return rc;
 }

@@ -108,7 +108,7 @@ int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src);
 
 cRosMessage *cRosMessageCopyWithoutDef(cRosMessage *m_src);
 
-cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def );
+cRosErrCodePack cRosMessageBuildFromDef(cRosMessage** message, cRosMessageDef* msg_def );
 
 void cRosMessageFree(cRosMessage *message);
 
@@ -184,9 +184,9 @@ int cRosMessageFieldArrayClear(cRosMessageField *field);
 
 size_t cRosMessageSize(cRosMessage *message);
 
-int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer);
+cRosErrCodePack cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer);
 
-int cRosMessageDeserialize(cRosMessage *message, DynBuffer *buffer);
+cRosErrCodePack cRosMessageDeserialize(cRosMessage *message, DynBuffer *buffer);
 
 CrosMessageType getMessageType(const char* type);
 

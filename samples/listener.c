@@ -40,6 +40,7 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
 {
   cRosMessageField *a_field = cRosMessageGetField(request, "a");
   cRosMessageField *b_field = cRosMessageGetField(request, "b");
+  //cRosMessageFieldsPrint(request, 0);
 
   if(a_field != NULL && a_field != NULL)
   {
@@ -127,6 +128,8 @@ int main(int argc, char **argv)
     cRosNodeDestroy( node );
     return EXIT_FAILURE;
   }
+
+  printf("Node RPCROS port: %i\n", node->rpcros_port);
 
   // Function exit_deamon_handler() will be called when Ctrl-C is pressed or kill is executed
   set_signal_handler();

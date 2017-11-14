@@ -449,17 +449,21 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
         else
         {
             cRosMessage *msg_fn;
-            ret_err = cRosMessageNewBuild(msg->root_dir, type_decl, &msg_fn);
+
+            ret_err = cRosMessageBuildFromDef(&msg_fn, fields_it->child_msg_def); // it is faster than ret_err = cRosMessageNewBuild(msg->root_dir, type_decl, &msg_fn)
             if(ret_err == CROS_SUCCESS_ERR_PACK)
             {
-                char *md5sum = calloc(strlen(msg_fn->md5sum)+1,sizeof(char));
-                strcpy(md5sum,msg_fn->md5sum);
+                char *md5sum = strdup(msg_fn->md5sum);
                 cRosMessageFree(msg_fn);
-
-                dynStringPushBackStr(&buffer, md5sum);
-                dynStringPushBackStr(&buffer," ");
-                dynStringPushBackStr(&buffer,fields_it->name);
-                dynStringPushBackStr(&buffer,"\n");
+                if(md5sum != NULL)
+                {
+                    dynStringPushBackStr(&buffer, md5sum);
+                    dynStringPushBackStr(&buffer," ");
+                    dynStringPushBackStr(&buffer,fields_it->name);
+                    dynStringPushBackStr(&buffer,"\n");
+                }
+                else
+                    ret_err= CROS_MEM_ALLOC_ERR;
                 free(md5sum);
             }
 
@@ -482,12 +486,12 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
     return (ret_err == CROS_SUCCESS_ERR_PACK)? result : NULL;
 }
 
-cRosErrCodePack getMD5Txt(cRosMessageDef* msg, DynString* buffer)
+cRosErrCodePack getMD5Txt(cRosMessageDef* msg_def, DynString* buffer)
 {
     int i;
     cRosErrCodePack ret_err;
 
-    msgConst* const_it = msg->first_const;
+    msgConst* const_it = msg_def->first_const;
 
     ret_err = CROS_SUCCESS_ERR_PACK;
     while(ret_err == CROS_SUCCESS_ERR_PACK && const_it->next != NULL)
@@ -502,7 +506,7 @@ cRosErrCodePack getMD5Txt(cRosMessageDef* msg, DynString* buffer)
         const_it = const_it->next;
     }
 
-    msgFieldDef* fields_it = msg->first_field;
+    msgFieldDef* fields_it = msg_def->first_field;
 
     while(fields_it->next != NULL)
     {
@@ -548,8 +552,7 @@ cRosErrCodePack getMD5Txt(cRosMessageDef* msg, DynString* buffer)
             cRosMessage *msg_fn;
 
             msg_name_str = base_msg_type(type_decl);
-
-            ret_err = cRosMessageNewBuild(msg->root_dir, msg_name_str, &msg_fn);
+            ret_err = cRosMessageBuildFromDef(&msg_fn, fields_it->child_msg_def); // it is faster than ret_err = cRosMessageNewBuild(msg_def->root_dir, msg_name_str, &msg_fn)
             free(msg_name_str);
             if(ret_err == CROS_SUCCESS_ERR_PACK)
             {
@@ -906,66 +909,160 @@ cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg)
 cRosMessage *build_time_field(void)
 {
   cRosMessage* time_msg = cRosMessageNew();
-  time_msg->fields = (cRosMessageField**) calloc(2,sizeof(cRosMessageField*));
-  time_msg->n_fields = 2;
+  if(time_msg != NULL)
+  {
+    time_msg->fields = (cRosMessageField**) calloc(2,sizeof(cRosMessageField*));
+    if(time_msg->fields != NULL)
+    {
+      time_msg->n_fields = 2;
 
-  //int32 sec
-  cRosMessageField* sec = cRosMessageFieldNew();
-  sec->name = calloc(strlen("secs")+1, sizeof(char));
-  strncpy(sec->name,"secs", strlen("secs"));
-  sec->type = CROS_STD_MSGS_INT32;
-  sec->size = getMessageTypeSizeOf(sec->type);
-  time_msg->fields[0] = sec;
+      cRosMessageField* sec = cRosMessageFieldNew();
+      cRosMessageField* nsec = cRosMessageFieldNew();
+      if(sec != NULL && nsec != NULL)
+      {
+        //int32 sec
+        sec->name = strdup("secs");
+        sec->type = CROS_STD_MSGS_UINT32;
+        sec->size = getMessageTypeSizeOf(sec->type);
+        time_msg->fields[0] = sec;
 
-  //int32 nsec
-  cRosMessageField* nsec = cRosMessageFieldNew();
-  nsec->name = calloc(strlen("nsecs")+1, sizeof(char));
-  strncpy(nsec->name,"nsecs", strlen("nsecs"));
-  nsec->type = CROS_STD_MSGS_INT32;
-  nsec->size = getMessageTypeSizeOf(nsec->type);
-  time_msg->fields[1] = nsec;
+        //int32 nsec
+        nsec->name = strdup("nsecs");
+        nsec->type = CROS_STD_MSGS_UINT32;
+        nsec->size = getMessageTypeSizeOf(nsec->type);
+        time_msg->fields[1] = nsec;
+
+        if(sec->name == NULL || nsec->name == NULL)
+        {
+          cRosMessageFree(time_msg);
+          time_msg = NULL;
+        }
+      }
+      else
+      {
+        cRosMessageFieldFree(sec);
+        cRosMessageFieldFree(nsec);
+        cRosMessageFree(time_msg);
+        time_msg = NULL;
+      }
+    }
+    else
+    {
+      cRosMessageFree(time_msg);
+      time_msg = NULL;
+    }
+  }
 
   return time_msg;
 }
 
 cRosMessage *build_duration_field(void)
 {
-  return build_time_field();
+  cRosMessage* durat_msg = cRosMessageNew();
+  if(durat_msg != NULL)
+  {
+    durat_msg->fields = (cRosMessageField**) calloc(2,sizeof(cRosMessageField*));
+    if(durat_msg->fields != NULL)
+    {
+      durat_msg->n_fields = 2;
+
+      cRosMessageField* sec = cRosMessageFieldNew();
+      cRosMessageField* nsec = cRosMessageFieldNew();
+      if(sec != NULL && nsec != NULL)
+      {
+        //int32 sec
+        sec->name = strdup("secs");
+        sec->type = CROS_STD_MSGS_INT32;
+        sec->size = getMessageTypeSizeOf(sec->type);
+        durat_msg->fields[0] = sec;
+
+        //int32 nsec
+        nsec->name = strdup("nsecs");
+        nsec->type = CROS_STD_MSGS_INT32;
+        nsec->size = getMessageTypeSizeOf(nsec->type);
+        durat_msg->fields[1] = nsec;
+
+        if(sec->name == NULL || nsec->name == NULL)
+        {
+          cRosMessageFree(durat_msg);
+          durat_msg = NULL;
+        }
+      }
+      else
+      {
+        cRosMessageFieldFree(sec);
+        cRosMessageFieldFree(nsec);
+        cRosMessageFree(durat_msg);
+        durat_msg = NULL;
+      }
+    }
+    else
+    {
+      cRosMessageFree(durat_msg);
+      durat_msg = NULL;
+    }
+  }
+
+  return durat_msg;
 }
 
 cRosMessage *build_header_field(void)
 {
-  cRosMessage* header = cRosMessageNew();
-  header->fields = (cRosMessageField**) calloc(3,sizeof(cRosMessageField*));
-  header->n_fields = 3;
+  cRosMessage* header_msg = cRosMessageNew();
+  if(header_msg != NULL)
+  {
+    header_msg->fields = (cRosMessageField**) calloc(3,sizeof(cRosMessageField*));
+    if(header_msg->fields != NULL)
+    {
+      header_msg->n_fields = 3;
 
-  //uint32 seq
-  cRosMessageField* sequence_id = cRosMessageFieldNew();
-  sequence_id->name = calloc(strlen("seq")+1, sizeof(char));
-  strcpy(sequence_id->name, "seq");
-  sequence_id->type = CROS_STD_MSGS_UINT32;
-  sequence_id->size = getMessageTypeSizeOf(sequence_id->type);
-  header->fields[0] = sequence_id;
+      cRosMessageField* sequence_id = cRosMessageFieldNew();
+      cRosMessageField* time_stamp = cRosMessageFieldNew();
+      cRosMessageField* frame_id = cRosMessageFieldNew();
+      if(sequence_id != NULL && time_stamp != NULL && frame_id != NULL)
+      {
+        //uint32 seq
+        sequence_id->name = strdup("seq");
+        sequence_id->type = CROS_STD_MSGS_UINT32;
+        sequence_id->size = getMessageTypeSizeOf(sequence_id->type);
+        header_msg->fields[0] = sequence_id;
 
-  // time stamp
-  // Two-integer timestamp that is expressed as:
-  // * stamp.secs: seconds (stamp_secs) since epoch
-  // * stamp.nsecs: nanoseconds since stamp_secs
-  cRosMessageField* time_stamp = cRosMessageFieldNew();
-  time_stamp->name = calloc(strlen("stamp")+1, sizeof(char));
-  strcpy(time_stamp->name, "stamp");
-  time_stamp->type = CROS_STD_MSGS_TIME;
-  time_stamp->data.as_msg = build_time_field();
-  header->fields[1] = time_stamp;
+        // time stamp
+        // Two-integer timestamp that is expressed as:
+        // * stamp.secs: seconds (stamp_secs) since epoch
+        // * stamp.nsecs: nanoseconds since stamp_secs
+        time_stamp->name = strdup("stamp");
+        time_stamp->type = CROS_STD_MSGS_TIME;
+        time_stamp->data.as_msg = build_time_field();
+        header_msg->fields[1] = time_stamp;
 
-  //string frame_id
-  cRosMessageField* frame_id = cRosMessageFieldNew();
-  frame_id->name = calloc(strlen("frame_id")+1, sizeof(char));
-  strcpy(frame_id->name, "frame_id");
-  frame_id->type = CROS_STD_MSGS_STRING;
-  header->fields[2] = frame_id;
+        //string frame_id
+        frame_id->name = strdup("frame_id");
+        frame_id->type = CROS_STD_MSGS_STRING;
+        header_msg->fields[2] = frame_id;
+        if(sequence_id->name == NULL || time_stamp->name == NULL || frame_id->name == NULL)
+        {
+          cRosMessageFree(header_msg);
+          header_msg = NULL;
+        }
+      }
+      else
+      {
+        cRosMessageFieldFree(frame_id);
+        cRosMessageFieldFree(time_stamp);
+        cRosMessageFieldFree(sequence_id);
+        cRosMessageFree(header_msg);
+        header_msg = NULL;
+      }
+    }
+    else
+    {
+      cRosMessageFree(header_msg);
+      header_msg = NULL;
+    }
+  }
 
-  return header;
+  return header_msg;
 }
 
 cRosErrCodePack cRosMessageDefBuild(cRosMessageDef **msg_def_ptr, const char *msg_root_dir, const char *msg_type)
@@ -1667,37 +1764,33 @@ cRosErrCodePack cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessage
 cRosErrCodePack cRosMessageNewBuild(const char *msg_root_dir, const char *msg_type, cRosMessage **new_msg_ptr)
 {
   cRosErrCodePack ret_err;
-  cRosMessage *new_msg;
 
   if(new_msg_ptr != NULL)
   {
-    new_msg = cRosMessageNew();
-    if(new_msg != NULL)
+    cRosMessageDef *msg_def;
+    ret_err = cRosMessageDefBuild(&msg_def, msg_root_dir, msg_type);
+    if(ret_err == CROS_SUCCESS_ERR_PACK) // Check if we got any error while building message definition
     {
-      cRosMessageDef *msg_def;
-      ret_err = cRosMessageDefBuild(&msg_def, msg_root_dir, msg_type);
-      if(ret_err == CROS_SUCCESS_ERR_PACK)
-      {
-        ret_err = cRosMessageBuildFromDef(new_msg, msg_def); // Copy msg_def into message->msgDef and build the message (original msg_def can be freed after the copy)
-        if(ret_err == CROS_SUCCESS_ERR_PACK)
-          *new_msg_ptr = new_msg;
-        cRosMessageDefFree(msg_def);
-      }
-      else // Error while building message: free message and return the obtained error code
-        cRosMessageFree(new_msg);
+      ret_err = cRosMessageBuildFromDef(new_msg_ptr, msg_def); // Copy msg_def into message->msgDef and build the message (original msg_def can be freed after the copy)
+      cRosMessageDefFree(msg_def);
     }
-    else
-      ret_err = CROS_MEM_ALLOC_ERR;
   }
   else
     ret_err = CROS_BAD_PARAM_ERR;
   return ret_err;
 }
 
-cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* msg_def )
+cRosErrCodePack cRosMessageBuildFromDef(cRosMessage** message_ptr, cRosMessageDef* msg_def )
 {
   cRosErrCodePack ret;
+  cRosMessage* message;
+
   ret = CROS_SUCCESS_ERR_PACK; // Default return value: success
+
+  message = cRosMessageNew();
+  if(message == NULL)
+    return CROS_MEM_ALLOC_ERR;
+
   DynString output;
   dynStringInit(&output);
 
@@ -1800,13 +1893,6 @@ cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* ms
           {
             int msg_ind;
 
-            if(field->array_size == 0 && field->type == CROS_CUSTOM_TYPE) // Just try to load the file to discard any program when it really has to be loaded
-            {
-              ret = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s, &new_msg);
-              ret = cRosAddErrCodeIfErr(ret, CROS_CREATE_CUSTOM_MSG_ERR); // If the message could not be created, add more info to the error code pack
-              if(ret == CROS_SUCCESS_ERR_PACK)
-                cRosMessageFree(new_msg);
-            }
             for(msg_ind=0;msg_ind<field->array_size && ret == CROS_SUCCESS_ERR_PACK;msg_ind++)
             {
               new_msg = NULL;
@@ -1818,8 +1904,7 @@ cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* ms
                 new_msg = build_header_field();
               else if(field->type == CROS_CUSTOM_TYPE)
               {
-                ret = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s, &new_msg);
-                //ret = cRosMessageBuildFromDef(new_msg, field_def_itr->child_msg_def);
+                ret = cRosMessageBuildFromDef(&new_msg, field_def_itr->child_msg_def); // faster alternative to ret = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s, &new_msg)
                 ret = cRosAddErrCodeIfErr(ret, CROS_CREATE_CUSTOM_MSG_ERR); // If the message could not be created, add more info to the error code pack
               }
 
@@ -1845,7 +1930,7 @@ cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* ms
             field->data.as_msg = build_header_field();
           else if(field->type == CROS_CUSTOM_TYPE)
           {
-            ret = cRosMessageNewBuild(msg_def->root_dir, field_def_itr->type_s, &field->data.as_msg);
+            ret = cRosMessageBuildFromDef(&field->data.as_msg, field_def_itr->child_msg_def);
             ret = cRosAddErrCodeIfErr(ret, CROS_CREATE_CUSTOM_MSG_ERR);
           }
 
@@ -1858,6 +1943,12 @@ cRosErrCodePack cRosMessageBuildFromDef(cRosMessage* message, cRosMessageDef* ms
     msg_field_itr++;
     field_def_itr = field_def_itr->next;
   }
+
+  if(ret == CROS_SUCCESS_ERR_PACK)
+    *message_ptr = message;
+  else
+    cRosMessageFree(message);
+
   return ret;
 }
 
@@ -2179,11 +2270,11 @@ int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val
 
   if(field->array_capacity == field->array_size)
   {
-    void* new_location;
-    new_location = realloc(field->data.as_string_array, 2 * field->array_capacity * sizeof(char*));
+    char** new_location;
+    new_location = (char **)realloc(field->data.as_string_array, 2 * field->array_capacity * sizeof(char*));
     if(new_location != NULL)
     {
-      field->data.as_array = new_location;
+      field->data.as_string_array = new_location;
       field->array_capacity *= 2;
     }
     else
@@ -2363,6 +2454,7 @@ int cRosMessageFieldArrayAtMsgSet(cRosMessageField *field, int position, cRosMes
   if(position > field->array_size)
     return -1;
 
+  cRosMessageFree(field->data.as_msg_array[position]);
   field->data.as_msg_array[position] = val;
   return 0;
 }
@@ -2386,7 +2478,7 @@ int cRosMessageFieldArrayAtStringSet(cRosMessageField *field, int position, cons
   ret = 0; // Default return value: success
   if(val != NULL)
   {
-    current = (char *)realloc(current, strlen(val) + sizeof(char));
+    current = (char *)realloc(current, strlen(val) + sizeof(char)); // Realloc buffer for the string
     if(current != NULL)
       strcpy(current, val);
     else
@@ -2400,6 +2492,7 @@ int cRosMessageFieldArrayAtStringSet(cRosMessageField *field, int position, cons
       current = NULL;
     }
   }
+
   field->data.as_string_array[position] = current;
 
   return ret;
@@ -2407,8 +2500,31 @@ int cRosMessageFieldArrayAtStringSet(cRosMessageField *field, int position, cons
 
 int cRosMessageFieldArrayClear(cRosMessageField *field)
 {
+  int n_elem;
   if(!field->is_array || field->is_fixed_array)
     return -1;
+
+  for(n_elem=0;n_elem<field->array_size;n_elem++)
+  {
+    switch(field->type)
+    {
+      case CROS_STD_MSGS_STRING:
+      {
+        free(field->data.as_string_array[n_elem]);
+        break;
+      }
+      case CROS_STD_MSGS_TIME:
+      case CROS_STD_MSGS_DURATION:
+      case CROS_STD_MSGS_HEADER:
+      case CROS_CUSTOM_TYPE:
+      {
+        cRosMessageFree(field->data.as_msg_array[n_elem]);
+        break;
+      }
+      default:
+        break;
+    }
+  }
 
   field->array_size = 0;
 
@@ -2466,18 +2582,18 @@ size_t cRosMessageSize(cRosMessage* message)
     return ret;// + sizeof(uint32_t);
 }
 
-int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
+cRosErrCodePack cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
 {
-  int ret_err;
+  cRosErrCodePack ret_err;
   size_t it;
 
-  ret_err = 0; // default error value. If it is >=0, no error
-  for (it = 0; it < message->n_fields && ret_err >= 0; it++)
+  ret_err = CROS_SUCCESS_ERR_PACK; // default error value: success
+  for (it = 0; it < message->n_fields && ret_err == CROS_SUCCESS_ERR_PACK; it++)
   {
     cRosMessageField *field = message->fields[it];
 
     if(field->is_array && !field->is_fixed_array)
-      ret_err = dynBufferPushBackInt32(buffer, field->array_size);
+      ret_err = (dynBufferPushBackInt32(buffer, field->array_size) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 
     switch (field->type)
     {
@@ -2497,9 +2613,9 @@ int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
       {
         size_t size = getMessageTypeSizeOf(field->type);
         if (field->is_array)
-          ret_err = dynBufferPushBackBuf(buffer, field->data.as_array, size * field->array_size);
+          ret_err = (dynBufferPushBackBuf(buffer, field->data.as_array, size * field->array_size) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
         else
-          ret_err = dynBufferPushBackBuf(buffer, field->data.opaque, size);
+          ret_err = (dynBufferPushBackBuf(buffer, field->data.opaque, size) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
         break;
       }
       case CROS_STD_MSGS_TIME:
@@ -2510,22 +2626,18 @@ int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
         if(field->is_array)
         {
           int elem_ind;
-          for(elem_ind = 0; elem_ind < field->array_size && ret_err >= 0; elem_ind++)
+          for(elem_ind = 0; elem_ind < field->array_size && ret_err == CROS_SUCCESS_ERR_PACK; elem_ind++)
           {
             cRosMessage *arr_elem_msg;
             arr_elem_msg = cRosMessageFieldArrayAtMsgGet(field, elem_ind);
             if(arr_elem_msg != NULL)
               ret_err = cRosMessageSerialize(arr_elem_msg, buffer);
-            else
-              ret_err = -1;
           }
         }
         else
         {
           if(field->data.as_msg != NULL)
             ret_err = cRosMessageSerialize(field->data.as_msg, buffer);
-          else
-            ret_err = -1;
         }
         break;
       }
@@ -2534,7 +2646,7 @@ int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
         if(field->is_array)
         {
           int elem_ind;
-          for(elem_ind = 0; elem_ind < field->array_size && ret_err >= 0; elem_ind++)
+          for(elem_ind = 0; elem_ind < field->array_size && ret_err == CROS_SUCCESS_ERR_PACK; elem_ind++)
           {
             const char* arr_elem_str;
             size_t arr_elem_str_len;
@@ -2544,7 +2656,7 @@ int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
             else
               arr_elem_str_len = 0;
             dynBufferPushBackInt32(buffer, arr_elem_str_len);
-            ret_err = dynBufferPushBackBuf(buffer, (unsigned char *)arr_elem_str, arr_elem_str_len);
+            ret_err = (dynBufferPushBackBuf(buffer, (unsigned char *)arr_elem_str, arr_elem_str_len) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
           }
         }
         else
@@ -2553,16 +2665,16 @@ int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
           {
             size_t str_len = strlen(field->data.as_string);
             dynBufferPushBackInt32(buffer, str_len);
-            ret_err = dynBufferPushBackBuf(buffer,(unsigned char*)field->data.as_string, str_len);
+            ret_err = (dynBufferPushBackBuf(buffer,(unsigned char*)field->data.as_string, str_len) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
           }
           else
-            ret_err = dynBufferPushBackInt32(buffer, 0);
+            ret_err = (dynBufferPushBackInt32(buffer, 0) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
         }
         break;
       }
       default:
       {
-        ret_err = -1;
+        ret_err = CROS_BAD_PARAM_ERR;
         break;
       }
     }
@@ -2572,13 +2684,16 @@ int cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
 
 // In this function we assume that the message is already build according to its definition.
 // Only when receiving a variable-length array, new elements if the message field may need to be created
-int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
+cRosErrCodePack cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
 {
   size_t it;
-  int ret_err;
+  cRosErrCodePack ret_err;
 
-  ret_err = 0; // default error value. If it is >=0, no error
-  for (it = 0; it < message->n_fields && ret_err >= 0; it++)
+  ret_err = CROS_SUCCESS_ERR_PACK; // default error value: no error
+
+  msgFieldDef* field_def_itr =  (message->msgDef != NULL)? message->msgDef->first_field : NULL; // Keep track of the message definition (if available) corresponding to the current message field in case we need to build a msg of type custom
+
+  for (it = 0; it < message->n_fields && ret_err == CROS_SUCCESS_ERR_PACK; it++)
   {
     cRosMessageField *field = message->fields[it];
 
@@ -2603,30 +2718,30 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
         {
           if (field->is_fixed_array)
           {
-            ret_err = dynBufferGetCurrentContent( field->data.as_array, buffer, elem_size * field->array_size ); // equiv. to: memcpy(field->data.as_array, dynBufferGetCurrentData(buffer), size * field->array_size);
+            ret_err = (dynBufferGetCurrentContent( field->data.as_array, buffer, elem_size * field->array_size ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR; // equiv. to: memcpy(field->data.as_array, dynBufferGetCurrentData(buffer), size * field->array_size);
             dynBufferMovePoseIndicator(buffer, elem_size * field->array_size);
           }
           else
           {
             uint32_t array_n_elems;
             cRosMessageFieldArrayClear(field);
-            ret_err = dynBufferGetCurrentContent( (unsigned char *)&array_n_elems, buffer, sizeof(uint32_t) ); // equiv. to: array_n_elems = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            ret_err = (dynBufferGetCurrentContent( (unsigned char *)&array_n_elems, buffer, sizeof(uint32_t) ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR; // equiv. to: array_n_elems = *((uint32_t*)dynBufferGetCurrentData(buffer));
             dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
-            if(ret_err == 0)
+            if(ret_err == CROS_SUCCESS_ERR_PACK)
             {
               if(dynBufferGetRemainingDataSize(buffer) >= array_n_elems*elem_size)
               {
-                ret_err = arrayFieldValuesPushBack(field, (const void *)dynBufferGetCurrentData(buffer), elem_size, array_n_elems);
+                ret_err = (arrayFieldValuesPushBack(field, (const void *)dynBufferGetCurrentData(buffer), elem_size, array_n_elems) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
                 dynBufferMovePoseIndicator(buffer, array_n_elems*elem_size);
               }
               else
-                ret_err = -1; // Not enough data available in the packet buffer
+                ret_err = CROS_DEPACK_INSUFF_DAT_ERR; // Not enough data available in the packet buffer
             }
           }
         }
         else
         {
-          ret_err = dynBufferGetCurrentContent( field->data.opaque, buffer, elem_size ); // equiv. to: memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), elem_size);
+          ret_err = (dynBufferGetCurrentContent( field->data.opaque, buffer, elem_size ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR; // equiv. to: memcpy(field->data.opaque, dynBufferGetCurrentData(buffer), elem_size);
           dynBufferMovePoseIndicator(buffer, elem_size);
         }
 
@@ -2641,39 +2756,39 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
             curr_array_size = field->array_size;
           else // Otherwise, obtain the number of elements of the received array
           {
-            cRosMessageFieldArrayClear(field);
-            ret_err = dynBufferGetCurrentContent( (unsigned char *)&curr_array_size, buffer, sizeof(uint32_t) ); // equiv. to: curr_array_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            cRosMessageFieldArrayClear(field); // Remove previous strings from the array to start added the new ones one by one
+            ret_err = (dynBufferGetCurrentContent( (unsigned char *)&curr_array_size, buffer, sizeof(uint32_t) ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR; // equiv. to: curr_array_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
             dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
           }
 
           uint32_t elem_ind;
-          for(elem_ind = 0; elem_ind < curr_array_size && ret_err >= 0; elem_ind++)
+          for(elem_ind = 0; elem_ind < curr_array_size && ret_err == CROS_SUCCESS_ERR_PACK; elem_ind++)
           {
             uint32_t element_size;
-            ret_err = dynBufferGetCurrentContent( (unsigned char *)&element_size, buffer, sizeof(uint32_t) ); // equiv. to: element_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+            ret_err = (dynBufferGetCurrentContent( (unsigned char *)&element_size, buffer, sizeof(uint32_t) ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR; // equiv. to: element_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
             dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
-            if(ret_err >= 0)
+            if(ret_err == CROS_SUCCESS_ERR_PACK)
             {
               char* tmp_string = (char *)calloc(element_size + 1, sizeof(char));
               if(tmp_string != NULL)
               {
-                ret_err = dynBufferGetCurrentContent( (unsigned char *)tmp_string, buffer, element_size ); // equiv. to: memcpy(tmp_string, dynBufferGetCurrentData(buffer), element_size);
+                ret_err = (dynBufferGetCurrentContent( (unsigned char *)tmp_string, buffer, element_size ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR; // equiv. to: memcpy(tmp_string, dynBufferGetCurrentData(buffer), element_size);
                 if(field->is_fixed_array)
-                  ret_err = cRosMessageFieldArrayAtStringSet(field, elem_ind, tmp_string);
+                  ret_err = (cRosMessageFieldArrayAtStringSet(field, elem_ind, tmp_string) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
                 else
-                  ret_err = cRosMessageFieldArrayPushBackString(field, tmp_string);
+                  ret_err = (cRosMessageFieldArrayPushBackString(field, tmp_string) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
                 dynBufferMovePoseIndicator(buffer, element_size);
                 free(tmp_string);
               }
               else
-                ret_err=-1;
+                ret_err=CROS_MEM_ALLOC_ERR;
             }
           }
         }
         else
         {
           uint32_t curr_data_size;
-          ret_err = dynBufferGetCurrentContent( (unsigned char *)&curr_data_size, buffer, sizeof(uint32_t) ); // equiv. to: curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
+          ret_err = (dynBufferGetCurrentContent( (unsigned char *)&curr_data_size, buffer, sizeof(uint32_t) ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR; // equiv. to: curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
           dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
           field->data.as_string = (char*)realloc(field->data.as_string, (curr_data_size + 1) * sizeof(char)); // If field->data.as_string was NULL previously, realloc behaves as malloc
           if(field->data.as_string != NULL)
@@ -2683,7 +2798,7 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
             dynBufferMovePoseIndicator(buffer, curr_data_size);
           }
           else
-            ret_err=-1;
+            ret_err=CROS_MEM_ALLOC_ERR;
         }
         break;
       }
@@ -2701,39 +2816,42 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
             received_arr_siz = field->array_size;
           else // Otherwise, obtain the number of array elements from the received packet
           {
-            cRosMessageFieldArrayClear(field);
-            ret_err = dynBufferGetCurrentContent( (unsigned char *)&received_arr_siz, buffer, sizeof(uint32_t) );
+            ret_err = (dynBufferGetCurrentContent( (unsigned char *)&received_arr_siz, buffer, sizeof(uint32_t) ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
             dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
 
             // Adapt the array size of the message field to the received array length
-            if(received_arr_siz > field->array_size) // received more elements than the available messages: create more
+            for(msg_ind = field->array_size;msg_ind < received_arr_siz && ret_err == CROS_SUCCESS_ERR_PACK;msg_ind++) // received more elements than the available messages: create more
             {
-              for(msg_ind = field->array_size;msg_ind < received_arr_siz && ret_err == 0;msg_ind++)
+              cRosMessage *new_msg;
+              new_msg = NULL;
+              if(field->type == CROS_STD_MSGS_TIME)
+                new_msg = build_time_field();
+              else if(field->type == CROS_STD_MSGS_DURATION)
+                new_msg = build_duration_field();
+              else if(field->type == CROS_STD_MSGS_HEADER)
+                new_msg = build_header_field();
+              else if(field->type == CROS_CUSTOM_TYPE)
               {
-                cRosMessage *new_msg;
-                new_msg = NULL;
-                if(field->type == CROS_STD_MSGS_TIME)
-                  new_msg = build_time_field();
-                else if(field->type == CROS_STD_MSGS_DURATION)
-                  new_msg = build_duration_field();
-                else if(field->type == CROS_STD_MSGS_HEADER)
-                  new_msg = build_header_field();
-                else if(field->type == CROS_CUSTOM_TYPE)
-                   cRosMessageNewBuild(message->msgDef->root_dir, field->type_s, &new_msg);
-
-                if(new_msg != NULL)
-                  cRosMessageFieldArrayPushBackMsg(field, new_msg);
+                if(field_def_itr != NULL)
+                  ret_err = cRosMessageBuildFromDef(&new_msg, field_def_itr->child_msg_def); // instead of cRosMessageNewBuild(message->msgDef->root_dir, field->type_s, &new_msg);
                 else
-                  ret_err=-1;
+                  ret_err =CROS_DEPACK_NO_MSG_DEF_ERR;
+              }
+
+              if(new_msg != NULL)
+                cRosMessageFieldArrayPushBackMsg(field, new_msg); // new_msg is now used in the array so it cannot be freed independently
+              else
+              {
+                if(ret_err == CROS_SUCCESS_ERR_PACK)
+                  ret_err=CROS_MEM_ALLOC_ERR;
               }
             }
 
             while(field->array_size > received_arr_siz) // received less elements than the available messages: delete
               cRosMessageFree(cRosMessageFieldArrayRemoveLastMsg(field));
-
           }
 
-          for(msg_ind = 0;msg_ind < field->array_size && ret_err == 0;msg_ind++)
+          for(msg_ind = 0;msg_ind < field->array_size && ret_err == CROS_SUCCESS_ERR_PACK;msg_ind++)
           {
             cRosMessage *curr_msg;
             curr_msg = cRosMessageFieldArrayAtMsgGet(field, msg_ind);
@@ -2746,10 +2864,11 @@ int cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
       }
       default:
       {
-        ret_err=-1;
+        ret_err=CROS_BAD_PARAM_ERR;
         break;
       }
     }
+    field_def_itr = (field_def_itr != NULL)? field_def_itr->next : NULL;
   }
   return ret_err;
 }

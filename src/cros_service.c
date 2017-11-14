@@ -298,16 +298,6 @@ cRosErrCodePack cRosServiceBuild(cRosService* service, const char* filepath)
 cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **response_ptr, char **message_definition, char *md5sum, const char* filepath)
 {
   cRosErrCodePack ret_err;
-  cRosMessage *request, *response;
-
-  request = cRosMessageNew();
-  response = cRosMessageNew();
-  if(request == NULL || response == NULL)
-  {
-    cRosMessageFree(request);
-    cRosMessageFree(response);
-    return CROS_MEM_ALLOC_ERR;
-  }
 
   cRosSrvDef* srv = (cRosSrvDef*) malloc(sizeof(cRosSrvDef));
   if(srv == NULL)
@@ -369,12 +359,12 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
 
   if(srv->request->plain_text != NULL)
   {
-    ret_err = cRosMessageBuildFromDef(request, srv->request);
+    ret_err = cRosMessageBuildFromDef(request_ptr, srv->request);
   }
 
   if(ret_err == CROS_SUCCESS_ERR_PACK && srv->response->plain_text != NULL)
   {
-    ret_err = cRosMessageBuildFromDef(response, srv->response);
+    ret_err = cRosMessageBuildFromDef(response_ptr, srv->response);
   }
 
   if(ret_err == CROS_SUCCESS_ERR_PACK && srv->plain_text != NULL && message_definition != NULL)
@@ -387,16 +377,7 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
   }
 
   cRosServiceDefFree(srv);
-  if(ret_err == CROS_SUCCESS_ERR_PACK)
-  {
-    *request_ptr = request;
-    *response_ptr = response;
-  }
-  else
-  {
-    cRosMessageFree(request);
-    cRosMessageFree(response);
-  }
+
   return ret_err;
 }
 

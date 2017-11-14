@@ -18,7 +18,7 @@
   MSG_COD_ELEM(CROS_OPEN_MSG_FILE_ERR, "The file defining the message cannot be opened") \
   MSG_COD_ELEM(CROS_LOAD_MSG_FILE_ERR, "Error loading the message definition file") \
   MSG_COD_ELEM(CROS_OPEN_SVC_FILE_ERR, "The file defining the service cannot be opened") \
-  MSG_COD_ELEM(CROS_UNREG_TIMEOUT_ERR, "The unregistration from the ROS master was abandoned before it finished because was taking too long") \
+  MSG_COD_ELEM(CROS_UNREG_TIMEOUT_ERR, "The unregistration from the ROS master was abandoned before it finished because it was taking too long") \
   MSG_COD_ELEM(CROS_SELECT_FD_ERR, "An error ocurred while monitoring the socket file descriptors (select() function)") \
   MSG_COD_ELEM(CROS_MANY_PARAM_ERR, "The maximum number of paramter subscriptions has been reached") \
   MSG_COD_ELEM(CROS_PARAM_SUB_IND_ERR, "The provided parameter subscriber index does not corresponds to a valid subscriber to be unsubscribed") \
@@ -29,7 +29,9 @@
   MSG_COD_ELEM(CROS_LOAD_SVC_FILE_REQ_ERR, "Error loading the service request definition in the file") \
   MSG_COD_ELEM(CROS_LOAD_SVC_FILE_RES_ERR, "Error loading the service response definition in the file") \
   MSG_COD_ELEM(CROS_CREATE_CUSTOM_MSG_ERR, "Error loading the specified custom message definition file or creating a message of its type") \
-  MSG_COD_ELEM(CROS_FILE_ENTRY_NO_SEP_ERR, "The definition file contains an entry that is syntactically incorrect (a white space is expected between data type and data name)")
+  MSG_COD_ELEM(CROS_FILE_ENTRY_NO_SEP_ERR, "The definition file contains an entry that is syntactically incorrect (a white space is expected between data type and data name)") \
+  MSG_COD_ELEM(CROS_DEPACK_INSUFF_DAT_ERR, "Error decoding a received packet: The length of the packet is too small for the expected data type") \
+  MSG_COD_ELEM(CROS_DEPACK_NO_MSG_DEF_ERR, "Error decoding a received packet: The definition of the custom message does not corresponds to the fields of the message to send")
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 
