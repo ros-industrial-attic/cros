@@ -2303,6 +2303,95 @@ int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val
   return ret;
 }
 
+// Add a new blank element at the end of the array in field n_field of message msg
+int cRosMessageFieldArrayPushBackZero(cRosMessage* msg, int n_field)
+{
+  cRosMessageField *field;
+  CrosMessageType elem_type;
+  size_t elem_size;
+
+  if(n_field >= msg->n_fields || n_field < 0)
+    return -1;
+
+  field = msg->fields[n_field];
+
+  if(!field->is_array || field->is_fixed_array)
+    return -1;
+
+  elem_type = field->type;
+  elem_size = getMessageTypeSizeOf(elem_type);
+  if(field->array_capacity == field->array_size)
+  {
+    void *new_location;
+    new_location = realloc(field->data.as_array, 2 * field->array_capacity * elem_size);
+    if(new_location != NULL)
+    {
+      field->data.as_array = new_location;
+      field->array_capacity *= 2;
+    }
+    else
+    {
+      return -1;
+    }
+  }
+
+  switch(elem_type)
+  {
+    case CROS_STD_MSGS_INT8:
+    case CROS_STD_MSGS_UINT8:
+    case CROS_STD_MSGS_INT16:
+    case CROS_STD_MSGS_UINT16:
+    case CROS_STD_MSGS_INT32:
+    case CROS_STD_MSGS_UINT32:
+    case CROS_STD_MSGS_INT64:
+    case CROS_STD_MSGS_UINT64:
+    case CROS_STD_MSGS_FLOAT32:
+    case CROS_STD_MSGS_FLOAT64:
+    case CROS_STD_MSGS_BOOL:
+    case CROS_STD_MSGS_CHAR:
+    case CROS_STD_MSGS_BYTE:
+    case CROS_STD_MSGS_STRING:
+    {
+      char *elem_array = field->data.as_array;
+      memset(elem_array + elem_size*field->array_size, 0, elem_size);
+      break;
+    }
+    case CROS_STD_MSGS_TIME:
+    case CROS_STD_MSGS_DURATION:
+    case CROS_STD_MSGS_HEADER:
+    case CROS_CUSTOM_TYPE:
+    {
+      if(msg->msgDef != NULL)
+      {
+        msgFieldDef* field_def_itr;
+        int field_ind;
+        cRosMessage **msg_array;
+        cRosErrCodePack ret_err;
+
+         // Look for the definition corresponding to the specified field
+        field_def_itr = msg->msgDef->first_field;
+        for(field_ind=0;field_ind < n_field && field_def_itr != NULL;field_ind++)
+          field_def_itr = field_def_itr->next;
+
+        if(field_def_itr == NULL)
+          return -1; // msg definition not found
+
+        msg_array = field->data.as_msg_array;
+        ret_err = cRosMessageBuildFromDef(&msg_array[field->array_size], field_def_itr->child_msg_def); // instead of cRosMessageNewBuild(msg->msgDef->root_dir, field->type_s, &msg_array[field->array_size]);
+        if(ret_err != CROS_SUCCESS_ERR_PACK)
+          return -1; // Error creating the message
+      }
+      else
+        return -1; // msgDef not available in current message, we don't know the type of the message to build
+    }
+    default:
+      break;
+  }
+
+  field->array_size ++;
+  return 0;
+}
+
 int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg)
 {
   if(field->type != CROS_CUSTOM_TYPE && field->type != CROS_STD_MSGS_TIME &&
@@ -2312,15 +2401,13 @@ int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg)
   if(!field->is_array || field->is_fixed_array)
     return -1;
 
-  size_t element_size = sizeof(cRosMessage*);
-
   if(field->array_capacity == field->array_size)
   {
-    void* new_location;
-    new_location = realloc(field->data.as_array, 2 * field->array_capacity * element_size);
+    cRosMessage **new_location;
+    new_location = (cRosMessage **)realloc(field->data.as_msg_array, 2 * field->array_capacity * sizeof(cRosMessage*));
     if(new_location != NULL)
     {
-      field->data.as_array = new_location;
+      field->data.as_msg_array = new_location;
       field->array_capacity *= 2;
     }
     else
@@ -2921,29 +3008,33 @@ size_t getMessageTypeSizeOf(CrosMessageType type)
   {
     case CROS_STD_MSGS_INT8:
     case CROS_STD_MSGS_UINT8:
-      return 1;
+      return sizeof(int8_t);
     case CROS_STD_MSGS_INT16:
     case CROS_STD_MSGS_UINT16:
-      return 2;
+      return sizeof(int16_t);
     case CROS_STD_MSGS_INT32:
     case CROS_STD_MSGS_UINT32:
-      return 4;
+      return sizeof(int32_t);
     case CROS_STD_MSGS_INT64:
     case CROS_STD_MSGS_UINT64:
-      return 8;
+      return sizeof(int64_t);
     case CROS_STD_MSGS_FLOAT32:
-      return 4;
+      return sizeof(float);
     case CROS_STD_MSGS_FLOAT64:
-      return 8;
+      return sizeof(double);
     case CROS_STD_MSGS_BOOL:
-      return 1;
+      return sizeof(int8_t);
+    case CROS_STD_MSGS_STRING:
+      return sizeof(char *);
     case CROS_STD_MSGS_TIME:
     case CROS_STD_MSGS_DURATION:
-      return 8;
+    case CROS_STD_MSGS_HEADER:
+    case CROS_CUSTOM_TYPE:
+      return sizeof(cRosMessage *);
     // deprecated
     case CROS_STD_MSGS_CHAR:
     case CROS_STD_MSGS_BYTE:
-      return 1;
+      return sizeof(char);
     default:
       assert(0);
   }

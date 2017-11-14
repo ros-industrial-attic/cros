@@ -150,7 +150,11 @@ int cRosMessageFieldArrayPushBackFloat64(cRosMessageField *field, double val);
 
 int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val);
 
+int cRosMessageFieldArrayPushBackZero(cRosMessage* msg, int n_field);
+
 int cRosMessageFieldArrayPushBackMsg(cRosMessageField *field, cRosMessage* msg);
+
+cRosMessage *cRosMessageFieldArrayRemoveLastMsg(cRosMessageField *field);
 
 int8_t * cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position);
 
