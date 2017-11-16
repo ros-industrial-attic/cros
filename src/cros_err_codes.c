@@ -28,14 +28,26 @@ const char *cRosGetErrCodeStr(cRosErrCode err_code)
   return ret_msg;
 }
 
+cRosErrCodePack cRosAddErrCode(cRosErrCodePack prev_err_pack, cRosErrCode err_code)
+{
+  cRosErrCodePack new_err_pack;
+
+  if(err_code == CROS_NO_ERR) // If no new error:
+    new_err_pack = prev_err_pack; // do not add any error code to the pack
+  else // if we have some new error code
+    new_err_pack = (prev_err_pack << 8) | err_code; // add more info to the error pack: add the new code
+
+  return new_err_pack;
+}
+
 cRosErrCodePack cRosAddErrCodeIfErr(cRosErrCodePack prev_err_pack, cRosErrCode err_code)
 {
   cRosErrCodePack new_err_pack;
 
   if(prev_err_pack == CROS_SUCCESS_ERR_PACK) // If no error stored in the error pack
     new_err_pack = prev_err_pack; // do not add any error code to the pack
-  else // if we have some error code in the pack
-    new_err_pack = (prev_err_pack << 8) | err_code; // add more info to the error pack: add the new code
+  else // if we had some error code in the pack
+    new_err_pack = cRosAddErrCode(prev_err_pack, err_code); // add more info to the error pack: add the new code
 
   return new_err_pack;
 }
@@ -56,6 +68,24 @@ cRosErrCode cRosGetLastErrCode(cRosErrCodePack err_pack)
   last_err_code = err_pack & 0xFFU; // Get the last error code from the error pack (8 least-significant bits)
 
   return last_err_code;
+}
+
+cRosErrCodePack cRosAddErrCodePackIfErr(cRosErrCodePack prev_err_pack_0, cRosErrCodePack prev_err_pack_1)
+{
+  cRosErrCodePack new_err_code_pack;
+  cRosErrCode curr_err_cod;
+
+  // First, add the error codes from prev_err_pack_0 to the output
+  new_err_code_pack = prev_err_pack_0;
+  // Then, add the error codes from prev_err_pack_1 to the output:
+  // Iterate throughout all the errors contained in prev_err_pack_1
+  while((curr_err_cod=cRosGetLastErrCode(prev_err_pack_1)) != CROS_NO_ERR)
+  {
+    new_err_code_pack = cRosAddErrCode(new_err_code_pack, curr_err_cod);
+    prev_err_pack_1 = cRosRemoveLastErrCode(prev_err_pack_1); // Pass to the next error code
+  }
+
+  return new_err_code_pack;
 }
 
 int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...)

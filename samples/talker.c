@@ -44,7 +44,8 @@ static CallbackResponse callback_pub(cRosMessage *message, void* data_context)
   }
 
   if(++pub_count > 10) exit_flag=1;
-  return 0;
+
+  return 0; // 0=success
 }
 
 static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMessage *response, int call_resp_flag, void* context)
@@ -70,7 +71,7 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
   }
 
   if(call_count > 100) exit_flag=1;
-  return 0;
+  return 0; // 0=success
 }
 
 int main(int argc, char **argv)
@@ -114,13 +115,16 @@ int main(int argc, char **argv)
   float elapsed_time;
 
   gettimeofday(&start_time, NULL);
-  cRosNodeStart( node, &exit_flag );
+  err_cod = cRosNodeStart( node, &exit_flag );
   gettimeofday(&end_time, NULL);
 
   elapsed_time = (end_time.tv_sec - start_time.tv_sec) * 1000.0;    // sec to ms
   elapsed_time += (end_time.tv_usec - start_time.tv_usec) / 1000.0; // us to ms
 
   printf("Elapsed time: %.1fms\n", elapsed_time);
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
+
 
   // All done: free memory and unregister from ROS master
   err_cod=cRosNodeDestroy( node );

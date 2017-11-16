@@ -17,6 +17,7 @@
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
 #include "cros_api_call.h"
+#include "cros_message_queue.h"
 #include "cros_err_codes.h"
 
 /*! \defgroup cros_node cROS Node */
@@ -109,8 +110,7 @@ typedef struct CrosNodeStatusUsr
  */
 typedef void (*NodeStatusCallback)(CrosNodeStatusUsr *status, void* context);
 
-typedef uint8_t CallbackResponse;
-typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
+typedef cRosErrCodePack (*PublisherCallback)(DynBuffer *buffer, void* context);
 
 /*! Structure that define a published topic */
 struct PublisherNode
@@ -126,7 +126,7 @@ struct PublisherNode
   int loop_period;                          //! Period (in msec) for publication cycle
 };
 
-typedef CallbackResponse (*SubscriberCallback)(DynBuffer *buffer,  void* context);
+typedef cRosErrCodePack (*SubscriberCallback)(DynBuffer *buffer,  void* context);
 
 /*! Structure that define a subscribed topic
  * WARNING : not implemented!
@@ -141,9 +141,11 @@ struct SubscriberNode
   void *context;
   SubscriberCallback callback;
   NodeStatusCallback status_callback;
+  cRosMessageQueue msg_queue;               //! Each time a message on this topic is received it is queued here
+  unsigned char msg_queue_overflow;         //! If 1, the subscriber tried to insert a message in the queue but it was full
 };
 
-typedef CallbackResponse (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
+typedef cRosErrCodePack (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
 
 struct ServiceProviderNode
 {
@@ -157,7 +159,7 @@ struct ServiceProviderNode
   NodeStatusCallback status_callback;
 };
 
-typedef CallbackResponse (*ServiceCallerCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, int call_resp_flag, void* context);
+typedef cRosErrCodePack (*ServiceCallerCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, int call_resp_flag, void* context);
 
 struct ServiceCallerNode
 {

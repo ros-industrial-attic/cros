@@ -31,7 +31,13 @@
   MSG_COD_ELEM(CROS_CREATE_CUSTOM_MSG_ERR, "Error loading the specified custom message definition file or creating a message of its type") \
   MSG_COD_ELEM(CROS_FILE_ENTRY_NO_SEP_ERR, "The definition file contains an entry that is syntactically incorrect (a white space is expected between data type and data name)") \
   MSG_COD_ELEM(CROS_DEPACK_INSUFF_DAT_ERR, "Error decoding a received packet: The length of the packet is too small for the expected data type") \
-  MSG_COD_ELEM(CROS_DEPACK_NO_MSG_DEF_ERR, "Error decoding a received packet: The definition of the custom message does not corresponds to the fields of the message to send")
+  MSG_COD_ELEM(CROS_DEPACK_NO_MSG_DEF_ERR, "Error decoding a received packet: The definition of the custom message does not corresponds to the fields of the message to send") \
+  MSG_COD_ELEM(CROS_TOP_PUB_CALLBACK_ERR, "The callback function specified for a topic publisher returned a non-zero value") \
+  MSG_COD_ELEM(CROS_TOP_SUB_CALLBACK_ERR, "The callback function specified for a topic subscriber returned a non-zero value") \
+  MSG_COD_ELEM(CROS_SVC_REQ_CALLBACK_ERR, "The callback function specified for a service client returned a non-zero value when generating the service request") \
+  MSG_COD_ELEM(CROS_SVC_RES_CALLBACK_ERR, "The callback function specified for a service client returned a non-zero value when generating the service response") \
+  MSG_COD_ELEM(CROS_SVC_SER_CALLBACK_ERR, "The callback function specified for a service server returned a non-zero value") \
+  MSG_COD_ELEM(CROS_SVC_RES_OK_BYTE_ERR, "The response received from the service server contains an 'ok' byte codifying a value different from true (1)")
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 
@@ -65,11 +71,22 @@ const char *cRosGetErrCodeStr(cRosErrCode err_code);
 
 /*! \brief Add a new error code to the specified error code pack.
  *
+ * This function is intended to add more information (a new error code) to an error code pack.
+ * If the new error code is CROS_NO_ERR (0), nothing is added, that is, the prev_err_pack is returned.
+ * parameter list.
+ * \param prev_err_pack is the original error code pack.
+ * \param err_code number of the new error.
+ * \return the new error pack (containing the specified err_code if err_code was not CROS_NO_ERR)
+ */
+cRosErrCodePack cRosAddErrCode(cRosErrCodePack prev_err_pack, cRosErrCode err_code);
+
+/*! \brief Add a new error code to the specified non-empty error code pack.
+ *
  * This function is intended to add more information (a new error code) to an error code pack that already contains errors.
  * If the specified error code pack does not contain any error, this function returns the same error code pack specified in the
  * parameter list.
  * \param prev_err_pack is the original error code pack.
- * \param err_code number of the new error
+ * \param err_code number of the new error. If this code is CROS_NO_ERR, prev_err_pack is returned
  * \return the new error pack (containing the specified err_code if prev_err_pack was not initially CROS_SUCCESS_ERR_PACK)
  */
 cRosErrCodePack cRosAddErrCodeIfErr(cRosErrCodePack prev_err_pack, cRosErrCode err_code);
@@ -87,6 +104,16 @@ cRosErrCodePack cRosRemoveLastErrCode(cRosErrCodePack prev_err_pack);
  * \return the last error code of the pack or CROS_NO_ERR (0) if no error is codified in the pack
  */
 cRosErrCode cRosGetLastErrCode(cRosErrCodePack err_pack);
+
+/*! \brief Compile the error codes contained in two error code packs into a single error code pack.
+ *
+ * This function is intended to add new error codes to an error code pack that already may contain errors.
+ * If the specified error code packs do not contain any error, this function returns an empty code pack (CROS_SUCCESS_ERR_PACK).
+ * \param prev_err_pack_0 is the first error code pack.
+ * \param prev_err_pack_1 is the second error code pack.
+ * \return the new error pack joining the two error packs
+ */
+cRosErrCodePack cRosAddErrCodePackIfErr(cRosErrCodePack prev_err_pack_0, cRosErrCodePack prev_err_pack_1);
 
 /*! \brief Composes and print the error message corresponding to the specified error code pack
  *

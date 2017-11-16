@@ -57,15 +57,17 @@ void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx );
  *
  *  \param n Ponter to the CrosNode object
  *  \param server_idx Index of the TcprosProcess ( tcpros_server_proc[server_idx] ) to be considered
+ *  \return CROS_SUCCESS_ERR_PACK on success, otherwise an error code
  */
-void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx );
+cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx );
 
 /*! \brief Read the TCPROS message (with data) received from the publisher
  *
  *  \param n Ponter to the CrosNode object
  *  \param client_idx Index of the TcprosProcess ( tcpros_client_proc[server_idx] ) to be considered for the parsing
+ *  \return CROS_SUCCESS_ERR_PACK on success, otherwise an error code
  */
-void cRosMessageParsePublicationPacket( CrosNode *n, int client_idx );
+cRosErrCode cRosMessageParsePublicationPacket( CrosNode *n, int client_idx );
 
 /*! \brief Parse a RCPROS header sent from a service caller
  *
@@ -98,8 +100,9 @@ void cRosMessagePrepareServiceCallHeader( CrosNode *n, int client_idx);
  *
  *  \param n Ponter to the CrosNode object
  *  \param client_idx Index of the TcprosProcess ( rpcros_client_proc[client_idx] ) to be considered
+ *  \return CROS_SUCCESS_ERR_PACK on success, otherwise an error code
  */
-void cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx );
+cRosErrCodePack cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx );
 
 /*! \brief Prepare a RCPROS header to be initially sent back to a service caller
  *
@@ -112,15 +115,17 @@ void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx);
  *
  *  \param n Ponter to the CrosNode object
  *  \param client_idx Index of the TcprosProcess ( rpcros_client_proc[client_idx] ) to be considered for the parsing
+ *  \return CROS_SUCCESS_ERR_PACK on success, otherwise an error code
  */
-void cRosMessageParseServiceResponsePacket( CrosNode *n, int client_idx );
+cRosErrCodePack cRosMessageParseServiceResponsePacket( CrosNode *n, int client_idx );
 
 /*! \brief Prepare a RCPROS response to be sent back to a service caller
  *
  *  \param n Ponter to the CrosNode object
  *  \param server_idx Index of the TcprosProcess ( rpcros_server_proc[server_idx] ) to be considered
+ *  \return CROS_SUCCESS_ERR_PACK on success, otherwise an error code
  */
-void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx);
+cRosErrCodePack cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx);
 
 /*! \brief Prepare a RCPROS header to be initially sent to a service provider
  *

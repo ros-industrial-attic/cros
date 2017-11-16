@@ -1,6 +1,7 @@
 #ifndef _CROS_MESSAGE_INTERNAL_H_
 #define _CROS_MESSAGE_INTERNAL_H_
 
+#include "dyn_string.h"
 #include "cros_err_codes.h"
 
 static const char* FILEEXT_MSG = "msg";

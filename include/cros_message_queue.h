@@ -16,14 +16,14 @@
 
 #define MAX_QUEUE_LEN 3 //! Maximum number of messages that can be hold in the queue
 
-typedef struct cRosMessageQueue cRosMessageQueue;
-
 struct cRosMessageQueue
 {
   cRosMessage msgs[MAX_QUEUE_LEN]; //! Content of the queue
   unsigned int length; //! Number of messages currently in the queue
   unsigned int first_msg_ind; //! Index of the oldest message in the queue (the one that was inserted first)
 };
+
+typedef struct cRosMessageQueue cRosMessageQueue;
 
 /*! \brief Initializes a queue.
  *
@@ -46,6 +46,12 @@ void cRosMessageQueueClear(cRosMessageQueue *q);
  *  \param q Pointer to the queue.
  */
 void cRosMessageQueueRelease(cRosMessageQueue *q);
+
+/*! \brief Calculates the free space still available in the queue.
+ *
+ *  \return Number of messages that can still be added to the queue without causing an overflow.
+ */
+unsigned int cRosMessageQueueVacancies(cRosMessageQueue *q);
 
 /*! \brief Add a new message to the queue.
  *

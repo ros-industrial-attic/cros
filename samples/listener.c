@@ -32,7 +32,7 @@ static CallbackResponse callback_sub(cRosMessage *message, void* data_context)
   if(data_field != NULL)
     ROS_INFO(node, "I heard: [%s]\n", data_field->data.as_string);
 
-  return 0;
+  return 0; // 0=success
 }
 
 // This callback will be invoked when the service provider receives a service call
@@ -57,7 +57,7 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
     }
   }
 
-  return 0;
+  return 0; // 0=success
 }
 
 // This callback function should be called when the main process receives a SIGINT or
@@ -135,7 +135,9 @@ int main(int argc, char **argv)
   set_signal_handler();
 
   // Run the main loop until exit_flag is 1
-  cRosNodeStart( node, &exit_flag );
+  err_cod = cRosNodeStart( node, &exit_flag );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
 
   // Free memory and unregister
   err_cod=cRosNodeDestroy( node );

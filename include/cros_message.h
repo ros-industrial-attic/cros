@@ -1,7 +1,7 @@
 #ifndef _CROS_MESSAGE_H_
 #define _CROS_MESSAGE_H_
 
-#include "cros_node.h"
+#include "dyn_buffer.h"
 #include "cros_err_codes.h"
 
 /*! \defgroup cros_message cROS TCPROS

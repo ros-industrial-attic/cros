@@ -297,6 +297,7 @@ typedef void (*SearchParamCallback)(int callid, SearchParamResult *result, void 
 typedef void (*HasParamCallback)(int callid, HasParamResult *result, void *context);
 typedef void (*GetParamNamesCallback)(int callid, GetParamNamesResult *result, void *context);
 
+typedef uint8_t CallbackResponse;
 typedef CallbackResponse (*ServiceCallerApiCallback)(cRosMessage *request, cRosMessage *response, int call_resp_flag, void *context);
 typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *request, cRosMessage *response, void *context);
 typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void *context);

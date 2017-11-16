@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <ctype.h>
 
+#include "cros_api.h"
 #include "cros_tcpros.h"
 #include "cros_defs.h"
 #include "tcpros_tags.h"
@@ -431,13 +432,13 @@ void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx )
   *header_len_p = header_out_len;
 }
 
-void cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
+cRosErrCodePack cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
 {
   TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
   DynBuffer *packet = &(client_proc->packet);
   int sub_idx = client_proc->topic_idx;
   void* data_context = n->subs[sub_idx].context;
-  n->subs[sub_idx].callback(packet,data_context);
+  return n->subs[sub_idx].callback(packet,data_context);
 }
 
 void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
@@ -465,8 +466,9 @@ void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
   *header_len_p = header_out_len;
 }
 
-void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
+cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
 {
+  cRosErrCodePack ret_err;
   PRINT_VDEBUG("cRosMessagePreparePublicationPacket()\n");
   TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
   int pub_idx = server_proc->topic_idx;
@@ -474,10 +476,12 @@ void cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
   dynBufferPushBackUInt32( packet, 0 ); // Placehoder for packet size
 
   void* data_context = n->pubs[pub_idx].context;
-  n->pubs[pub_idx].callback( packet, data_context);
+  ret_err = n->pubs[pub_idx].callback( packet, data_context);
 
-  uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
-  memcpy(packet->data, &size, sizeof(uint32_t));
+  uint32_t packet_size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
+  *(uint32_t *)packet->data = packet_size;
+
+  return ret_err;
 }
 
 static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flags )
@@ -885,8 +889,10 @@ void cRosMessagePrepareServiceCallHeader(CrosNode *n, int client_idx)
   *header_len_p = header_out_len;
 }
 
-void cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx )
+cRosErrCodePack cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx )
 {
+  cRosErrCodePack ret_err;
+
   PRINT_VDEBUG("cRosMessagePrepareServiceCallPacket()\n");
   TcprosProcess *client_proc = &(n->rpcros_client_proc[client_idx]);
   int svc_idx = client_proc->service_idx;
@@ -895,21 +901,25 @@ void cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx )
 
 
   void* data_context = n->service_callers[svc_idx].context;
-  n->service_callers[svc_idx].callback( packet, NULL, 0, data_context);
+  ret_err = n->service_callers[svc_idx].callback( packet, NULL, 0, data_context);
 
   uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
   memcpy(packet->data, &size, sizeof(uint32_t));
+
+  return ret_err;
 }
 
-void cRosMessageParseServiceResponsePacket( CrosNode *n, int client_idx )
+cRosErrCodePack cRosMessageParseServiceResponsePacket( CrosNode *n, int client_idx )
 {
+  cRosErrCodePack ret_err;
+
   TcprosProcess *client_proc = &(n->rpcros_client_proc[client_idx]);
   DynBuffer *packet = &(client_proc->packet);
   if(client_proc->ok_byte == TCPROS_OK_BYTE_SUCCESS)
   {
     int svc_idx = client_proc->service_idx;
     void* data_context = n->service_callers[svc_idx].context;
-    n->service_callers[svc_idx].callback(NULL, packet, 1, data_context);
+    ret_err = n->service_callers[svc_idx].callback(NULL, packet, 1, data_context);
   }
   else
   {
@@ -921,7 +931,9 @@ void cRosMessageParseServiceResponsePacket( CrosNode *n, int client_idx )
         PRINT_ERROR("%c",*dynBufferGetCurrentData(packet));
      }
      PRINT_ERROR("'\n");
+     ret_err = CROS_SVC_RES_OK_BYTE_ERR;
   }
+  return ret_err;
 }
 
 void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
@@ -951,8 +963,11 @@ void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
   *header_len_p = header_out_len;
 }
 
-void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx)
+cRosErrCodePack cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx)
 {
+  cRosErrCodePack ret_err;
+  uint8_t ok_byte; // OK field (byte size) of the service response packet
+
   PRINT_VDEBUG("cRosMessageParseServiceArgumentsPacket()\n");
   TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
   DynBuffer *packet = &(server_proc->packet);
@@ -961,23 +976,25 @@ void cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server_idx)
   DynBuffer service_response;
   dynBufferInit(&service_response);
 
-  CallbackResponse callback_response = n->service_providers[srv_idx].callback(packet, &service_response, service_context);
+  ret_err = n->service_providers[srv_idx].callback(packet, &service_response, service_context);
 
-  //clear packet buffer
-  dynBufferClear(packet);
+  dynBufferClear(packet); // clear packet buffer
 
-  //OK field (byte size)
-  uint8_t ok = TCPROS_OK_BYTE_SUCCESS;
-  dynBufferPushBackBuf( packet, &ok, sizeof(uint8_t) );
-
-  //Size data field
-  dynBufferPushBackUInt32( packet, service_response.size);
-
-  if(service_response.size)
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
   {
-    //Response data
-    dynBufferPushBackBuf( packet, service_response.data, service_response.size);
+    ok_byte = TCPROS_OK_BYTE_SUCCESS;
+    dynBufferPushBackBuf( packet, &ok_byte, sizeof(uint8_t) );
+    dynBufferPushBackUInt32( packet, service_response.size); // data size field
+    dynBufferPushBackBuf( packet, service_response.data, service_response.size); // Response data
+  }
+  else
+  {
+    ok_byte = TCPROS_OK_BYTE_FAIL;
+    dynBufferPushBackBuf( packet, &ok_byte, sizeof(uint8_t) );
+    dynBufferPushBackUInt32( packet, 0); // Serialize an error string of size 0: Just add the data size field
   }
 
   dynBufferRelease(&service_response);
+
+  return ret_err;
 }
