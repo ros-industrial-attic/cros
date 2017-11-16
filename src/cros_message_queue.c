@@ -32,6 +32,11 @@ unsigned int cRosMessageQueueVacancies(cRosMessageQueue *q)
   return MAX_QUEUE_LEN - q->length;
 }
 
+unsigned int cRosMessageQueueUsage(cRosMessageQueue *q)
+{
+  return q->length;
+}
+
 void cRosMessageQueueRelease(cRosMessageQueue *q)
 {
   unsigned int msg_ind;

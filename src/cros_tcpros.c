@@ -434,11 +434,23 @@ void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx )
 
 cRosErrCodePack cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
 {
-  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
-  DynBuffer *packet = &(client_proc->packet);
-  int sub_idx = client_proc->topic_idx;
-  void* data_context = n->subs[sub_idx].context;
-  return n->subs[sub_idx].callback(packet,data_context);
+  cRosErrCodePack ret_err;
+  SubscriberNode *sub_node;
+  TcprosProcess *client_proc;
+  DynBuffer *packet;
+  void *data_context;
+
+  client_proc = &(n->tcpros_client_proc[client_idx]);
+  packet = &(client_proc->packet);
+  sub_node = &n->subs[client_proc->topic_idx];
+  data_context = sub_node->context;
+
+  if(cRosMessageQueueVacancies(&sub_node->msg_queue) == 0)
+    sub_node->msg_queue_overflow = 1; // No space in the queue for the new message
+
+  ret_err = sub_node->callback(packet,data_context);
+
+  return ret_err;
 }
 
 void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )

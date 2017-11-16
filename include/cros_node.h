@@ -339,7 +339,7 @@ cRosErrCodePack cRosNodeDestroy( CrosNode *n );
  *  }
  *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
-cRosErrCodePack cRosNodeDoEventsLoop( CrosNode *n );
+cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout );
 
 /*! \brief Start the cROS node main cycle
  *

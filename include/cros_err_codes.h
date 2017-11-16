@@ -37,7 +37,8 @@
   MSG_COD_ELEM(CROS_SVC_REQ_CALLBACK_ERR, "The callback function specified for a service client returned a non-zero value when generating the service request") \
   MSG_COD_ELEM(CROS_SVC_RES_CALLBACK_ERR, "The callback function specified for a service client returned a non-zero value when generating the service response") \
   MSG_COD_ELEM(CROS_SVC_SER_CALLBACK_ERR, "The callback function specified for a service server returned a non-zero value") \
-  MSG_COD_ELEM(CROS_SVC_RES_OK_BYTE_ERR, "The response received from the service server contains an 'ok' byte codifying a value different from true (1)")
+  MSG_COD_ELEM(CROS_SVC_RES_OK_BYTE_ERR, "The response received from the service server contains an 'ok' byte codifying a value different from true (1)") \
+  MSG_COD_ELEM(CROS_RCV_TOP_TIMEOUT_ERR, "The specified timeout was up while waiting for a topic message")
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 

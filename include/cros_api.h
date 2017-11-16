@@ -380,4 +380,7 @@ cRosErrCodePack cRosApiSearchParam(CrosNode *node, const char *key, SearchParamC
 cRosErrCodePack cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context);
 cRosErrCodePack cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context);
 
+// Message polling
+cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage *msg, unsigned char *buff_overflow, unsigned long time_out);
+
 #endif // _CROS_API_H_

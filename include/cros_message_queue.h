@@ -53,6 +53,12 @@ void cRosMessageQueueRelease(cRosMessageQueue *q);
  */
 unsigned int cRosMessageQueueVacancies(cRosMessageQueue *q);
 
+/*! \brief Calculates the number of messages stored in the queue.
+ *
+ *  \return Number of messages that can be removed from the queue.
+ */
+unsigned int cRosMessageQueueUsage(cRosMessageQueue *q);
+
 /*! \brief Add a new message to the queue.
  *
  *  This function adds a new element (message) at the end of the queue. The fields of the message pointed by m will be copied
@@ -66,7 +72,7 @@ int cRosMessageQueueAdd(cRosMessageQueue *q, cRosMessage *m);
 /*! \brief Remove a message from the queue.
  *
  *  This function removes a element (message) at the start of the queue. The fields of the message at the start of the queue will be copied
- *  to the message pointed by m, so the message pointed by m can be freed independently after being used.
+ *  to the message pointed by m, so the message pointed by m should be freed independently after being used.
  *  \param q Pointer to the queue.
  *  \param m Pointer to the message where the fields of the removed message are copied.
  *  \return 0 on success, otherwise an error code: -1 = error allocating memory, -2 = No messages in the queue. If an error occurs, the

@@ -100,6 +100,7 @@ int main(int argc, char **argv)
   // We need to tell our node where to find the .msg files that we'll be using
   char path[1024];
   char *node_name;
+  int subidx; // Index (identifier) of the created subscriber
   cRosErrCodePack err_cod;
 
   if(argc>1)
@@ -111,8 +112,8 @@ int main(int argc, char **argv)
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
 
-  // Create a subscriber to topic /chatter of type "std_msgs/String" and supply a callback for received messages
-  err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, NULL);
+  // Create a subscriber to topic /chatter of type "std_msgs/String" and supply a callback for received messages (callback_sub)
+  err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, &subidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosApiRegisterSubscriber() failed; did you run this program one directory above 'rosdb'?");

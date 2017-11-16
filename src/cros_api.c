@@ -188,14 +188,22 @@ static cRosErrCodePack cRosNodeSubscriberCallback(DynBuffer *buffer, void* conte
   cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)context_;
   ret_err = cRosMessageDeserialize(context->incoming, buffer);
-  if(ret_err != CROS_SUCCESS_ERR_PACK)
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    cRosMessageQueueAdd(context->msg_queue, context->incoming);
+
+    // Cast to the appropriate public api callback and invoke it on the user context
+    SubscriberApiCallback subs_user_callback_fn = (SubscriberApiCallback)context->api_callback;
+    if(subs_user_callback_fn != NULL)
+    {
+      CallbackResponse ret_cb = subs_user_callback_fn(context->incoming, context->context);
+      if(ret_cb != 0)
+        ret_err = CROS_TOP_SUB_CALLBACK_ERR;
+    }
+  }
+  else
     cRosPrintErrCodePack(ret_err, "cRosNodeSubscriberCallback() failed decoding the received packet");
 
-  // Cast to the appropriate public api callback and invoke it on the user context
-  SubscriberApiCallback subscriberApiCallback = (SubscriberApiCallback)context->api_callback;
-  CallbackResponse ret_cb = subscriberApiCallback(context->incoming, context->context);
-  if(ret_cb != 0)
-    ret_err = CROS_TOP_SUB_CALLBACK_ERR;
 
   return ret_err;
 }
@@ -374,11 +382,12 @@ cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name
                                   status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext, tcp_nodelay);
     if(subidx >= 0) // Success
     {
-        if(subidx_ptr != NULL)
-            *subidx_ptr = subidx; // Return the index of the created service caller
+      nodeContext->msg_queue = &node->subs[subidx].msg_queue; // Allow the callback functions to access the msg queue
+      if(subidx_ptr != NULL)
+        *subidx_ptr = subidx; // Return the index of the created service caller
     }
     else
-        ret_err=CROS_MEM_ALLOC_ERR;
+      ret_err=CROS_MEM_ALLOC_ERR;
   }
   return ret_err;
 }

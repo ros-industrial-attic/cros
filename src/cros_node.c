@@ -1934,12 +1934,12 @@ int cRosUnregistrationCompleted(CrosNode *n)
 cRosErrCodePack cRosNodeWaitForAllUnregistrations(CrosNode *n)
 {
   int unreg_incomp;
-  cRosErrCodePack ret_err=CROS_SUCCESS_ERR_PACK;
-  uint64_t start_time;
+  cRosErrCodePack ret_err = CROS_SUCCESS_ERR_PACK;
+  uint64_t start_time, elapsed_time;
 
   start_time = cRosClockGetTimeMs();
-  while( start_time + CN_UNREGISTRATION_TIMEOUT > cRosClockGetTimeMs() && ret_err == CROS_SUCCESS_ERR_PACK && (unreg_incomp = !cRosUnregistrationCompleted(n)))
-    ret_err=cRosNodeDoEventsLoop( n );
+  while( (unreg_incomp = !cRosUnregistrationCompleted(n)) && (elapsed_time=cRosClockGetTimeMs()-start_time) <= CN_UNREGISTRATION_TIMEOUT && ret_err == CROS_SUCCESS_ERR_PACK)
+    ret_err=cRosNodeDoEventsLoop( n, CN_UNREGISTRATION_TIMEOUT - elapsed_time);
 
   if(ret_err == CROS_SUCCESS_ERR_PACK && unreg_incomp)
     ret_err = CROS_UNREG_TIMEOUT_ERR; // the unregistration process could not be completed
@@ -2622,7 +2622,7 @@ void printNodeProcState( CrosNode *n )
   PRINT_DEBUG("%s\n",stat_str);
 }
 
-cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n )
+cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 {
   cRosErrCodePack ret_err;
   PRINT_VDEBUG ( "cRosNodeDoEventsLoop ()\n" );
@@ -2803,7 +2803,6 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n )
     if( tcpros_listner_fd > nfds ) nfds = tcpros_listner_fd;
   }
 
-  uint64_t timeout = n->select_timeout;
   uint64_t tmp_timeout, cur_time = cRosClockGetTimeMs();
 
   if( n->xmlrpc_client_proc[0].wake_up_time_ms > cur_time )
@@ -2915,10 +2914,6 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n )
     FD_SET( rpcros_listner_fd, &err_fds);
     if( rpcros_listner_fd > nfds ) nfds = rpcros_listner_fd;
   }
-
-#ifdef DEBUG
-  assert(timeout <= n->select_timeout);
-#endif
 
   struct timeval tv = cRosClockGetTimeVal( timeout );
 
@@ -3249,8 +3244,43 @@ cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned char *exit_flag )
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
 
   while( ret_err == CROS_SUCCESS_ERR_PACK && !(*exit_flag) )
-    ret_err = cRosNodeDoEventsLoop( n );
+    ret_err = cRosNodeDoEventsLoop( n, n->select_timeout );
 
+  return ret_err;
+}
+
+cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage *msg, unsigned char *buff_overflow, unsigned long time_out)
+{
+  cRosErrCodePack ret_err;
+  SubscriberNode *subs_node;
+  uint64_t start_time, elapsed_time;
+  PRINT_VDEBUG ( "cRosNodeReceiveTopicMsg ()\n" );
+
+  if(subidx < 0 || subidx >= CN_MAX_SUBSCRIBED_TOPICS)
+    return CROS_BAD_PARAM_ERR;
+
+  subs_node = &node->subs[subidx];
+  if(subs_node->topic_name == NULL)
+    return CROS_BAD_PARAM_ERR;
+
+  if(buff_overflow != NULL)
+    *buff_overflow = subs_node->msg_queue_overflow;
+  subs_node->msg_queue_overflow = 0; // Reset overflow flag
+
+  start_time = cRosClockGetTimeMs();
+  ret_err = CROS_SUCCESS_ERR_PACK; // default return value
+  // While the buffer is empty and the timeout is not reached wait
+  while(cRosMessageQueueUsage(&subs_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK &&  (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out)
+  {
+    ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
+  }
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    if(cRosMessageQueueUsage(&subs_node->msg_queue) > 0) // If no error and there is at least one message in the queue, get the message
+      ret_err = (cRosMessageQueueRemove(&subs_node->msg_queue, msg) == 0)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
+    else
+      ret_err = CROS_RCV_TOP_TIMEOUT_ERR;
+  }
   return ret_err;
 }
 
