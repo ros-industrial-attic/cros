@@ -2099,6 +2099,7 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
   pub->callback = callback;
   pub->status_callback = status_callback;
   pub->context = data_context;
+  cRosMessageQueueClear(&pub->msg_queue);
 
   node->n_pubs++;
 
@@ -2194,7 +2195,7 @@ int cRosNodeRecruitTcprosClientProc(CrosNode *node, int subidx)
     {
       client_proc->topic_idx = subidx;
       client_proc->tcp_nodelay = (unsigned char)sub->tcp_nodelay;
-      printf("TCPROS client proc %i assigned to subs %i\n",clientidx,subidx);
+      //printf("TCPROS client proc %i assigned to subs %i\n",clientidx,subidx);
       ret=clientidx; // Exit loop
     }
   }
@@ -2273,7 +2274,7 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
   sub->context = data_context;
   sub->tcp_nodelay = (unsigned char)tcp_nodelay;
   sub->msg_queue_overflow = 0;
-  cRosMessageQueueInit(&sub->msg_queue);
+  cRosMessageQueueClear(&sub->msg_queue);
 
   node->n_subs++;
 
@@ -2923,7 +2924,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   {
     if (errno == EINTR)
     {
-      PRINT_INFO("cRosNodeDoEventsLoop() : select() returned EINTR\n");
+      PRINT_DEBUG("cRosNodeDoEventsLoop() : select() returned EINTR\n");
     }
     else
     {
@@ -2990,12 +2991,18 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
     for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS && ret_err==CROS_SUCCESS_ERR_PACK; i++ )
     {
-      if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
-            n->tcpros_server_proc[i].wake_up_time_ms <= cur_time &&
-            n->pubs[n->tcpros_server_proc[i].topic_idx].loop_period >= 0)
+      if(n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING) // TCPROS process ready to write
       {
-        n->tcpros_server_proc[i].wake_up_time_ms = cur_time + n->pubs[n->tcpros_server_proc[i].topic_idx].loop_period;
-        tcprosProcessChangeState( &(n->tcpros_server_proc[i]), TCPROS_PROCESS_STATE_START_WRITING );
+        if(n->tcpros_server_proc[i].send_msg_now != 0) // Is there a msg waiting to be sent in the queue signaled to be sent? (immediate sending)
+        {
+          tcprosProcessChangeState( &(n->tcpros_server_proc[i]), TCPROS_PROCESS_STATE_START_WRITING );
+        }
+        else if(n->tcpros_server_proc[i].wake_up_time_ms <= cur_time && // Is it time to call the callback function and send the topic msg? (periodic sending)
+                n->pubs[n->tcpros_server_proc[i].topic_idx].loop_period >= 0)
+        {
+          n->tcpros_server_proc[i].wake_up_time_ms = cur_time + n->pubs[n->tcpros_server_proc[i].topic_idx].loop_period;
+          tcprosProcessChangeState( &(n->tcpros_server_proc[i]), TCPROS_PROCESS_STATE_START_WRITING );
+        }
       }
       else if( (n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER ||
                 n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING ) &&
@@ -3009,12 +3016,18 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
     for( i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS && ret_err==CROS_SUCCESS_ERR_PACK; i++ )
     {
-      if( n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING &&
-            n->rpcros_client_proc[i].wake_up_time_ms <= cur_time &&
-            n->service_callers[n->rpcros_client_proc[i].service_idx].loop_period >= 0)
+      if( n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING) // RPCROS process ready to write
       {
-        n->rpcros_client_proc[i].wake_up_time_ms = cur_time + n->service_callers[n->rpcros_client_proc[i].service_idx].loop_period;
-        tcprosProcessChangeState( &(n->rpcros_client_proc[i]), TCPROS_PROCESS_STATE_START_WRITING );
+        if(0) // Is there a service call waiting to be sent in the buffer? (immediate calling) (not implemented yet)
+        {
+
+        }
+        else if(n->service_callers[n->rpcros_client_proc[i].service_idx].loop_period >= 0 && // Is it time to call the callback function and send the service call? (periodic calling)
+                n->rpcros_client_proc[i].wake_up_time_ms <= cur_time)
+        {
+          n->rpcros_client_proc[i].wake_up_time_ms = cur_time + n->service_callers[n->rpcros_client_proc[i].service_idx].loop_period;
+          tcprosProcessChangeState( &(n->rpcros_client_proc[i]), TCPROS_PROCESS_STATE_START_WRITING );
+        }
       }
       else if( (n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER || // Add more states to the condition???
                 n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING ) &&
@@ -3125,7 +3138,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
             tcpIpSocketSetKeepAlive( &(n->tcpros_server_proc[next_tcpros_server_i].socket ), 60, 10, 9 ) )
         {
 
-          tcprosProcessChangeState( &(n->tcpros_server_proc[next_tcpros_server_i]), TCPROS_PROCESS_STATE_READING_HEADER );
+          tcprosProcessChangeState( &(n->tcpros_server_proc[next_tcpros_server_i]), TCPROS_PROCESS_STATE_READING_HEADER ); // A TCPROS process has been activated to attend the connection
           uint64_t cur_time = cRosClockGetTimeMs();
           n->tcpros_server_proc[next_tcpros_server_i].wake_up_time_ms = cur_time;
         }
@@ -3270,17 +3283,66 @@ cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage
   start_time = cRosClockGetTimeMs();
   ret_err = CROS_SUCCESS_ERR_PACK; // default return value
   // While the buffer is empty and the timeout is not reached wait
-  while(cRosMessageQueueUsage(&subs_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK &&  (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out)
+  while(cRosMessageQueueUsage(&subs_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK && (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out)
   {
     ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
   }
   if(ret_err == CROS_SUCCESS_ERR_PACK)
   {
     if(cRosMessageQueueUsage(&subs_node->msg_queue) > 0) // If no error and there is at least one message in the queue, get the message
-      ret_err = (cRosMessageQueueRemove(&subs_node->msg_queue, msg) == 0)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
+      ret_err = (cRosMessageQueueExtract(&subs_node->msg_queue, msg) == 0)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
     else
       ret_err = CROS_RCV_TOP_TIMEOUT_ERR;
   }
+  return ret_err;
+}
+
+cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *msg, unsigned long time_out)
+{
+  cRosErrCodePack ret_err;
+  PublisherNode *pub_node;
+  uint64_t start_time, elapsed_time;
+  PRINT_VDEBUG ( "cRosNodeSendTopicMsg ()\n" );
+
+  if(pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
+    return CROS_BAD_PARAM_ERR;
+
+  pub_node = &node->pubs[pubidx];
+  if(pub_node->topic_name == NULL)
+    return CROS_BAD_PARAM_ERR;
+
+  start_time = cRosClockGetTimeMs();
+  ret_err = CROS_SUCCESS_ERR_PACK; // default return value
+  // While the buffer is full and the timeout is not reached wait
+  while(cRosMessageQueueVacancies(&pub_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK && (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out)
+  {
+    ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
+  }
+
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    if(cRosMessageQueueVacancies(&pub_node->msg_queue) > 0) // If no error and there is at space in the queue, put the new message
+    {
+      if(cRosMessageQueueAdd(&pub_node->msg_queue, msg) == 0)
+      {
+        ret_err = CROS_SUCCESS_ERR_PACK;
+
+        if(cRosMessageQueueUsage(&pub_node->msg_queue) == 1) // First message added to the queue: start sending process
+        {
+          // Set the msg sent flag of all associated processes
+          int srv_proc_ind;
+          for(srv_proc_ind=0;srv_proc_ind<CN_MAX_TCPROS_SERVER_CONNECTIONS;srv_proc_ind++)
+            if(node->tcpros_server_proc[srv_proc_ind].topic_idx == pubidx)
+              node->tcpros_server_proc[srv_proc_ind].send_msg_now = 1; // Msg must be sent now
+        }
+      }
+      else
+        ret_err = CROS_MEM_ALLOC_ERR;
+    }
+    else
+      ret_err = CROS_SEND_TOP_TIMEOUT_ERR;
+  }
+
   return ret_err;
 }
 
@@ -3489,6 +3551,7 @@ void initPublisherNode(PublisherNode *node)
   node->context = NULL;
   node->client_tcpros_id = -1;
   node->loop_period = -1; // Publication paused
+  cRosMessageQueueInit(&node->msg_queue);
 }
 
 void initSubscriberNode(SubscriberNode *node)
@@ -3501,6 +3564,8 @@ void initSubscriberNode(SubscriberNode *node)
   node->status_callback = NULL;
   node->context = NULL;
   node->tcp_nodelay = 0;
+  node->msg_queue_overflow = 0;
+  cRosMessageQueueInit(&node->msg_queue);
 }
 
 void initServiceProviderNode(ServiceProviderNode *node)
@@ -3547,6 +3612,7 @@ void cRosNodeReleasePublisher(PublisherNode *node)
   free(node->topic_name);
   free(node->topic_type);
   free(node->md5sum);
+  cRosMessageQueueRelease(&node->msg_queue);
 }
 
 void cRosNodeReleaseSubscriber(SubscriberNode *node)
@@ -3555,6 +3621,7 @@ void cRosNodeReleaseSubscriber(SubscriberNode *node)
   free(node->topic_name);
   free(node->topic_type);
   free(node->md5sum);
+  cRosMessageQueueRelease(&node->msg_queue);
 }
 
 void cRosNodeReleaseServiceProvider(ServiceProviderNode *node)

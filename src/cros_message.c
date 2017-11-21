@@ -1533,7 +1533,7 @@ int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src)
     ret=-1;
   if(ret == 0) // If no error copying MD5 field, continue
   {
-    // Assume that destination message has no fields (they are removed when cRosMessageQueueRemove() is executed)
+    // Assume that destination message has no fields (they are removed when cRosMessageQueueExtract() is executed)
     // Create a new field array in destination message
     m_dst->fields = (cRosMessageField **)calloc(m_src->n_fields, sizeof(cRosMessageField*));
     if(m_dst->fields != NULL)
@@ -1575,6 +1575,37 @@ cRosMessage *cRosMessageCopyWithoutDef(cRosMessage *m_src)
     if(m_dst != NULL)
     {
       if(cRosMessageFieldsCopy(m_dst, m_src) != 0)
+      {
+        // Error copying fields: free the new message
+        cRosMessageFree(m_dst);
+        m_dst=NULL; // Return NULL (error indicator)
+      }
+    }
+  }
+  else
+    m_dst = NULL;
+  return m_dst;
+}
+
+cRosMessage *cRosMessageCopy(cRosMessage *m_src)
+{
+  cRosMessage *m_dst;
+  if(m_src != NULL)
+  {
+    m_dst = cRosMessageNew();
+    if(m_dst != NULL)
+    {
+      if(cRosMessageFieldsCopy(m_dst, m_src) == 0)
+      {
+        cRosErrCodePack ret_err;
+        ret_err = cRosMessageDefCopy(&m_dst->msgDef, m_src->msgDef );
+        if(ret_err != CROS_SUCCESS_ERR_PACK)
+        {
+          cRosMessageFree(m_dst);
+          m_dst=NULL; // Return NULL (error indicator)
+        }
+      }
+      else
       {
         // Error copying fields: free the new message
         cRosMessageFree(m_dst);

@@ -4,7 +4,7 @@
  *  cRosMessageQueue implements a queue of TCPROS-protocol messages. This queue behaves as a
  *  FIFO (First In First Out).
  *  This queue is only stores the fields of the messages (fields fields of the struct), not the message definition (msgDef field).
- *  \author Richard R. Carrillo (of the Service-client implementation). Aging in Vision and Action lab, Institut de la Vision, Sorbonne University, Paris, France.
+ *  \author Richard R. Carrillo. Aging in Vision and Action lab, Institut de la Vision, Sorbonne University, Paris, France.
  *  \date 31 Oct 2017
  */
 
@@ -59,7 +59,7 @@ unsigned int cRosMessageQueueVacancies(cRosMessageQueue *q);
  */
 unsigned int cRosMessageQueueUsage(cRosMessageQueue *q);
 
-/*! \brief Add a new message to the queue.
+/*! \brief Add a new message at the end of the queue.
  *
  *  This function adds a new element (message) at the end of the queue. The fields of the message pointed by m will be copied
  *  in internal memory of the queue, so the message pointed by m can be freed after being added.
@@ -69,7 +69,7 @@ unsigned int cRosMessageQueueUsage(cRosMessageQueue *q);
  */
 int cRosMessageQueueAdd(cRosMessageQueue *q, cRosMessage *m);
 
-/*! \brief Remove a message from the queue.
+/*! \brief Extract the first message of the queue.
  *
  *  This function removes a element (message) at the start of the queue. The fields of the message at the start of the queue will be copied
  *  to the message pointed by m, so the message pointed by m should be freed independently after being used.
@@ -78,6 +78,35 @@ int cRosMessageQueueAdd(cRosMessageQueue *q, cRosMessage *m);
  *  \return 0 on success, otherwise an error code: -1 = error allocating memory, -2 = No messages in the queue. If an error occurs, the
  *          message is not removed from the queue.
  */
-int cRosMessageQueueRemove(cRosMessageQueue *q, cRosMessage *m);
+int cRosMessageQueueExtract(cRosMessageQueue *q, cRosMessage *m);
+
+/*! \brief Get a copy of the first message from the queue.
+ *
+ *  This function obtains the element (message) at the start of the queue. The fields of the message at the start of the queue will be copied
+ *  to the message pointed by m, so the message pointed by m should be freed independently after being used.
+ *  The queue is not modified.
+ *  \param q Pointer to the queue.
+ *  \param m Pointer to the message where the fields of the removed message are copied.
+ *  \return 0 on success, otherwise an error code: -1 = error allocating memory, -2 = No messages in the queue.
+ */
+int cRosMessageQueueGet(cRosMessageQueue *q, cRosMessage *m);
+
+/*! \brief Delete the first message from the queue.
+ *
+ *  This function removes a element (message) at the start of the queue.
+ *  \param q Pointer to the queue.
+ *  \return 0 on success, otherwise an error code: -2 = No messages in the queue.
+ */
+int cRosMessageQueueRemove(cRosMessageQueue *q);
+
+/*! \brief Get a reference of the first message from the queue.
+ *
+ *  This function obtains a pointer to the element (message) at the start of the queue. The fields of the message at the start of the queue will not
+ *  be copied, so if the message queue is modified after obtaining this pointer, the pointer become invalid.
+ *  The queue is not modified.
+ *  \param q Pointer to the queue.
+ *  \return Pointer to the first message. If the first message could not be obtained, NULL is returned.
+ */
+cRosMessage *cRosMessageQueuePeek(cRosMessageQueue *q);
 
 #endif // _CROS_MESSAGE_QUEUE_H_

@@ -327,8 +327,10 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
           strcmp(pub->md5sum, dynStringGetData(&(server_proc->md5sum))) == 0)
       {
         topic_found = 1;
-        server_proc->topic_idx = i;
+        server_proc->topic_idx = i; // Assign a topic (publisher index) to the TCPROS process
         pub->client_tcpros_id = server_idx;
+        if(cRosMessageQueueUsage(&pub->msg_queue) > 0) // Check whether there are messages waiting in the queue to be sent
+          server_proc->send_msg_now = 1;
         break;
       }
     }
@@ -478,20 +480,46 @@ void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
   *header_len_p = header_out_len;
 }
 
-cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *n, int server_idx )
+cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_idx )
 {
   cRosErrCodePack ret_err;
   PRINT_VDEBUG("cRosMessagePreparePublicationPacket()\n");
-  TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
+  TcprosProcess *server_proc = &(node->tcpros_server_proc[server_idx]);
   int pub_idx = server_proc->topic_idx;
+  PublisherNode *pub_node;
   DynBuffer *packet = &(server_proc->packet);
-  dynBufferPushBackUInt32( packet, 0 ); // Placehoder for packet size
+  dynBufferPushBackUInt32( packet, 0 ); // Placeholder for packet size
 
-  void* data_context = n->pubs[pub_idx].context;
-  ret_err = n->pubs[pub_idx].callback( packet, data_context);
+  pub_node = &node->pubs[pub_idx];
+  void* data_context = pub_node->context;
+  ret_err = pub_node->callback( packet, server_proc->send_msg_now, data_context);
 
   uint32_t packet_size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
   *(uint32_t *)packet->data = packet_size;
+
+  // The following code block manages the logic of non-periodic msg sending
+  if(server_proc->send_msg_now != 0) // A non-periodic msg has just been sent
+  {
+    server_proc->send_msg_now = 0; // Indicate that the current msg does not have to been sent anymore
+    // Check if all processes of this topic publisher have already sent the first msg in the queue. If so,
+    // delete msg from queue and activate the sending process again if more messages remain in the queue
+    int srv_proc_ind, all_proc_sent;
+    all_proc_sent = 1; // Flag indicating that all processes sent the first queue message
+    for(srv_proc_ind=0;srv_proc_ind<CN_MAX_TCPROS_SERVER_CONNECTIONS && all_proc_sent == 1;srv_proc_ind++)
+      if(node->tcpros_server_proc[srv_proc_ind].topic_idx == pub_idx && node->tcpros_server_proc[srv_proc_ind].send_msg_now != 0) // for this process the msg is pending to be sent?
+        all_proc_sent = 0; // Some process has not sent the first message yet, exit loop
+
+    if(all_proc_sent == 1) // All processes sent the first queue msg
+    {
+      cRosMessageQueueRemove(&pub_node->msg_queue); // Remove first msg from queue
+      if(cRosMessageQueueUsage(&pub_node->msg_queue) > 0) // More messages in queue, restart the sending process
+      {
+        for(srv_proc_ind=0;srv_proc_ind<CN_MAX_TCPROS_SERVER_CONNECTIONS;srv_proc_ind++)
+          if(node->tcpros_server_proc[srv_proc_ind].topic_idx == pub_idx)
+            node->tcpros_server_proc[srv_proc_ind].send_msg_now = 1;
+      }
+    }
+  }
 
   return ret_err;
 }

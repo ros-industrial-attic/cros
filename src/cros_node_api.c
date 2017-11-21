@@ -511,7 +511,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                 TcprosProcess* tcpros_proc = &n->tcpros_client_proc[client_tcpros_ind];
                 tcpros_proc->topic_idx = sub_ind;
 
-                //need to be checked because maybe the connection went down suddenly.
+                // need to be checked because maybe the connection went down suddenly.
                 if(!tcpros_proc->socket.open)
                   tcpIpSocketOpen(&(tcpros_proc->socket));
 
@@ -522,7 +522,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                   strncpy(tcpros_proc->sub_tcpros_host, tcpros_host, 100);
                   tcpros_proc->sub_tcpros_port = tcp_port_print;
                   tcprosProcessChangeState(tcpros_proc, TCPROS_PROCESS_STATE_CONNECTING);
-                  printf("HOST: %s:%i\n",tcpros_proc->sub_tcpros_host,tcpros_proc->sub_tcpros_port);
+                  // printf("HOST: %s:%i\n",tcpros_proc->sub_tcpros_host,tcpros_proc->sub_tcpros_port);
                 }
                 else
                 {

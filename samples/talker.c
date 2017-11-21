@@ -70,7 +70,7 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
       ROS_INFO(node, "Service add 2 ints response: %lld (call_count: %i)\n", (long long)sum_field->data.as_int64, call_count++);
   }
 
-  if(call_count > 100) exit_flag=1;
+  if(call_count > 10) exit_flag=1;
   return 0; // 0=success
 }
 
@@ -80,6 +80,7 @@ int main(int argc, char **argv)
   char path[1024];
   char *node_name;
   cRosErrCodePack err_cod;
+  int pubidx;
 
   if(argc>1)
     node_name=argv[1];
@@ -91,7 +92,7 @@ int main(int argc, char **argv)
   node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
 
   // Create a publisher to topic /chatter of type "std_msgs/String" and request that the associated callback be invoked every 100ms (10Hz)
-  err_cod = cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 100, callback_pub, NULL, NULL, NULL);
+  err_cod = cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 100, callback_pub, NULL, NULL, &pubidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosApiRegisterPublisher() failed; did you run this program one directory above 'rosdb'?");

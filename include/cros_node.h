@@ -110,7 +110,7 @@ typedef struct CrosNodeStatusUsr
  */
 typedef void (*NodeStatusCallback)(CrosNodeStatusUsr *status, void* context);
 
-typedef cRosErrCodePack (*PublisherCallback)(DynBuffer *buffer, void* context);
+typedef cRosErrCodePack (*PublisherCallback)(DynBuffer *buffer, int send_queue_msg, void* context);
 
 /*! Structure that define a published topic */
 struct PublisherNode
@@ -124,6 +124,7 @@ struct PublisherNode
   PublisherCallback callback;               //! The callback called to generate the (raw) packet data of type topic_type
   NodeStatusCallback status_callback;
   int loop_period;                          //! Period (in msec) for publication cycle
+  cRosMessageQueue msg_queue;               //! Messages on this topic wait in this queue to be send for every process
 };
 
 typedef cRosErrCodePack (*SubscriberCallback)(DynBuffer *buffer,  void* context);

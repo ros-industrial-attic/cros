@@ -110,35 +110,35 @@ static CallbackResponse gripperjointstate_callbacknewapi(cRosMessage *message, v
   return 0;
 }
 
-static cRosErrCodePack bool_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack bool_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   // Maps to uint8
   dynBufferPushBackUInt8( buffer, 1 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack byte_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack byte_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   // Deprecated: alias for int8
   dynBufferPushBackInt8( buffer, -3 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack char_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack char_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   // Deprecated: alias for uint8
   dynBufferPushBackUInt8( buffer, 'a' );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack duration_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack duration_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackInt32( buffer, 2 );
   dynBufferPushBackInt32( buffer, 3 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack header_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack header_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackUInt32( buffer, 2 );
   dynBufferPushBackUInt32( buffer, 6 );
@@ -148,68 +148,68 @@ static cRosErrCodePack header_pub_callback(DynBuffer *buffer, void* data_context
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack int16_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack int16_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackInt16( buffer, -1024 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack int32_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack int32_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackInt32( buffer, -10000000 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack int64_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack int64_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackInt64( buffer, -10000000001 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack int8_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack int8_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackInt8( buffer, -5 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack time_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack time_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackUInt32( buffer, 4 );
   dynBufferPushBackUInt32( buffer, 12 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack uint16_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack uint16_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackUInt16( buffer, 1024 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack uint32_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack uint32_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackUInt32( buffer, 10000000 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack uint64_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack uint64_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackUInt64( buffer, 10000000001 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack uint8_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack uint8_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackUInt8( buffer, 5 );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack float32_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack float32_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackFloat32( buffer, 0.3f );
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack float64_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack float64_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   dynBufferPushBackFloat64( buffer, 0.5 );
   return CROS_SUCCESS_ERR_PACK;
@@ -364,7 +364,7 @@ static cRosErrCodePack callback_srv_add_two_ints(DynBuffer *request, DynBuffer *
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack counter_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack counter_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   snprintf(message_buffer_counter, 100, "Increasing counter, now : %d",counter++);
   uint32_t len = (uint32_t)strlen(message_buffer_counter);
@@ -373,7 +373,7 @@ static cRosErrCodePack counter_callback(DynBuffer *buffer, void* data_context)
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack clock_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack clock_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   uint64_t cur_timer = cRosClockGetTimeMs();
   snprintf(message_buffer_clock, 100, "Time elapsed since start of node execution : %llu msec",
@@ -384,7 +384,7 @@ static cRosErrCodePack clock_callback(DynBuffer *buffer, void* data_context)
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack double_vector_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack double_vector_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   int i = 0;
   for( i = 0; i < DOUBLE_VECTOR_SIZE; i++ )
@@ -514,7 +514,7 @@ static cRosErrCodePack manyPoints_sub_callback(DynBuffer *buffer, void* data_con
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack point_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack point_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   cRosMessage *point_msg;
 
@@ -531,7 +531,7 @@ static cRosErrCodePack point_pub_callback(DynBuffer *buffer, void* data_context)
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack manyStrings_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack manyStrings_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   cRosMessage* manyStrings_msg;
 
@@ -553,7 +553,7 @@ static cRosErrCodePack manyStrings_pub_callback(DynBuffer *buffer, void* data_co
   return CROS_SUCCESS_ERR_PACK;
 }
 
-static cRosErrCodePack manyPoints_pub_callback(DynBuffer *buffer, void* data_context)
+static cRosErrCodePack manyPoints_pub_callback(DynBuffer *buffer, int non_period_msg, void* data_context)
 {
   cRosMessage *manyPoints_msg;
 

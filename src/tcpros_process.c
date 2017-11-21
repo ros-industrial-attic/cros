@@ -23,6 +23,7 @@ void tcprosProcessInit( TcprosProcess *p )
   p->left_to_recv = 0;
   p->sub_tcpros_host = NULL;
   p->sub_tcpros_port = -1;
+  p->send_msg_now = 0;
 }
 
 void tcprosProcessRelease( TcprosProcess *p )

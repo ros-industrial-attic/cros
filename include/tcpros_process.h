@@ -51,10 +51,11 @@ struct TcprosProcess
   int topic_idx;                        //! Index used to associate the process to a publisher or a subscribed
   int service_idx;                      //! Index used to associate the process to a service provider or a service client
   size_t left_to_recv;                  //! Remaining to receive
-  uint8_t ok_byte;						//! 'ok' byte send by a service provider in response to the last service request
-  int probe;							//! The current session is a probing one
+  uint8_t ok_byte;						          //! 'ok' byte send by a service provider in response to the last service request
+  int probe;							              //! The current session is a probing one
   int sub_tcpros_port;                  //! Port (obtained from a publisher node) to which the process must connect
   char *sub_tcpros_host;                //! Host (obtained from a publisher node) to which the process must connect
+  int send_msg_now;                     //! When different from 0 the publisher/caller should send the message in the buffer now (used for non-periodic sending)
 };
 
 

@@ -59,28 +59,63 @@ int cRosMessageQueueAdd(cRosMessageQueue *q, cRosMessage *m)
   }
   else
     ret=-2;
+
   return ret;
 }
 
-int cRosMessageQueueRemove(cRosMessageQueue *q, cRosMessage *m)
+int cRosMessageQueueGet(cRosMessageQueue *q, cRosMessage *m)
 {
   int ret;
   if(q->length > 0)
   {
-    cRosMessage *msg_to_remove;
-    msg_to_remove = &q->msgs[q->first_msg_ind];
-    ret = cRosMessageFieldsCopy(m, msg_to_remove);
-    if(ret==0)
-    {
-      // Delete fields from removed message
-      cRosMessageFieldsFree(msg_to_remove);
-      // The queue is internally implemented as a circular buffer
-      q->first_msg_ind = (q->first_msg_ind + 1) % MAX_QUEUE_LEN;
-      q->length--;
-    }
+    cRosMessage *msg_to_peek;
+    msg_to_peek = &q->msgs[q->first_msg_ind];
+    ret = cRosMessageFieldsCopy(m, msg_to_peek);
   }
   else
     ret=-2;
+
   return ret;
 }
 
+int cRosMessageQueueRemove(cRosMessageQueue *q)
+{
+  int ret;
+
+  if(q->length > 0)
+  {
+    cRosMessage *msg_to_remove;
+    msg_to_remove = &q->msgs[q->first_msg_ind];
+    // Delete fields from removed message
+    cRosMessageFieldsFree(msg_to_remove);
+    // The queue is internally implemented as a circular buffer
+    q->first_msg_ind = (q->first_msg_ind + 1) % MAX_QUEUE_LEN;
+    q->length--;
+  }
+  else
+    ret=-2;
+
+  return ret;
+}
+
+int cRosMessageQueueExtract(cRosMessageQueue *q, cRosMessage *m)
+{
+  int ret;
+
+  ret = cRosMessageQueueGet(q, m);
+  if(ret == 0)
+    ret = cRosMessageQueueRemove(q);
+
+  return ret;
+}
+
+cRosMessage *cRosMessageQueuePeek(cRosMessageQueue *q)
+{
+  cRosMessage *first_msg;
+  if(q->length > 0)
+    first_msg = &q->msgs[q->first_msg_ind];
+  else
+    first_msg = NULL;
+
+  return first_msg;
+}

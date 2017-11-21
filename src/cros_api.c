@@ -83,8 +83,8 @@ static void initProviderContext(ProviderContext *context)
   context->md5sum=NULL;
   context->status_callback=NULL;
   context->api_callback=NULL;
-  context->context=NULL;
   context->msg_queue=NULL;
+  context->context=NULL;
 }
 
 static void freeProviderContext(ProviderContext *context)
@@ -162,23 +162,38 @@ static cRosErrCodePack newProviderContext(const char *provider_path, ProviderTyp
   return ret_err;
 }
 
-static cRosErrCodePack cRosNodePublisherCallback(DynBuffer *buffer, void* context_)
+static cRosErrCodePack cRosNodePublisherCallback(DynBuffer *buffer, int non_period_msg, void* context_)
 {
   cRosErrCodePack ret_err;
+  CallbackResponse ret_cb;
   ProviderContext *context = (ProviderContext *)context_;
 
   // Cast to the appropriate public api callback and invoke it on the user context
   PublisherApiCallback publisherApiCallback = (SubscriberApiCallback)context->api_callback;
-  CallbackResponse ret_cb = publisherApiCallback(context->outgoing, context->context);
 
-  if(ret_cb == 0)
+  ret_err = CROS_SUCCESS_ERR_PACK; // Default return value
+  if(non_period_msg != 0) // check that a msg is available in queue and that it has not been sent by this process yet
   {
-    ret_err = cRosMessageSerialize(context->outgoing, buffer);
-    if(ret_err != CROS_SUCCESS_ERR_PACK)
-      cRosPrintErrCodePack(ret_err, "cRosNodePublisherCallback() failed encoding the packet to send");
+    if(cRosMessageQueueUsage(context->msg_queue) > 0)
+      ret_err = cRosMessageSerialize(cRosMessageQueuePeek(context->msg_queue), buffer);
+    else
+      PRINT_ERROR ( "cRosNodePublisherCallback() : There is not an available message to be sent in the queue\n");
   }
   else
-    ret_err = CROS_TOP_PUB_CALLBACK_ERR;
+  {
+    if(publisherApiCallback != NULL)
+    {
+      ret_err = CROS_SUCCESS_ERR_PACK;
+      ret_cb = publisherApiCallback(context->outgoing, context->context); // Use the callback if it is available and no msg is waiting in the queue
+      if(ret_cb == 0)
+        ret_err = cRosMessageSerialize(context->outgoing, buffer);
+      else
+        ret_err = CROS_TOP_PUB_CALLBACK_ERR;
+    }
+  }
+
+  if(ret_err != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(ret_err, "cRosNodePublisherCallback() failed encoding the packet to send");
 
   return ret_err;
 }
@@ -437,11 +452,13 @@ cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name,
                                   status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
     if(pubidx >= 0) // Success
     {
-        if(pubidx_ptr != NULL)
-            *pubidx_ptr = pubidx; // Return the index of the created service caller
+      // Allow the callback functions to access the msg queue and send-now flag
+      nodeContext->msg_queue = &node->pubs[pubidx].msg_queue;
+      if(pubidx_ptr != NULL)
+        *pubidx_ptr = pubidx; // Return the index of the created service caller
     }
     else
-        ret_err=CROS_MEM_ALLOC_ERR;
+      ret_err=CROS_MEM_ALLOC_ERR;
   }
   return ret_err;
 }
@@ -1730,6 +1747,25 @@ clean:
   freeGetParamNamesResult(ret);
   return NULL;
 }
+
+cRosMessage *cRosApiCreatePublisherMessage(CrosNode *node, int pubidx)
+{
+  cRosMessage *new_msg;
+  ProviderContext *pub_context;
+
+  if (pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
+    return NULL;
+
+  PublisherNode *pub = &node->pubs[pubidx];
+  if (pub->topic_name == NULL)
+    return NULL;
+
+  pub_context = pub->context;
+  new_msg = cRosMessageCopy(pub_context->outgoing);
+
+  return new_msg;
+}
+
 
 
 void freeLookupNodeResult(LookupNodeResult *result)
