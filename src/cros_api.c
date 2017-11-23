@@ -70,7 +70,7 @@ typedef struct ProviderContext
   char *md5sum;
   NodeStatusCallback status_callback;
   void *api_callback;
-  cRosMessageQueue *msg_queue; // It is just a reference to the queue declared in node
+  cRosMessageQueue *msg_queue; // It is just a reference to the queue declared in node. For the publisher: msgs to send. For the subscriber: msgs received. For the svc caller: first svc request and then svc response
   void *context;
 } ProviderContext;
 
@@ -168,19 +168,18 @@ static cRosErrCodePack cRosNodePublisherCallback(DynBuffer *buffer, int non_peri
   CallbackResponse ret_cb;
   ProviderContext *context = (ProviderContext *)context_;
 
-  // Cast to the appropriate public api callback and invoke it on the user context
-  PublisherApiCallback publisherApiCallback = (SubscriberApiCallback)context->api_callback;
-
   ret_err = CROS_SUCCESS_ERR_PACK; // Default return value
   if(non_period_msg != 0) // check that a msg is available in queue and that it has not been sent by this process yet
   {
     if(cRosMessageQueueUsage(context->msg_queue) > 0)
-      ret_err = cRosMessageSerialize(cRosMessageQueuePeek(context->msg_queue), buffer);
+      ret_err = cRosMessageSerialize(cRosMessageQueuePeekFirst(context->msg_queue), buffer);
     else
-      PRINT_ERROR ( "cRosNodePublisherCallback() : There is not an available message to be sent in the queue\n");
+      PRINT_ERROR ( "cRosNodePublisherCallback() : There is not an available message to be sent in the queue\n" );
   }
   else
   {
+    // Cast to the appropriate public api callback and invoke it on the user context
+    PublisherApiCallback publisherApiCallback = (SubscriberApiCallback)context->api_callback;
     if(publisherApiCallback != NULL)
     {
       ret_err = CROS_SUCCESS_ERR_PACK;
@@ -226,32 +225,56 @@ static cRosErrCodePack cRosNodeSubscriberCallback(DynBuffer *buffer, void* conte
 static cRosErrCodePack cRosNodeServiceCallerCallback(DynBuffer *request, DynBuffer *response, int call_resp_flag, void* contex_)
 {
   cRosErrCodePack ret_err;
+  CallbackResponse ret_cb;
+  ServiceCallerApiCallback svc_call_user_callback_fn;
   ProviderContext *context = (ProviderContext *)contex_;
-  if(call_resp_flag)
-  {
-    ret_err = cRosMessageDeserialize(context->incoming, response); // Deserialize the message response
-    if(ret_err != CROS_SUCCESS_ERR_PACK)
-      cRosPrintErrCodePack(ret_err, "cRosNodeServiceCallerCallback() failed decoding the received packet");
-  }
 
-  ServiceCallerApiCallback serviceCallerApiCallback = (ServiceCallerApiCallback)context->api_callback;
-  CallbackResponse ret_cb = serviceCallerApiCallback(context->outgoing, context->incoming, call_resp_flag, context->context);
+  svc_call_user_callback_fn = (ServiceCallerApiCallback)context->api_callback;
 
-  if(!call_resp_flag)
+  if(call_resp_flag) // Process service response
   {
-    if(ret_cb == 0) // The callback returned success when generating the service request: send the service request
+    // If msg_queue is empty, this is a periodic call (send msg response to callback fn), otherwise this is a non-periodic call (put msg response in the queue)
+    if(cRosMessageQueueUsage(context->msg_queue) == 0) // Periodic service call
     {
-      ret_err = cRosMessageSerialize(context->outgoing, request); // Serialize the message request
-      if(ret_err != CROS_SUCCESS_ERR_PACK)
-        cRosPrintErrCodePack(ret_err, "cRosNodeServiceCallerCallback() failed encoding the packet to send");
+      ret_err = cRosMessageDeserialize(context->incoming, response); // Deserialize the message response in incoming msg buffer
+      if(ret_err == CROS_SUCCESS_ERR_PACK)
+      {
+        if(svc_call_user_callback_fn != NULL)
+        {
+          ret_cb = svc_call_user_callback_fn(context->outgoing, context->incoming, call_resp_flag, context->context);
+          if(ret_cb != 0) // The callback indicated and error in the return value when processing the service response
+            ret_err=CROS_SVC_RES_CALLBACK_ERR;
+        }
+      }
     }
-    else
-      ret_err=CROS_SVC_REQ_CALLBACK_ERR;
+    else // Non-periodic service call
+    {
+      if(cRosMessageQueueAdd(context->msg_queue, context->incoming) == 0) // Add response msg to the queue (in case the svc was called non periodically)
+        ret_err = cRosMessageDeserialize(cRosMessageQueuePeekLast(context->msg_queue), response); // Deserialize the message response directly in queue previously-added msg
+      else
+        ret_err = CROS_MEM_ALLOC_ERR;
+    }
+    if(ret_err != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(ret_err, "cRosNodeServiceCallerCallback() failed decoding the received service response packet");
   }
-  else
+  else // Generate service request
   {
-    if(ret_cb != 0) // The callback indicated and error in the return value when processing the service response
-      ret_err=CROS_SVC_RES_CALLBACK_ERR;
+    // If msg_queue is empty, this is a periodic call (get the msg request from the callback fn), otherwise this is a non-periodic call (get msg request from the queue)
+    if(cRosMessageQueueUsage(context->msg_queue) == 0) // Periodic service call
+    {
+      if(svc_call_user_callback_fn != NULL)
+      {
+        ret_cb = svc_call_user_callback_fn(context->outgoing, context->incoming, call_resp_flag, context->context);
+        if(ret_cb == 0) // The callback returned success when generating the service request: send the service request
+          ret_err = cRosMessageSerialize(context->outgoing, request); // Serialize the message request
+        else // The callback indicated and error in the return value when generating the service request
+          ret_err = CROS_SVC_REQ_CALLBACK_ERR;
+      }
+    }
+    else // Non-periodic service call
+      ret_err = cRosMessageSerialize(cRosMessageQueuePeekFirst(context->msg_queue), request); // Serialize the message request directly from the queue msg
+    if(ret_err != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(ret_err, "cRosNodeServiceCallerCallback() failed encoding the service request packet");
   }
 
   return ret_err;
@@ -305,11 +328,12 @@ cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service
                                            nodeContext, persistent, tcp_nodelay);
     if(svcidx >= 0) // Success
     {
-        if(svcidx_ptr != NULL)
-            *svcidx_ptr = svcidx; // Return the index of the created service caller
+      if(svcidx_ptr != NULL)
+        *svcidx_ptr = svcidx; // Return the index of the created service caller
+      nodeContext->msg_queue = &node->service_callers[svcidx].msg_queue;
     }
     else
-        ret_err=CROS_MEM_ALLOC_ERR;
+      ret_err=CROS_MEM_ALLOC_ERR;
   }
   return ret_err;
 }
@@ -1752,11 +1776,12 @@ cRosMessage *cRosApiCreatePublisherMessage(CrosNode *node, int pubidx)
 {
   cRosMessage *new_msg;
   ProviderContext *pub_context;
+  PublisherNode *pub;
 
   if (pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
     return NULL;
 
-  PublisherNode *pub = &node->pubs[pubidx];
+  pub = &node->pubs[pubidx];
   if (pub->topic_name == NULL)
     return NULL;
 
@@ -1766,6 +1791,24 @@ cRosMessage *cRosApiCreatePublisherMessage(CrosNode *node, int pubidx)
   return new_msg;
 }
 
+cRosMessage *cRosApiCreateServiceCallerRequest(CrosNode *node, int svcidx)
+{
+  cRosMessage *new_msg;
+  ServiceCallerNode *svc_caller;
+  ProviderContext *caller_context;
+
+  if (svcidx < 0 || svcidx >= CN_MAX_SERVICE_CALLERS)
+    return NULL;
+
+  svc_caller = &node->service_callers[svcidx];
+  if (svc_caller->service_name == NULL)
+    return NULL;
+
+  caller_context = svc_caller->context;
+  new_msg = cRosMessageCopy(caller_context->outgoing);
+
+  return new_msg;
+}
 
 
 void freeLookupNodeResult(LookupNodeResult *result)

@@ -51,10 +51,10 @@ int cRosMessageQueueAdd(cRosMessageQueue *q, cRosMessage *m)
   int ret;
   if(q->length < MAX_QUEUE_LEN)
   {
-    unsigned int last_msg_pos;
+    unsigned int next_msg_pos;
     // The queue is internally implemented as a circular buffer
-    last_msg_pos = (q->first_msg_ind + q->length) % MAX_QUEUE_LEN;
-    ret = cRosMessageFieldsCopy(&q->msgs[last_msg_pos], m);
+    next_msg_pos = (q->first_msg_ind + q->length) % MAX_QUEUE_LEN;
+    ret = cRosMessageFieldsCopy(&q->msgs[next_msg_pos], m);
     q->length++;
   }
   else
@@ -109,7 +109,7 @@ int cRosMessageQueueExtract(cRosMessageQueue *q, cRosMessage *m)
   return ret;
 }
 
-cRosMessage *cRosMessageQueuePeek(cRosMessageQueue *q)
+cRosMessage *cRosMessageQueuePeekFirst(cRosMessageQueue *q)
 {
   cRosMessage *first_msg;
   if(q->length > 0)
@@ -118,4 +118,20 @@ cRosMessage *cRosMessageQueuePeek(cRosMessageQueue *q)
     first_msg = NULL;
 
   return first_msg;
+}
+
+cRosMessage *cRosMessageQueuePeekLast(cRosMessageQueue *q)
+{
+  cRosMessage *last_msg;
+  if(q->length > 0)
+  {
+    unsigned int last_msg_pos;
+    // The queue is internally implemented as a circular buffer
+    last_msg_pos = (q->first_msg_ind + q->length - 1) % MAX_QUEUE_LEN;
+    last_msg = &q->msgs[last_msg_pos];
+  }
+  else
+    last_msg = NULL;
+
+  return last_msg;
 }

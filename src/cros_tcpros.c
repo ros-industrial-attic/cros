@@ -483,27 +483,33 @@ void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
 cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_idx )
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG("cRosMessagePreparePublicationPacket()\n");
-  TcprosProcess *server_proc = &(node->tcpros_server_proc[server_idx]);
-  int pub_idx = server_proc->topic_idx;
   PublisherNode *pub_node;
-  DynBuffer *packet = &(server_proc->packet);
+  TcprosProcess *server_proc;
+  int pub_idx;
+  DynBuffer *packet;
+  void *data_context;
+  uint32_t packet_size;
+  PRINT_VDEBUG("cRosMessagePreparePublicationPacket()\n");
+
+  server_proc = &(node->tcpros_server_proc[server_idx]);
+  pub_idx = server_proc->topic_idx;
+  packet = &(server_proc->packet);
   dynBufferPushBackUInt32( packet, 0 ); // Placeholder for packet size
 
   pub_node = &node->pubs[pub_idx];
-  void* data_context = pub_node->context;
+  data_context = pub_node->context;
   ret_err = pub_node->callback( packet, server_proc->send_msg_now, data_context);
 
-  uint32_t packet_size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
+  packet_size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
   *(uint32_t *)packet->data = packet_size;
 
   // The following code block manages the logic of non-periodic msg sending
   if(server_proc->send_msg_now != 0) // A non-periodic msg has just been sent
   {
+    int srv_proc_ind, all_proc_sent;
     server_proc->send_msg_now = 0; // Indicate that the current msg does not have to been sent anymore
     // Check if all processes of this topic publisher have already sent the first msg in the queue. If so,
     // delete msg from queue and activate the sending process again if more messages remain in the queue
-    int srv_proc_ind, all_proc_sent;
     all_proc_sent = 1; // Flag indicating that all processes sent the first queue message
     for(srv_proc_ind=0;srv_proc_ind<CN_MAX_TCPROS_SERVER_CONNECTIONS && all_proc_sent == 1;srv_proc_ind++)
       if(node->tcpros_server_proc[srv_proc_ind].topic_idx == pub_idx && node->tcpros_server_proc[srv_proc_ind].send_msg_now != 0) // for this process the msg is pending to be sent?
@@ -942,6 +948,7 @@ cRosErrCodePack cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx
 
   void* data_context = n->service_callers[svc_idx].context;
   ret_err = n->service_callers[svc_idx].callback( packet, NULL, 0, data_context);
+  client_proc->send_msg_now = 0; // End of service call
 
   uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
   memcpy(packet->data, &size, sizeof(uint32_t));

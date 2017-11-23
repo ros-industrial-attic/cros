@@ -64,6 +64,7 @@
 
 /*!
  * Max num RPCROS connections against other service-providing nodes
+ * (service calls are one to one, so, one TcprosProcess per ServiceCallerNode)
  * */
 #define CN_MAX_RPCROS_CLIENT_CONNECTIONS CN_MAX_SERVICE_CALLERS
 
@@ -179,6 +180,7 @@ struct ServiceCallerNode
   ServiceCallerCallback callback;
   NodeStatusCallback status_callback;
   int loop_period;                          //! Period (in msec) for service-call cycle
+  cRosMessageQueue msg_queue;               //! Service requests and service responses for this service wait in this queue to be send
 };
 
 struct ParameterSubscription
@@ -319,13 +321,14 @@ CrosNode *cRosNodeCreate(char* node_name, char *node_host, char *roscore_host, u
  *          object previously crated with cRosNodeCreate()
  *
  *  \param n A pointer to the CrosNode object to be released
- *  \return Pointer to the created node on success. Otherwise NULL
+ *  \return CROS_SUCCESS_ERR_PACK (0) on success. Otherwise an error code pack containing one or more error codes
  */
 cRosErrCodePack cRosNodeDestroy( CrosNode *n );
 
 /*! \brief Perform a loop of the cROS node main cycle
  *
  *  \param n A pointer to a CrosNode object (e.g., created with cRosNodeCreate())
+ *  \param timeout Maximum time in milliseconds that this function will take to finish (it may finish before).
  *
  *  cRosNodeDoEventsLoop() perform a file-based event loop: check the read and write operation availability
  *  for considered sockets, start new write and read actions, open new connections, close dropped connections,
@@ -342,15 +345,19 @@ cRosErrCodePack cRosNodeDestroy( CrosNode *n );
  */
 cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout );
 
-/*! \brief Start the cROS node main cycle
+/*! \brief Run the cROS node for a specific time while the exit flag provided by the user is 0
  *
- *  It is an utility function that call cRosNodeDoEventsLoop() inside a endless cycle
+ *  This function repeatedly calls cRosNodeDoEventsLoop() while these three conditions are met:
+ *  No error occurs, the exit_flag variable is 0 and the timeout is not reached.
  *  \param n A pointer to a CrosNode object (e.g., created with cRosNodeCreate())
- *  \param exit Pointer to an unsigned char variable: cRosNodeStart() exit if this variable
- *              is not zero
+ *  \param time_out Time in milliseconds that this function will block running the node. If CROS_INFINITE_TIMEOUT
+ *         is specified, the function will not finish until an error occurs or the exit flag becomes different
+ *         from 0.
+ *  \param exit_flag Pointer to an unsigned char variable: the function will exit if this variable becomes
+ *         different from zero
  *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
-cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned char *exit_flag );
+cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned char *exit_flag );
 
 XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/

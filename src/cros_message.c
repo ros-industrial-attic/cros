@@ -1508,7 +1508,6 @@ int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src)
 
   if(m_src != NULL && m_src != NULL)
   {
-    m_dst->n_fields = m_src->n_fields;
     if(m_src->md5sum != NULL) // If source message has a valid MD5 field, copy it
     {
       if(m_dst->md5sum != NULL)
@@ -1533,12 +1532,15 @@ int cRosMessageFieldsCopy(cRosMessage *m_dst, cRosMessage *m_src)
     ret=-1;
   if(ret == 0) // If no error copying MD5 field, continue
   {
-    // Assume that destination message has no fields (they are removed when cRosMessageQueueExtract() is executed)
+    // Remove previous fields from destination message
+    cRosMessageFieldsFree(m_dst);
     // Create a new field array in destination message
     m_dst->fields = (cRosMessageField **)calloc(m_src->n_fields, sizeof(cRosMessageField*));
     if(m_dst->fields != NULL)
     {
       int field_ind;
+
+      m_dst->n_fields = m_src->n_fields;
       // Copy all the filed in source message while no error occurs
       for(field_ind=0;field_ind<m_src->n_fields && ret==0;field_ind++)
       {

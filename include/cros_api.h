@@ -6,6 +6,8 @@
 #include "cros_message.h"
 #include "cros_err_codes.h"
 
+#define CROS_INFINITE_TIMEOUT ~0UL
+
 typedef enum CrosTransportType
 {
   CROS_TRANSPORT_TCPROS,
@@ -381,8 +383,10 @@ cRosErrCodePack cRosApiHasParam(CrosNode *node, const char *key, HasParamCallbac
 cRosErrCodePack cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context);
 
 // Message polling
-cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage *msg, unsigned char *buff_overflow, unsigned long time_out);
-cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *msg, unsigned long time_out);
+cRosErrCodePack cRosNodeReceiveTopicMsg(CrosNode *node, int subidx, cRosMessage *msg, unsigned char *buff_overflow, unsigned long time_out);
+cRosErrCodePack cRosNodeSendTopicMsg(CrosNode *node, int pubidx, cRosMessage *msg, unsigned long time_out);
+cRosErrCodePack cRosNodeServiceCall(CrosNode *node, int svcidx, cRosMessage *req_msg, cRosMessage *resp_msg, unsigned long time_out);
 cRosMessage *cRosApiCreatePublisherMessage(CrosNode *node, int pubidx);
+cRosMessage *cRosApiCreateServiceCallerRequest(CrosNode *node, int svcidx);
 
 #endif // _CROS_API_H_

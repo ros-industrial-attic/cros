@@ -101,12 +101,22 @@ int cRosMessageQueueRemove(cRosMessageQueue *q);
 
 /*! \brief Get a reference of the first message from the queue.
  *
- *  This function obtains a pointer to the element (message) at the start of the queue. The fields of the message at the start of the queue will not
- *  be copied, so if the message queue is modified after obtaining this pointer, the pointer become invalid.
+ *  This function obtains a pointer to the element (message) at the start of the queue (oldest element). The fields of the message at the
+ *  start of the queue will not be copied, so if the message queue is modified after obtaining this pointer, the pointer become invalid.
  *  The queue is not modified.
  *  \param q Pointer to the queue.
  *  \return Pointer to the first message. If the first message could not be obtained, NULL is returned.
  */
-cRosMessage *cRosMessageQueuePeek(cRosMessageQueue *q);
+cRosMessage *cRosMessageQueuePeekFirst(cRosMessageQueue *q);
+
+/*! \brief Get a reference of the last message from the queue.
+ *
+ *  This function obtains a pointer to the element (message) at the end of the queue (newest element). The fields of this message
+ *  of the queue will not be copied, so if the message queue is modified after obtaining this pointer, the pointer become invalid.
+ *  The queue is not modified by this function.
+ *  \param q Pointer to the queue.
+ *  \return Pointer to the last message. If the last message could not be obtained, NULL is returned.
+ */
+cRosMessage *cRosMessageQueuePeekLast(cRosMessageQueue *q);
 
 #endif // _CROS_MESSAGE_QUEUE_H_

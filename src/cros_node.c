@@ -3018,9 +3018,9 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     {
       if( n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING) // RPCROS process ready to write
       {
-        if(0) // Is there a service call waiting to be sent in the buffer? (immediate calling) (not implemented yet)
+        if(n->rpcros_client_proc[i].send_msg_now != 0) // Is there a service call waiting to be sent in the buffer? (immediate calling)
         {
-
+          tcprosProcessChangeState( &(n->rpcros_client_proc[i]), TCPROS_PROCESS_STATE_START_WRITING );
         }
         else if(n->service_callers[n->rpcros_client_proc[i].service_idx].loop_period >= 0 && // Is it time to call the callback function and send the service call? (periodic calling)
                 n->rpcros_client_proc[i].wake_up_time_ms <= cur_time)
@@ -3251,13 +3251,16 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   return ret_err;
 }
 
-cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned char *exit_flag )
+cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned char *exit_flag )
 {
-  cRosErrCodePack ret_err = CROS_SUCCESS_ERR_PACK;
+  uint64_t start_time, elapsed_time;
+  cRosErrCodePack ret_err;
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
 
-  while( ret_err == CROS_SUCCESS_ERR_PACK && !(*exit_flag) )
-    ret_err = cRosNodeDoEventsLoop( n, n->select_timeout );
+  start_time = cRosClockGetTimeMs();
+  ret_err = CROS_SUCCESS_ERR_PACK;
+  while(ret_err == CROS_SUCCESS_ERR_PACK && !(*exit_flag) && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
+    ret_err = cRosNodeDoEventsLoop( n, (time_out == CROS_INFINITE_TIMEOUT)? n->select_timeout : time_out-elapsed_time);
 
   return ret_err;
 }
@@ -3283,7 +3286,7 @@ cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage
   start_time = cRosClockGetTimeMs();
   ret_err = CROS_SUCCESS_ERR_PACK; // default return value
   // While the buffer is empty and the timeout is not reached wait
-  while(cRosMessageQueueUsage(&subs_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK && (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out)
+  while(cRosMessageQueueUsage(&subs_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
   {
     ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
   }
@@ -3314,7 +3317,7 @@ cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *m
   start_time = cRosClockGetTimeMs();
   ret_err = CROS_SUCCESS_ERR_PACK; // default return value
   // While the buffer is full and the timeout is not reached wait
-  while(cRosMessageQueueVacancies(&pub_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK && (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out)
+  while(cRosMessageQueueVacancies(&pub_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
   {
     ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
   }
@@ -3327,9 +3330,9 @@ cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *m
       {
         ret_err = CROS_SUCCESS_ERR_PACK;
 
-        if(cRosMessageQueueUsage(&pub_node->msg_queue) == 1) // First message added to the queue: start sending process
+        if(cRosMessageQueueUsage(&pub_node->msg_queue) == 1) // First message added to the queue: trigger the msg sending process
         {
-          // Set the msg sent flag of all associated processes
+          // Set the msg-send flag of all associated processes
           int srv_proc_ind;
           for(srv_proc_ind=0;srv_proc_ind<CN_MAX_TCPROS_SERVER_CONNECTIONS;srv_proc_ind++)
             if(node->tcpros_server_proc[srv_proc_ind].topic_idx == pubidx)
@@ -3341,6 +3344,81 @@ cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *m
     }
     else
       ret_err = CROS_SEND_TOP_TIMEOUT_ERR;
+  }
+
+  return ret_err;
+}
+
+
+cRosErrCodePack cRosNodeServiceCall( CrosNode *node, int svcidx, cRosMessage *req_msg, cRosMessage *resp_msg, unsigned long time_out)
+{
+  cRosErrCodePack ret_err;
+  ServiceCallerNode *caller_node;
+  TcprosProcess *svc_client_proc;
+  uint64_t start_time, elapsed_time;
+  PRINT_VDEBUG ( "cRosNodeServiceCall ()\n" );
+
+  if(svcidx < 0 || svcidx >= CN_MAX_SERVICE_CALLERS)
+    return CROS_BAD_PARAM_ERR;
+
+  caller_node = &node->service_callers[svcidx];
+  if(caller_node->service_name == NULL)
+    return CROS_BAD_PARAM_ERR;
+
+  svc_client_proc = &node->rpcros_client_proc[caller_node->client_rpcros_id];
+
+
+  start_time = cRosClockGetTimeMs();
+  // Wait until the RPCROS process has finished the current call and the timeout is not reached wait
+  ret_err = CROS_SUCCESS_ERR_PACK;
+  while(svc_client_proc->state != TCPROS_PROCESS_STATE_WAIT_FOR_WRITING && ret_err == CROS_SUCCESS_ERR_PACK && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
+  {
+    ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
+  }
+
+  if(ret_err == CROS_SUCCESS_ERR_PACK && svc_client_proc->state != TCPROS_PROCESS_STATE_WAIT_FOR_WRITING)
+    ret_err = CROS_CALL_INI_TIMEOUT_ERR;
+  if(ret_err != CROS_SUCCESS_ERR_PACK)
+    return ret_err; // If an error occurred or the process is not in TCPROS_PROCESS_STATE_WAIT_FOR_WRITING state, exit
+
+  if(cRosMessageQueueUsage(&caller_node->msg_queue) > 0 || svc_client_proc->send_msg_now != 0) // Unfinished service call?
+  {
+    PRINT_ERROR ( "cRosNodeServiceCall () : The service caller is not ready to make a new call. Overwriting previous state and trying anyway...\n" );
+    cRosMessageQueueClear(&caller_node->msg_queue);
+  }
+
+  if(cRosMessageQueueAdd(&caller_node->msg_queue, req_msg) == 0)
+  {
+    svc_client_proc->send_msg_now = 1; // Set the msg-send flag of the associated process
+  }
+  else
+    ret_err = CROS_MEM_ALLOC_ERR;
+
+  // Wait while the buffer is full and the timeout is not reached
+  while(cRosMessageQueueUsage(&caller_node->msg_queue) < 2 && ret_err == CROS_SUCCESS_ERR_PACK && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
+  {
+    ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
+  }
+
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    if(cRosMessageQueueUsage(&caller_node->msg_queue) > 0 && svc_client_proc->send_msg_now == 0) // If no error and the response is in the buffer
+    {
+      cRosMessageQueueRemove(&caller_node->msg_queue); // Remove request msg from queue
+      if(resp_msg != NULL)
+      {
+        int queue_ret_val;
+        queue_ret_val = cRosMessageQueueExtract(&caller_node->msg_queue, resp_msg); // Extract response msg from queue
+        if(queue_ret_val == 0)
+          ret_err = CROS_SUCCESS_ERR_PACK;
+        else
+          ret_err = CROS_MEM_ALLOC_ERR;
+      }
+      else // The user is not interested in the service response, just remove the msg from queue
+        cRosMessageQueueRemove(&caller_node->msg_queue);
+    }
+    else
+      ret_err = CROS_CALL_SVC_TIMEOUT_ERR;
   }
 
   return ret_err;

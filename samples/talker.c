@@ -80,7 +80,7 @@ int main(int argc, char **argv)
   char path[1024];
   char *node_name;
   cRosErrCodePack err_cod;
-  int pubidx;
+  int pubidx, svcidx;
 
   if(argc>1)
     node_name=argv[1];
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
   }
 
   // Create a service caller named /sum of type "roscpp_tutorials/TwoInts" and request that the associated callback be invoked every 200ms (5Hz)
-  err_cod = cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", 200, callback_srv_add_two_ints, NULL, NULL, 1, 1, NULL);
+  err_cod = cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", 200, callback_srv_add_two_ints, NULL, NULL, 1, 1, &svcidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceCaller() failed; did you run this program one directory above 'rosdb'?");
@@ -116,7 +116,7 @@ int main(int argc, char **argv)
   float elapsed_time;
 
   gettimeofday(&start_time, NULL);
-  err_cod = cRosNodeStart( node, &exit_flag );
+  err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
   gettimeofday(&end_time, NULL);
 
   elapsed_time = (end_time.tv_sec - start_time.tv_sec) * 1000.0;    // sec to ms

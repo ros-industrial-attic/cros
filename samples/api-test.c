@@ -290,19 +290,19 @@ int main(int argc, char **argv)
   strncat(path, "/rosdb", sizeof(path));
   node = cRosNodeCreate(node_name, node_host, roscore_host, roscore_port, path, NULL);
 
-  cRosErrCodePack rc;
+  cRosErrCodePack err_cod;
   ROS_INFO(node, "cROS Node (version %.2f) created!\n", 0.9);
 
 #ifdef SUBSCRIBER
 
-  rc = cRosApiRegisterSubscriber(node, "/gripperstatus", "gripping_robot/GripperStatus",
+  err_cod = cRosApiRegisterSubscriber(node, "/gripperstatus", "gripping_robot/GripperStatus",
                                  gripperstatus_sub_callback, NULL, NULL, 0, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterSubscriber(node, "/gripperjoints", "gripping_robot/GripperJoints",
+  err_cod = cRosApiRegisterSubscriber(node, "/gripperjoints", "gripping_robot/GripperJoints",
                                  gripperjoints_sub_callback, NULL, NULL, 0, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
 #endif
@@ -313,55 +313,60 @@ Publisher Example
 
 #ifdef PUBLISHER
 
-  rc = cRosApiRegisterPublisher(node, "/gripperstatus","gripping_robot/GripperStatus",1000,
+  err_cod = cRosApiRegisterPublisher(node, "/gripperstatus","gripping_robot/GripperStatus",1000,
                                 callback_pub_gripperstatus, NULL, NULL, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterPublisher(node,"/gripperjoints","gripping_robot/GripperJoints", 1000,
+  err_cod = cRosApiRegisterPublisher(node,"/gripperjoints","gripping_robot/GripperJoints", 1000,
                                 callback_pub_gripperjoints, NULL, NULL, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
 #endif
 
 */
 
-  rc = cRosApiRegisterServiceProvider(node,"/close_clamps","gripping_robot/CloseGripper",
+  err_cod = cRosApiRegisterServiceProvider(node,"/close_clamps","gripping_robot/CloseGripper",
                                       callback_srv_close_gripper, NULL, NULL, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterServiceProvider(node,"/open_clamps","gripping_robot/OpenGripper",
+  err_cod = cRosApiRegisterServiceProvider(node,"/open_clamps","gripping_robot/OpenGripper",
                                       callback_srv_open_gripper, NULL, NULL, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterServiceProvider(node,"/park_configuration","gripping_robot/RestPosition",
+  err_cod = cRosApiRegisterServiceProvider(node,"/park_configuration","gripping_robot/RestPosition",
                                       callback_srv_rest, NULL, NULL, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterServiceProvider(node,"/reconfigure","gripping_robot/Reconfigure",
+  err_cod = cRosApiRegisterServiceProvider(node,"/reconfigure","gripping_robot/Reconfigure",
                                       callback_srv_reconfigure, NULL, NULL, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterServiceProvider(node,"/transfer","gripping_robot/Transfer",
+  err_cod = cRosApiRegisterServiceProvider(node,"/transfer","gripping_robot/Transfer",
                                       callback_srv_transfer, NULL, NULL, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
-  rc = cRosApiRegisterServiceProvider(node,"/move_arm","gripping_robot/MoveArm",
+  err_cod = cRosApiRegisterServiceProvider(node,"/move_arm","gripping_robot/MoveArm",
                                       callback_srv_move_arm, NULL, NULL, NULL);
-  if (rc != CROS_SUCCESS_ERR_PACK)
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
     return EXIT_FAILURE;
 
-  unsigned char exit = 0;
+  unsigned char exit_flag = 0;
 
-  cRosNodeStart( node, &exit );
+  err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
 
-  cRosNodeDestroy( node );
+  // All done: free memory and unregister from ROS master
+  err_cod=cRosNodeDestroy( node );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unregistering from ROS master");
 
   return EXIT_SUCCESS;
 }

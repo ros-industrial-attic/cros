@@ -176,7 +176,9 @@ int main(int argc, char **argv)
   set_signal_handler();
 
   // Run the main loop until exit_flag is 1
-  cRosNodeStart( node, &exit_flag );
+  err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
 
   // Free memory and unregister
   err_cod=cRosNodeDestroy( node );

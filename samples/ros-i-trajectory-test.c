@@ -114,11 +114,16 @@ int main(int argc, char **argv)
     if (err_cod != CROS_SUCCESS_ERR_PACK)
         return EXIT_FAILURE;
 
-    unsigned char exit = 0;
+    unsigned char exit_flag = 0;
 
-    cRosNodeStart( node, &exit );
+    err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
+    if(err_cod != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
 
-    cRosNodeDestroy( node );
+    // All done: free memory and unregister from ROS master
+    err_cod=cRosNodeDestroy( node );
+    if(err_cod != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unregistering from ROS master");
 
     return EXIT_SUCCESS;
 }

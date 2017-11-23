@@ -690,8 +690,11 @@ int main(int argc, char **argv)
 
   err_cod = cRosApiRegisterSubscriber(node, "/gripperjoints", "gripping_robot/GripperJoints",
                                  gripperjointstate_callbacknewapi, getNodeStatusCallback, NULL, 0, NULL);
-  if (err_cod != CROS_SUCCESS_ERR_PACK)
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "cRosApiRegisterSubscriber() returned an error code");
     return EXIT_FAILURE;
+  }
 
 /*
   rc = cRosNodeRegisterSubscriber(node, "float64[9] Position\n\n", "/gripperjoints", "gripping_robot/GripperJoints",
@@ -925,9 +928,16 @@ int main(int argc, char **argv)
 
 #endif // STD_MSGS_TEST
 
-  unsigned char exit = 0;
-  cRosNodeStart( node, &exit );
-  cRosNodeDestroy( node );
+  unsigned char exit_flag = 0;
+
+  err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
+
+  // All done: free memory and unregister from ROS master
+  err_cod=cRosNodeDestroy( node );
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unregistering from ROS master");
 
   return EXIT_SUCCESS;
 }
