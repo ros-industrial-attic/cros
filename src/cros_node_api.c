@@ -210,7 +210,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
               if (clean_string != NULL)
               {
-                char topic_host_addr[100];
+                char topic_host_addr[HOST_NAME_MAX+1];
                 int topic_host_port;
                 strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
                 char *progress = NULL;
@@ -268,12 +268,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                 char* hostname = strtok_r(clean_string,":",&progress);
                 if(requesting_service_caller->service_host == NULL)
                 {
-                  requesting_service_caller->service_host = (char *)calloc(100,sizeof(char)); //deleted in cRosNodeDestroy
+                  requesting_service_caller->service_host = (char *)calloc(HOST_NAME_MAX+1,sizeof(char)); //deleted in cRosNodeDestroy
                 }
 
                 if (requesting_service_caller->service_host != NULL)
                 {
-                  int rc = lookup_host(hostname, requesting_service_caller->service_host, 100*sizeof(char));
+                  int rc = lookup_host(hostname, requesting_service_caller->service_host, (HOST_NAME_MAX+1)*sizeof(char));
                   if (rc == 0)
                   {
                     requesting_service_caller->service_port = atoi(strtok_r(NULL,":",&progress));
@@ -482,7 +482,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         if( checkResponseValue( &client_proc->response ) )
         {
           int client_tcpros_ind;
-          char tcpros_host[HOST_NAME_MAX];
+          char tcpros_host[HOST_NAME_MAX+1];
           ret = 0;
 
           XmlrpcParam* param_array = xmlrpcParamVectorAt(&client_proc->response,0);
@@ -658,7 +658,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
               char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
               if (clean_string != NULL)
               {
-                char topic_host_addr[100];
+                char topic_host_addr[HOST_NAME_MAX+1];
                 int topic_host_port;
                 strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
                 char * progress = NULL;
