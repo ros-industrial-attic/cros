@@ -338,26 +338,29 @@ static void handleRpcrosServerError(CrosNode *n, int i)
   closeTcprosProcess(process);
 }
 
-static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
+static cRosErrCodePack XmlrpcClientConnect(CrosNode *n, int i)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "doWithXmlrpcClientSocket()\n" );
+  PRINT_VDEBUG ( "XmlrpcClientConnect()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   XmlrpcProcess *xmlrpc_client_proc = &(n->xmlrpc_client_proc[i]);
 
-  if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_WRITING )
+  if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_CONNECTING )
   {
-    PRINT_DEBUG ( "doWithXmlrpcClientSocket() : writing\n" );
+    PRINT_DEBUG ( "XmlrpcClientConnect() : Connecting\n" );
 
     if( !xmlrpc_client_proc->socket.connected )
     {
+      TcpIpSocketState conn_state;
+      RosApiCall *xml_call;
 
-      TcpIpSocketState conn_state = TCPIPSOCKET_FAILED;
+      if(!n->xmlrpc_client_proc[i].socket.open)
+        openXmlrpcClientSocket(n, i);
 
-      RosApiCall *call = xmlrpc_client_proc->current_call;
-      assert(call != NULL);
-      if (i == 0 || isRosMasterApi(call->method))
+      xml_call = xmlrpc_client_proc->current_call;
+      assert(xml_call != NULL);
+      if (i == 0 || isRosMasterApi(xml_call->method))
       {
     	  conn_state = tcpIpSocketConnect( &(xmlrpc_client_proc->socket),
                                        	   n->roscore_host, n->roscore_port );
@@ -365,22 +368,42 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
       else // slave api or client xmlrpc to be invoked from a subscriber
       {
         conn_state = tcpIpSocketConnect(&xmlrpc_client_proc->socket,
-                                        call->host, call->port);
+                                        xml_call->host, xml_call->port);
       }
 
-      if( conn_state == TCPIPSOCKET_IN_PROGRESS )
+      if( conn_state == TCPIPSOCKET_DONE)
       {
-        PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Wait: connection is established asynchronously\n" );
+        xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_WRITING );
+      }
+      else if( conn_state == TCPIPSOCKET_IN_PROGRESS )
+      {
+        PRINT_DEBUG ( "XmlrpcClientConnect() : Wait: connection is established asynchronously\n" );
         // Wait: connection is established asynchronously
-        return ret_err;
       }
       else if( conn_state == TCPIPSOCKET_FAILED )
       {
-        PRINT_ERROR("doWithXmlrpcClientSocket() : Client number %i can't connect\n", i);
+        PRINT_ERROR("XmlrpcClientConnect() : Client number %i can't connect\n", i);
         handleXmlrpcClientError( n, i);
-        return ret_err;
+        ret_err = CROS_XMLRPC_CLI_CONN_ERR;
       }
     }
+
+  }
+  return ret_err;
+}
+
+static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
+{
+  cRosErrCodePack ret_err;
+  XmlrpcProcess *xmlrpc_client_proc;
+  PRINT_VDEBUG ( "doWithXmlrpcClientSocket()\n" );
+
+  ret_err = XmlrpcClientConnect(n, i);
+  xmlrpc_client_proc = &(n->xmlrpc_client_proc[i]);
+
+  if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_WRITING )
+  {
+    PRINT_DEBUG ( "doWithXmlrpcClientSocket() : writing\n" );
 
     cRosApiPrepareRequest( n, i );
 
@@ -408,6 +431,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
         {
         PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure writing request\n");
         handleXmlrpcClientError( n, i );
+        ret_err = CROS_XMLRPC_CLI_WRITE_ERR;
         break;
         }
     }
@@ -454,6 +478,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
         {
         PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure reading response\n" );
         handleXmlrpcClientError( n, i );
+        ret_err = CROS_XMLRPC_CLI_READ_ERR;
         break;
         }
     }
@@ -2649,7 +2674,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   {
     RosApiCall *call = dequeueApiCall(&n->master_api_queue);
     coreproc->current_call = call;
-    xmlrpcProcessChangeState( coreproc, XMLRPC_PROCESS_STATE_WRITING );
+    xmlrpcProcessChangeState( coreproc, XMLRPC_PROCESS_STATE_CONNECTING );
   }
 
   size_t idle_client_count;
@@ -2664,7 +2689,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
     XmlrpcProcess *proc =  &n->xmlrpc_client_proc[idle_client_idx];
     proc->current_call = call;
-    xmlrpcProcessChangeState( proc, XMLRPC_PROCESS_STATE_WRITING );
+    xmlrpcProcessChangeState( proc, XMLRPC_PROCESS_STATE_CONNECTING );
 
     next_idle_client_idx++;
   }
@@ -2672,26 +2697,30 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   /* If active (not idle state), add to the select() the XMLRPC clients */
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
-    int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
     fd_set *fdset = NULL;
-    if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
+    if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_CONNECTING )
     {
+      cRosErrCodePack new_errors;
+      new_errors =  XmlrpcClientConnect(n, i);
+      ret_err = cRosAddErrCodePackIfErr(ret_err, new_errors);
+      fdset = &w_fds; // select() will acknowledge the socket connection completion in the file descriptors checked for writing
+    }
+    else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
       fdset = &w_fds;
-      if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
-    }
     else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_READING )
-    {
       fdset = &r_fds;
-      if( xmlrpc_client_fd > nfds ) nfds = xmlrpc_client_fd;
-    }
 
     if (fdset != NULL)
     {
-      if(!n->xmlrpc_client_proc[i].socket.open)
-        openXmlrpcClientSocket(n, i);
+      int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
+      if(xmlrpc_client_fd != -1)
+      {
+        if( xmlrpc_client_fd > nfds )
+          nfds = xmlrpc_client_fd;
 
-      FD_SET( xmlrpc_client_fd, fdset);
-      FD_SET( xmlrpc_client_fd, &err_fds);
+        FD_SET( xmlrpc_client_fd, fdset);
+        FD_SET( xmlrpc_client_fd, &err_fds);
+      }
     }
   }
 
@@ -2957,7 +2986,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
                                 getMethodName(call->method), &call->params, &rosproc->message );
 
           rosproc->current_call = call;
-          xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_WRITING );
+          xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_CONNECTING );
 
           // The ROS master does not warn us when then a new service is registered, so we have to
           // continuously check for the required service
@@ -3053,7 +3082,8 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       }
 
       /* Check what is the socket unblocked by the select, and start the requested operations */
-      else if( ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
+      else if( ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_CONNECTING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
+          ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
           ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_READING && FD_ISSET(xmlrpc_client_fd, &r_fds) ) )
       {
         cRosErrCodePack new_errors;
@@ -3387,7 +3417,7 @@ cRosErrCodePack cRosNodeServiceCall( CrosNode *node, int svcidx, cRosMessage *re
     cRosMessageQueueClear(&caller_node->msg_queue);
   }
 
-  if(cRosMessageQueueAdd(&caller_node->msg_queue, req_msg) == 0)
+  if(cRosMessageQueueAdd(&caller_node->msg_queue, req_msg) == 0) // Put service-call request msg in the queue
   {
     svc_client_proc->send_msg_now = 1; // Set the msg-send flag of the associated process
   }

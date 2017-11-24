@@ -22,7 +22,7 @@ CrosLog * cRosLogNew();
 void cRosLogFree(CrosLog *log);
 
 void cRosLogPrint(CrosNode* node,
-                  CrosLogLevel level,         // debug level
+                  CrosLogLevel level,   // debug level
                   const char* file,     // file the message came from
                   const char* function, // function the message came from
                   uint32_t line,

@@ -2,7 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
-#include <time.h>
+#include <sys/time.h>
 
 #include "cros_log.h"
 #include "cros_defs.h"
@@ -138,15 +138,19 @@ void cRosLogPrint(CrosNode* node,
 
   va_start(args,msg);
 
-  time_t wall_time;
+  struct timeval wall_time;
 
-  time(&wall_time);
+  if(gettimeofday(&wall_time, NULL) == -1)
+  {
+    wall_time.tv_sec = 0;
+    wall_time.tv_usec = 0;
+  }
 
 
   if(node == NULL)
   {
 
-    printf("\n[%d,%d] ", (int)wall_time, 0);
+    printf("\n[%d,%ld] ", (int)wall_time.tv_sec, (long)wall_time.tv_usec);
     size_t msg_size = strlen(msg) + 512;
 
     log_msg = calloc(msg_size + 1, sizeof(char));
@@ -188,8 +192,8 @@ void cRosLogPrint(CrosNode* node,
 
   CrosLog* log = cRosLogNew();
 
-  log->secs = wall_time;
-  log->nsecs = 0;
+  log->secs = wall_time.tv_sec;
+  log->nsecs = (uint32_t)wall_time.tv_usec;
 
   log->level = level;
 

@@ -167,7 +167,6 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
   return 1;
 }
 
-#include <string.h>
 TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned short port )
 {
   PRINT_VDEBUG ( "tcpIpSocketConnect():\n" );

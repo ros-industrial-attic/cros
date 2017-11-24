@@ -41,7 +41,10 @@
   MSG_COD_ELEM(CROS_RCV_TOP_TIMEOUT_ERR, "The specified timeout was up while waiting for a topic message") \
   MSG_COD_ELEM(CROS_SEND_TOP_TIMEOUT_ERR, "The specified timeout was up while waiting for space in the message transmission queue") \
   MSG_COD_ELEM(CROS_CALL_SVC_TIMEOUT_ERR, "The specified timeout was up while waiting for the service call response") \
-  MSG_COD_ELEM(CROS_CALL_INI_TIMEOUT_ERR, "The specified timeout was up while the service caller was waiting for the previous call to finish")
+  MSG_COD_ELEM(CROS_CALL_INI_TIMEOUT_ERR, "The specified timeout was up while the service caller was waiting for the previous call to finish") \
+  MSG_COD_ELEM(CROS_XMLRPC_CLI_CONN_ERR, "An XMLRPC client process cannot establish the connection to the taget address") \
+  MSG_COD_ELEM(CROS_XMLRPC_CLI_WRITE_ERR, "An error arised when the XMLRPC client process tried to write the request on the socket") \
+  MSG_COD_ELEM(CROS_XMLRPC_CLI_READ_ERR, "An error arised when the XMLRPC client process tried to read the response from the socket")
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 
