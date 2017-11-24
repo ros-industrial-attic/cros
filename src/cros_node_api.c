@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 
 #include "cros_node_api.h"
 #include "cros_api.h"
@@ -481,7 +482,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         if( checkResponseValue( &client_proc->response ) )
         {
           int client_tcpros_ind;
-          char tcpros_host[100];
+          char tcpros_host[HOST_NAME_MAX];
           ret = 0;
 
           XmlrpcParam* param_array = xmlrpcParamVectorAt(&client_proc->response,0);
@@ -515,11 +516,11 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                 if(!tcpros_proc->socket.open)
                   tcpIpSocketOpen(&(tcpros_proc->socket));
 
-                //set the process to open the socket with the desired host
-                tcpros_proc->sub_tcpros_host = (char *)realloc(tcpros_proc->sub_tcpros_host, 100*sizeof(char)); // If already allocated, realloc() does nothing
+                // set the process to open the socket with the desired host
+                tcpros_proc->sub_tcpros_host = (char *)realloc(tcpros_proc->sub_tcpros_host, strlen(tcpros_host)+sizeof(char)); // If already allocated, realloc() does nothing
                 if (tcpros_proc->sub_tcpros_host != NULL)
                 {
-                  strncpy(tcpros_proc->sub_tcpros_host, tcpros_host, 100);
+                  strcpy(tcpros_proc->sub_tcpros_host, tcpros_host);
                   tcpros_proc->sub_tcpros_port = tcp_port_print;
                   tcprosProcessChangeState(tcpros_proc, TCPROS_PROCESS_STATE_CONNECTING);
                   // printf("HOST: %s:%i\n",tcpros_proc->sub_tcpros_host,tcpros_proc->sub_tcpros_port);

@@ -344,178 +344,189 @@ static cRosErrCodePack XmlrpcClientConnect(CrosNode *n, int i)
   PRINT_VDEBUG ( "XmlrpcClientConnect()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
-  XmlrpcProcess *xmlrpc_client_proc = &(n->xmlrpc_client_proc[i]);
+  XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc[i]);
 
-  if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_CONNECTING )
+  PRINT_DEBUG ( "XmlrpcClientConnect() : Connecting\n" );
+
+  if( !client_proc->socket.connected )
   {
-    PRINT_DEBUG ( "XmlrpcClientConnect() : Connecting\n" );
+    TcpIpSocketState conn_state;
+    RosApiCall *xml_call;
 
-    if( !xmlrpc_client_proc->socket.connected )
+    if(!client_proc->socket.open)
+      openXmlrpcClientSocket(n, i);
+
+    xml_call = client_proc->current_call;
+    assert(xml_call != NULL);
+    if (i == 0 || isRosMasterApi(xml_call->method))
     {
-      TcpIpSocketState conn_state;
-      RosApiCall *xml_call;
-
-      if(!n->xmlrpc_client_proc[i].socket.open)
-        openXmlrpcClientSocket(n, i);
-
-      xml_call = xmlrpc_client_proc->current_call;
-      assert(xml_call != NULL);
-      if (i == 0 || isRosMasterApi(xml_call->method))
-      {
-    	  conn_state = tcpIpSocketConnect( &(xmlrpc_client_proc->socket),
-                                       	   n->roscore_host, n->roscore_port );
-      }
-      else // slave api or client xmlrpc to be invoked from a subscriber
-      {
-        conn_state = tcpIpSocketConnect(&xmlrpc_client_proc->socket,
-                                        xml_call->host, xml_call->port);
-      }
-
-      if( conn_state == TCPIPSOCKET_DONE)
-      {
-        xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_WRITING );
-      }
-      else if( conn_state == TCPIPSOCKET_IN_PROGRESS )
-      {
-        PRINT_DEBUG ( "XmlrpcClientConnect() : Wait: connection is established asynchronously\n" );
-        // Wait: connection is established asynchronously
-      }
-      else if( conn_state == TCPIPSOCKET_FAILED )
-      {
-        PRINT_ERROR("XmlrpcClientConnect() : Client number %i can't connect\n", i);
-        handleXmlrpcClientError( n, i);
-        ret_err = CROS_XMLRPC_CLI_CONN_ERR;
-      }
+      conn_state = tcpIpSocketConnect( &(client_proc->socket),
+                                         n->roscore_host, n->roscore_port );
+    }
+    else // slave api or client xmlrpc to be invoked from a subscriber
+    {
+      conn_state = tcpIpSocketConnect(&client_proc->socket,
+                                      xml_call->host, xml_call->port);
     }
 
+    if( conn_state == TCPIPSOCKET_DONE)
+    {
+      xmlrpcProcessChangeState( client_proc, XMLRPC_PROCESS_STATE_WRITING );
+    }
+    else if( conn_state == TCPIPSOCKET_IN_PROGRESS )
+    {
+      PRINT_DEBUG ( "XmlrpcClientConnect() : Wait: connection is established asynchronously\n" );
+      // Wait: connection is established asynchronously
+    }
+    else if( conn_state == TCPIPSOCKET_FAILED )
+    {
+      PRINT_ERROR("XmlrpcClientConnect() : Client number %i can't connect\n", i);
+      handleXmlrpcClientError( n, i);
+      ret_err = CROS_XMLRPC_CLI_CONN_ERR;
+    }
   }
+
   return ret_err;
 }
 
 static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
 {
   cRosErrCodePack ret_err;
-  XmlrpcProcess *xmlrpc_client_proc;
+  XmlrpcProcess *client_proc;
   PRINT_VDEBUG ( "doWithXmlrpcClientSocket()\n" );
 
-  ret_err = XmlrpcClientConnect(n, i);
-  xmlrpc_client_proc = &(n->xmlrpc_client_proc[i]);
+  ret_err = CROS_SUCCESS_ERR_PACK;
+  client_proc = &(n->xmlrpc_client_proc[i]);
 
-  if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_WRITING )
+  switch( client_proc->state )
   {
-    PRINT_DEBUG ( "doWithXmlrpcClientSocket() : writing\n" );
-
-    cRosApiPrepareRequest( n, i );
-
-    TcpIpSocketState sock_state =  tcpIpSocketWriteString( &(xmlrpc_client_proc->socket),
-                                                           &(xmlrpc_client_proc->message) );
-    switch ( sock_state )
+    case XMLRPC_PROCESS_STATE_CONNECTING:
     {
-      case TCPIPSOCKET_DONE:
-        {
-        // NB: Node release is done by handleApiCallAttempt when the ros master response is received
-        xmlrpcProcessClear(xmlrpc_client_proc, 0);
-        xmlrpcProcessChangeState( xmlrpc_client_proc, XMLRPC_PROCESS_STATE_READING );
-        break;
-        }
-
-      case TCPIPSOCKET_IN_PROGRESS:
-		{
-        PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Write in progress...\n" );
-        break;
-        }
-
-      case TCPIPSOCKET_DISCONNECTED:
-      case TCPIPSOCKET_FAILED:
-      default:
-        {
-        PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure writing request\n");
-        handleXmlrpcClientError( n, i );
-        ret_err = CROS_XMLRPC_CLI_WRITE_ERR;
-        break;
-        }
+      ret_err = XmlrpcClientConnect(n, i);
+      break;
     }
-  }
-  else if( xmlrpc_client_proc->state == XMLRPC_PROCESS_STATE_READING )
-  {
-    PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Reading()\n" );
-    TcpIpSocketState sock_state = tcpIpSocketReadString( &xmlrpc_client_proc->socket,
-                                                         &xmlrpc_client_proc->message );
-    //printf("%s\n", xmlrpc_client_proc->message.data);
-    XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
-
-    int disconnected = 0;
-    switch ( sock_state )
+    case XMLRPC_PROCESS_STATE_WRITING:
     {
-      case TCPIPSOCKET_DONE:
-        {
-        parser_state = parseXmlrpcMessage( &xmlrpc_client_proc->message,
-                                           &xmlrpc_client_proc->message_type,
-                                           NULL,
-                                           &xmlrpc_client_proc->response,
-                                           xmlrpc_client_proc->host,
-                                           &xmlrpc_client_proc->port);
-        break;
-        }
+      PRINT_DEBUG ( "doWithXmlrpcClientSocket() : writing\n" );
 
-      case TCPIPSOCKET_IN_PROGRESS:
-        break;
+      cRosApiPrepareRequest( n, i );
 
-      case TCPIPSOCKET_DISCONNECTED:
-        {
-        parser_state = parseXmlrpcMessage( &xmlrpc_client_proc->message,
-                                           &xmlrpc_client_proc->message_type,
-                                           NULL,
-                                           &xmlrpc_client_proc->response,
-                                           xmlrpc_client_proc->host,
-                                           &xmlrpc_client_proc->port);
-        disconnected = 1;
-        break;
-    }
+      TcpIpSocketState sock_state =  tcpIpSocketWriteString( &(client_proc->socket),
+                                                             &(client_proc->message) );
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          {
+          // NB: Node release is done by handleApiCallAttempt when the ros master response is received
+          xmlrpcProcessClear(client_proc, 0);
+          xmlrpcProcessChangeState( client_proc, XMLRPC_PROCESS_STATE_READING );
+          break;
+          }
 
-      case TCPIPSOCKET_FAILED:
-      default:
-        {
-        PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure reading response\n" );
-        handleXmlrpcClientError( n, i );
-        ret_err = CROS_XMLRPC_CLI_READ_ERR;
-        break;
-        }
-    }
+        case TCPIPSOCKET_IN_PROGRESS:
+      {
+          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Write in progress...\n" );
+          break;
+          }
 
-    switch ( parser_state )
-    {
-      case XMLRPC_PARSER_DONE:
-        {
-        PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
-
-        int rc = cRosApiParseResponse( n, i );
-        handleApiCallAttempt(n, xmlrpc_client_proc->current_call);
-        if (rc != 0)
-        {
+        case TCPIPSOCKET_DISCONNECTED:
+        case TCPIPSOCKET_FAILED:
+        default:
+          {
+          PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure writing request\n");
           handleXmlrpcClientError( n, i );
-        }
-        else
-        {
-          cleanApiCallState(n, xmlrpc_client_proc->current_call);
-          closeXmlrpcProcess(xmlrpc_client_proc);
-        }
-        break;
-        }
+          ret_err = CROS_XMLRPC_CLI_WRITE_ERR;
+          break;
+          }
+      }
+      break;
+    }
+    case XMLRPC_PROCESS_STATE_READING:
+    {
+      PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Reading()\n" );
+      TcpIpSocketState sock_state = tcpIpSocketReadString( &client_proc->socket,
+                                                           &client_proc->message );
+      //printf("%s\n", client_proc->message.data);
+      XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
 
-      case XMLRPC_PARSER_INCOMPLETE:
-        {
-        if (disconnected)
+      int disconnected = 0;
+      switch ( sock_state )
+      {
+        case TCPIPSOCKET_DONE:
+          {
+          parser_state = parseXmlrpcMessage( &client_proc->message,
+                                             &client_proc->message_type,
+                                             NULL,
+                                             &client_proc->response,
+                                             client_proc->host,
+                                             &client_proc->port);
+          break;
+          }
+
+        case TCPIPSOCKET_IN_PROGRESS:
+          break;
+
+        case TCPIPSOCKET_DISCONNECTED:
+          {
+          parser_state = parseXmlrpcMessage( &client_proc->message,
+                                             &client_proc->message_type,
+                                             NULL,
+                                             &client_proc->response,
+                                             client_proc->host,
+                                             &client_proc->port);
+          disconnected = 1;
+          break;
+      }
+
+        case TCPIPSOCKET_FAILED:
+        default:
+          {
+          PRINT_ERROR("doWithXmlrpcClientSocket() : Unexpected failure reading response\n" );
           handleXmlrpcClientError( n, i );
-        break;
-        }
+          ret_err = CROS_XMLRPC_CLI_READ_ERR;
+          break;
+          }
+      }
 
-      case XMLRPC_PARSER_ERROR:
-      default:
-        {
-        handleXmlrpcClientError( n, i );
-        break;
-        }
+      switch ( parser_state )
+      {
+        case XMLRPC_PARSER_DONE:
+          {
+          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
+
+          int rc = cRosApiParseResponse( n, i );
+          handleApiCallAttempt(n, client_proc->current_call);
+          if (rc != 0)
+          {
+            handleXmlrpcClientError( n, i );
+          }
+          else
+          {
+            cleanApiCallState(n, client_proc->current_call);
+            closeXmlrpcProcess(client_proc);
+          }
+          break;
+          }
+
+        case XMLRPC_PARSER_INCOMPLETE:
+          {
+          if (disconnected)
+            handleXmlrpcClientError( n, i );
+          break;
+          }
+
+        case XMLRPC_PARSER_ERROR:
+        default:
+          {
+          handleXmlrpcClientError( n, i );
+          break;
+          }
+      }
+      break;
+    }
+    default:
+    {
+      PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Invalid XMLRPC process state\n" );
     }
   }
   return ret_err;
@@ -619,47 +630,59 @@ static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
   return ret_err;
 }
 
+static cRosErrCodePack TcprosClientConnect( CrosNode *n, int client_idx)
+{
+  cRosErrCodePack ret_err;
+  PRINT_VDEBUG ( "TcprosClientConnect()\n" );
+
+  ret_err = CROS_SUCCESS_ERR_PACK;
+  TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
+
+  if(!client_proc->socket.open)
+    openTcprosClientSocket(n, client_idx);
+
+  tcprosProcessClear( client_proc, 0 ); // clear packet buffer and variable indicating bytes left to receive (left_to_recv)
+  TcpIpSocketState conn_state = tcpIpSocketConnect( &(client_proc->socket),
+                                       client_proc->sub_tcpros_host, client_proc->sub_tcpros_port );
+  switch (conn_state)
+  {
+    case TCPIPSOCKET_DONE:
+    {
+      tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
+      break;
+    }
+    case TCPIPSOCKET_IN_PROGRESS:
+    {
+      PRINT_DEBUG ( "TcprosClientConnect() : Wait: connection is established asynchronously\n" );
+      // Wait: connection is established asynchronously
+      break;
+    }
+    default:
+    case TCPIPSOCKET_FAILED:
+    {
+      PRINT_DEBUG ( "TcprosClientConnect() : error\n" );
+      handleTcprosClientError( n, client_idx);
+      ret_err = CROS_TCPROS_CLI_CONN_ERR;
+      break;
+    }
+  }
+
+  return ret_err;
+}
+
 static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "doWithTcprosSubscriberNode()\n" );
+  PRINT_VDEBUG ( "doWithTcprosClientSocket()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
 
   switch ( client_proc->state )
   {
-    case  TCPROS_PROCESS_STATE_CONNECTING:
+    case TCPROS_PROCESS_STATE_CONNECTING:
     {
-      tcprosProcessClear( client_proc, 0 );
-      TcpIpSocketState conn_state = tcpIpSocketConnect( &(client_proc->socket),
-                                           client_proc->sub_tcpros_host, client_proc->sub_tcpros_port );
-      switch (conn_state)
-      {
-        case TCPIPSOCKET_DONE:
-        {
-          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
-          break;
-        }
-        case TCPIPSOCKET_IN_PROGRESS:
-        {
-          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Wait: connection is established asynchronously\n" );
-          // Wait: connection is established asynchronously
-          break;
-        }
-        case TCPIPSOCKET_FAILED:
-        {
-          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : error\n" );
-          handleTcprosClientError( n, client_idx);
-          break;
-        }
-        default:
-        {
-          assert(0);
-          break;
-        }
-      }
-
+      ret_err = TcprosClientConnect( n, client_idx);
       break;
     }
     case TCPROS_PROCESS_STATE_WRITING_HEADER:
@@ -668,7 +691,6 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
 
       TcpIpSocketState sock_state =  tcpIpSocketWriteBuffer( &(client_proc->socket),
                                                            &(client_proc->packet) );
-
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
@@ -841,8 +863,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
     }
     default:
     {
-      // Invalid flow
-      assert(0);
+      PRINT_ERROR( "doWithTcprosClientSocket() : Invalid TCPROS process state\n" );
     }
 
   }
@@ -2769,25 +2790,39 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   int next_tcpros_client_i = -1; // Unused ???
   for(i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++)
   {
-    int tcpros_client_fd = tcpIpSocketGetFD( &(n->tcpros_client_proc[i].socket) );
+    TcprosProcess *client_proc = &(n->tcpros_client_proc[i]);
+    int tcpros_client_fd;
 
     if( next_tcpros_client_i < 0 &&
         i != 0 && //the zero-index is reserved to the roscore communications
-        n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_IDLE )
+        client_proc->state == TCPROS_PROCESS_STATE_IDLE )
     {
       next_tcpros_client_i = i;
     }
-    else if(n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER)
+    else if(client_proc->state == TCPROS_PROCESS_STATE_CONNECTING)
     {
+      cRosErrCodePack new_errors;
+      new_errors =  TcprosClientConnect(n, i);
+      ret_err = cRosAddErrCodePackIfErr(ret_err, new_errors);
+
+      tcpros_client_fd = tcpIpSocketGetFD( &(client_proc->socket) );
       FD_SET( tcpros_client_fd, &w_fds);
       FD_SET( tcpros_client_fd, &err_fds);
       if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
     }
-    else if(n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
-            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER ||
-            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING_SIZE ||
-            n->tcpros_client_proc[i].state == TCPROS_PROCESS_STATE_READING)
+    else if(client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER)
     {
+      tcpros_client_fd = tcpIpSocketGetFD( &(client_proc->socket) );
+      FD_SET( tcpros_client_fd, &w_fds);
+      FD_SET( tcpros_client_fd, &err_fds);
+      if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
+    }
+    else if(client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
+            client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER ||
+            client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE ||
+            client_proc->state == TCPROS_PROCESS_STATE_READING)
+    {
+      tcpros_client_fd = tcpIpSocketGetFD( &(client_proc->socket) );
       FD_SET( tcpros_client_fd, &r_fds);
       FD_SET( tcpros_client_fd, &err_fds);
       if( tcpros_client_fd > nfds ) nfds = tcpros_client_fd;
@@ -3139,7 +3174,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
         handleTcprosClientError( n, i );
       }
 
-      if( client_proc->state == TCPROS_PROCESS_STATE_CONNECTING ||
+      if( (client_proc->state == TCPROS_PROCESS_STATE_CONNECTING && FD_ISSET(tcpros_client_fd, &w_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER && FD_ISSET(tcpros_client_fd, &w_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
