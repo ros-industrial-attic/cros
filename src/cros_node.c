@@ -338,15 +338,15 @@ static void handleRpcrosServerError(CrosNode *n, int i)
   closeTcprosProcess(process);
 }
 
-static cRosErrCodePack XmlrpcClientConnect(CrosNode *n, int i)
+static cRosErrCodePack xmlrpcClientConnect(CrosNode *n, int i)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "XmlrpcClientConnect()\n" );
+  PRINT_VDEBUG ( "xmlrpcClientConnect()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc[i]);
 
-  PRINT_DEBUG ( "XmlrpcClientConnect() : Connecting\n" );
+  PRINT_DEBUG ( "xmlrpcClientConnect() : Connecting\n" );
 
   if( !client_proc->socket.connected )
   {
@@ -375,12 +375,12 @@ static cRosErrCodePack XmlrpcClientConnect(CrosNode *n, int i)
     }
     else if( conn_state == TCPIPSOCKET_IN_PROGRESS )
     {
-      PRINT_DEBUG ( "XmlrpcClientConnect() : Wait: connection is established asynchronously\n" );
+      PRINT_DEBUG ( "xmlrpcClientConnect() : Wait: connection is established asynchronously\n" );
       // Wait: connection is established asynchronously
     }
     else if( conn_state == TCPIPSOCKET_FAILED )
     {
-      PRINT_ERROR("XmlrpcClientConnect() : Client number %i can't connect\n", i);
+      PRINT_ERROR("xmlrpcClientConnect() : Client number %i can't connect\n", i);
       handleXmlrpcClientError( n, i);
       ret_err = CROS_XMLRPC_CLI_CONN_ERR;
     }
@@ -402,7 +402,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
   {
     case XMLRPC_PROCESS_STATE_CONNECTING:
     {
-      ret_err = XmlrpcClientConnect(n, i);
+      ret_err = xmlrpcClientConnect(n, i);
       break;
     }
     case XMLRPC_PROCESS_STATE_WRITING:
@@ -630,10 +630,10 @@ static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
   return ret_err;
 }
 
-static cRosErrCodePack TcprosClientConnect( CrosNode *n, int client_idx)
+static cRosErrCodePack tcprosClientConnect( CrosNode *n, int client_idx)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "TcprosClientConnect()\n" );
+  PRINT_VDEBUG ( "tcprosClientConnect()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
@@ -653,14 +653,14 @@ static cRosErrCodePack TcprosClientConnect( CrosNode *n, int client_idx)
     }
     case TCPIPSOCKET_IN_PROGRESS:
     {
-      PRINT_DEBUG ( "TcprosClientConnect() : Wait: connection is established asynchronously\n" );
+      PRINT_DEBUG ( "tcprosClientConnect() : Wait: connection is established asynchronously\n" );
       // Wait: connection is established asynchronously
       break;
     }
     default:
     case TCPIPSOCKET_FAILED:
     {
-      PRINT_DEBUG ( "TcprosClientConnect() : error\n" );
+      PRINT_DEBUG ( "tcprosClientConnect() : error\n" );
       handleTcprosClientError( n, client_idx);
       ret_err = CROS_TCPROS_CLI_CONN_ERR;
       break;
@@ -682,7 +682,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
   {
     case TCPROS_PROCESS_STATE_CONNECTING:
     {
-      ret_err = TcprosClientConnect( n, client_idx);
+      ret_err = tcprosClientConnect( n, client_idx);
       break;
     }
     case TCPROS_PROCESS_STATE_WRITING_HEADER:
@@ -958,6 +958,50 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
   return ret_err;
 }
 
+static cRosErrCodePack rpcrosClientConnect(CrosNode *n, int client_idx)
+{
+  cRosErrCodePack ret_err;
+  PRINT_VDEBUG ( "rpcrosClientConnect()\n" );
+
+  ret_err = CROS_SUCCESS_ERR_PACK;
+  TcprosProcess *client_proc = &(n->rpcros_client_proc[client_idx]);
+
+  if(!client_proc->socket.open)
+    openRpcrosClientSocket(n, client_idx);
+
+  ServiceCallerNode *service_caller = &(n->service_callers[client_proc->service_idx]);
+  tcprosProcessClear( client_proc, 0 );
+  TcpIpSocketState conn_state = tcpIpSocketConnect( &(client_proc->socket), service_caller->service_host, service_caller->service_port );
+  switch (conn_state)
+  {
+    case TCPIPSOCKET_DONE:
+    {
+      tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
+      break;
+    }
+    case TCPIPSOCKET_IN_PROGRESS:
+    {
+      PRINT_DEBUG ( "rpcrosClientConnect() : Wait: connection is established asynchronously\n" );
+      // Wait: connection is established asynchronously
+      break;
+    }
+    case TCPIPSOCKET_FAILED:
+    {
+      PRINT_DEBUG ( "rpcrosClientConnect() : error\n" );
+      handleRpcrosClientError( n, client_idx);
+      ret_err = CROS_RPCROS_CLI_CONN_ERR;
+      break;
+    }
+    default:
+    {
+      PRINT_DEBUG ( "rpcrosClientConnect() : invalid connection state\n" );
+      break;
+    }
+  }
+
+  return ret_err;
+}
+
 static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
 {
   cRosErrCodePack ret_err;
@@ -970,35 +1014,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
   {
     case  TCPROS_PROCESS_STATE_CONNECTING:
     {
-      ServiceCallerNode *service_caller = &(n->service_callers[client_proc->service_idx]);
-      tcprosProcessClear( client_proc, 0 );
-      TcpIpSocketState conn_state = tcpIpSocketConnect( &(client_proc->socket), service_caller->service_host, service_caller->service_port );
-      switch (conn_state)
-      {
-        case TCPIPSOCKET_DONE:
-        {
-          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
-          break;
-        }
-        case TCPIPSOCKET_IN_PROGRESS:
-        {
-          PRINT_DEBUG ( "doWithRpcrosClientSocket() : Wait: connection is established asynchronously\n" );
-          // Wait: connection is established asynchronously
-          break;
-        }
-        case TCPIPSOCKET_FAILED:
-        {
-          PRINT_DEBUG ( "doWithRpcrosClientSocket() : error\n" );
-          handleRpcrosClientError( n, client_idx);
-          break;
-        }
-        default:
-        {
-          assert(0);
-          break;
-        }
-      }
-
+      ret_err = rpcrosClientConnect(n, client_idx);
       break;
     }
     case TCPROS_PROCESS_STATE_WRITING_HEADER:
@@ -1242,8 +1258,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
     }
     default:
     {
-      // Invalid flow
-      assert(0);
+      PRINT_ERROR ( "doWithRpcrosClientSocket() : Invalid RPC ROS process state\n" );
     }
 
   }
@@ -2722,7 +2737,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_CONNECTING )
     {
       cRosErrCodePack new_errors;
-      new_errors =  XmlrpcClientConnect(n, i);
+      new_errors =  xmlrpcClientConnect(n, i);
       ret_err = cRosAddErrCodePackIfErr(ret_err, new_errors);
       fdset = &w_fds; // select() will acknowledge the socket connection completion in the file descriptors checked for writing
     }
@@ -2775,9 +2790,12 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   /* If one XMLRPC server is active at least, add to the select() the listener socket */
   if( next_xmlrpc_server_i >= 0)
   {
-    FD_SET( xmlrpc_listner_fd, &r_fds);
-    FD_SET( xmlrpc_listner_fd, &err_fds);
-    if( xmlrpc_listner_fd > nfds ) nfds = xmlrpc_listner_fd;
+    if(xmlrpc_listner_fd != -1) // If the listener socket is still opened
+    {
+      FD_SET( xmlrpc_listner_fd, &r_fds);
+      FD_SET( xmlrpc_listner_fd, &err_fds);
+      if( xmlrpc_listner_fd > nfds ) nfds = xmlrpc_listner_fd;
+    }
   }
 
   /*
@@ -2802,7 +2820,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     else if(client_proc->state == TCPROS_PROCESS_STATE_CONNECTING)
     {
       cRosErrCodePack new_errors;
-      new_errors =  TcprosClientConnect(n, i);
+      new_errors =  tcprosClientConnect(n, i);
       ret_err = cRosAddErrCodePackIfErr(ret_err, new_errors);
 
       tcpros_client_fd = tcpIpSocketGetFD( &(client_proc->socket) );
@@ -2863,9 +2881,12 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   /* If one TCPROS server is available at least, add to the select() the listener socket */
   if( next_tcpros_server_i >= 0)
   {
-    FD_SET( tcpros_listner_fd, &r_fds);
-    FD_SET( tcpros_listner_fd, &err_fds);
-    if( tcpros_listner_fd > nfds ) nfds = tcpros_listner_fd;
+    if(tcpros_listner_fd != -1) // If the listener socket is still opened
+    {
+      FD_SET( tcpros_listner_fd, &r_fds);
+      FD_SET( tcpros_listner_fd, &err_fds);
+      if( tcpros_listner_fd > nfds ) nfds = tcpros_listner_fd;
+    }
   }
 
   uint64_t tmp_timeout, cur_time = cRosClockGetTimeMs();
@@ -2901,9 +2922,21 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   /* If active (not idle state), add to the select() the TCPROS clients */
   for(i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++)
   {
-    int rpcros_client_fd = tcpIpSocketGetFD( &(n->rpcros_client_proc[i].socket) );
+    int rpcros_client_fd;
 
-    if(n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER ||
+    rpcros_client_fd = tcpIpSocketGetFD( &(n->rpcros_client_proc[i].socket) );
+    if(n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_CONNECTING)
+    {
+      cRosErrCodePack new_errors;
+      new_errors =  rpcrosClientConnect(n, i);
+      ret_err = cRosAddErrCodePackIfErr(ret_err, new_errors);
+
+      rpcros_client_fd = tcpIpSocketGetFD( &(n->rpcros_client_proc[i].socket) ); // update file descriptor after connecting
+      FD_SET( rpcros_client_fd, &w_fds);
+      FD_SET( rpcros_client_fd, &err_fds);
+      if( rpcros_client_fd > nfds ) nfds = rpcros_client_fd;
+    }
+    else if(n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING_HEADER ||
        n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_START_WRITING ||
        n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING)
     {
@@ -2975,9 +3008,12 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   /* If one RPCROS server is available at least, add to the select() the listner socket */
   if( next_rpcros_server_i >= 0)
   {
-    FD_SET( rpcros_listner_fd, &r_fds);
-    FD_SET( rpcros_listner_fd, &err_fds);
-    if( rpcros_listner_fd > nfds ) nfds = rpcros_listner_fd;
+    if(rpcros_listner_fd != -1) // If the listener socket is still opened
+    {
+      FD_SET( rpcros_listner_fd, &r_fds);
+      FD_SET( rpcros_listner_fd, &err_fds);
+      if( rpcros_listner_fd > nfds ) nfds = rpcros_listner_fd;
+    }
   }
 
   struct timeval tv = cRosClockGetTimeVal( timeout );
@@ -3234,21 +3270,22 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       TcprosProcess *client_proc = &(n->rpcros_client_proc[i]);
       int rpcros_client_fd = tcpIpSocketGetFD( &(client_proc->socket) );
 
-      if( ( client_proc->state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING ||
-            client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER ||
-            client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE ||
-            client_proc->state == TCPROS_PROCESS_STATE_READING ||
-            client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
-            client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER ||
-            client_proc->state == TCPROS_PROCESS_STATE_START_WRITING ||
-            client_proc->state == TCPROS_PROCESS_STATE_WRITING )
-          && FD_ISSET(rpcros_client_fd, &err_fds) )
+      if( (client_proc->state == TCPROS_PROCESS_STATE_CONNECTING ||
+           client_proc->state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING ||
+           client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER ||
+           client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE ||
+           client_proc->state == TCPROS_PROCESS_STATE_READING ||
+           client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
+           client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER ||
+           client_proc->state == TCPROS_PROCESS_STATE_START_WRITING ||
+           client_proc->state == TCPROS_PROCESS_STATE_WRITING )
+           && FD_ISSET(rpcros_client_fd, &err_fds) )
       {
         PRINT_ERROR ( "cRosNodeDoEventsLoop() : RPCROS Client error\n" );
         handleRpcrosClientError( n, i );
       }
 
-      if( client_proc->state == TCPROS_PROCESS_STATE_CONNECTING ||
+      if( ( client_proc->state == TCPROS_PROCESS_STATE_CONNECTING && FD_ISSET(rpcros_client_fd, &w_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER && FD_ISSET(rpcros_client_fd, &w_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE && FD_ISSET(rpcros_client_fd, &r_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING && FD_ISSET(rpcros_client_fd, &r_fds) ) ||

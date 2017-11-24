@@ -45,7 +45,8 @@
   MSG_COD_ELEM(CROS_XMLRPC_CLI_CONN_ERR, "An XMLRPC client process could not establish the connection to the target address") \
   MSG_COD_ELEM(CROS_XMLRPC_CLI_WRITE_ERR, "An error arised when the XMLRPC client process tried to write the request on the socket") \
   MSG_COD_ELEM(CROS_XMLRPC_CLI_READ_ERR, "An error arised when the XMLRPC client process tried to read the response from the socket") \
-  MSG_COD_ELEM(CROS_TCPROS_CLI_CONN_ERR, "A TCPROS client process could not establish the connection to the target address")
+  MSG_COD_ELEM(CROS_TCPROS_CLI_CONN_ERR, "A TCPROS client process could not establish the connection to the target address") \
+  MSG_COD_ELEM(CROS_RPCROS_CLI_CONN_ERR, "A RPCROS client process could not establish the connection to the target address")
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 
