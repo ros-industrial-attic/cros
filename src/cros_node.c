@@ -2793,7 +2793,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   /* If one XMLRPC server is active at least, add to the select() the listener socket */
   if( next_xmlrpc_server_i >= 0)
   {
-    if(xmlrpc_listner_fd != -1) // If the listener socket is still opened
+    if(xmlrpc_listner_fd != -1) // If the listener socket is still opened, add it to the select() file descriptors
     {
       FD_SET( xmlrpc_listner_fd, &r_fds);
       FD_SET( xmlrpc_listner_fd, &err_fds);

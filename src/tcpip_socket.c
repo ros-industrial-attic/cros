@@ -143,12 +143,22 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
     return 0;
   }
 
+  // TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE option on OSX
+  // see https://www.winehq.org/pipermail/wine-devel/2015-July/108583.html
   val = idle;
+#ifdef __APPLE__
+  if ( setsockopt(skt, IPPROTO_TCP, TCP_KEEPALIVE, &val, sizeof ( val ) ) != 0 )
+  {
+    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPALIVE option failed \n" );
+    return 0;
+  }
+#else
   if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof ( val ) ) != 0 )
   {
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with SO_KEEPALIVE option failed \n" );
     return 0;
   }
+#endif
 
   val = interval;
   if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof ( val ) ) != 0 )
