@@ -1,9 +1,7 @@
 #include <stdio.h>
-#include <malloc.h>
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <assert.h>
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
@@ -357,7 +355,12 @@ static cRosErrCodePack xmlrpcClientConnect(CrosNode *n, int i)
       openXmlrpcClientSocket(n, i);
 
     xml_call = client_proc->current_call;
-    assert(xml_call != NULL);
+    if(xml_call == NULL)
+    {
+      PRINT_ERROR ( "xmlrpcClientConnect() : Invalid XMLRPC call\n" );
+      return CROS_UNSPECIFIED_ERR;
+    }
+
     if (i == 0 || isRosMasterApi(xml_call->method))
     {
       conn_state = tcpIpSocketConnect( &(client_proc->socket),
@@ -1534,8 +1537,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
     }
     default:
     {
-      // Invalid flow
-      assert(0);
+      PRINT_ERROR ( "doWithRpcrosServerSocket() : Invalid RPCROS server process state\n" );
     }
   }
   return ret_err;
@@ -1613,9 +1615,10 @@ static char* LogLevelToString(CrosLogLevel log_level)
     }
     default:
     {
-      assert(0);
+      PRINT_ERROR ( "LogLevelToString() : Invalid logging level\n");
     }
   }
+  return ret;
 }
 
 static CallbackResponse callback_pub_log(cRosMessage *message, void* data_context)

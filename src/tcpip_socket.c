@@ -94,7 +94,7 @@ int tcpIpSocketSetNoDelay ( TcpIpSocket *s )
   }
 
   int val = 1;
-  int ret = setsockopt ( s->fd, SOL_TCP, TCP_NODELAY, ( const void * ) ( &val ), sizeof ( int ) );
+  int ret = setsockopt ( s->fd, IPPROTO_TCP, TCP_NODELAY, ( const void * ) ( &val ), sizeof ( int ) );
 
   if ( ret == 0 )
   {
@@ -144,21 +144,21 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
   }
 
   val = idle;
-  if ( setsockopt ( s->fd, SOL_TCP, TCP_KEEPIDLE, &val, sizeof ( val ) ) != 0 )
+  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof ( val ) ) != 0 )
   {
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with SO_KEEPALIVE option failed \n" );
     return 0;
   }
 
   val = interval;
-  if ( setsockopt ( s->fd, SOL_TCP, TCP_KEEPINTVL, &val, sizeof ( val ) ) != 0 )
+  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof ( val ) ) != 0 )
   {
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPINTVL option failed \n" );
     return 0;
   }
 
   val = count;
-  if ( setsockopt ( s->fd, SOL_TCP, TCP_KEEPCNT, &val, sizeof ( val ) ) != 0 )
+  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPCNT, &val, sizeof ( val ) ) != 0 )
   {
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPCNT option failed \n" );
     return 0;

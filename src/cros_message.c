@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <assert.h>
 
 #include "cros_message.h"
 #include "cros_message_internal.h"
@@ -3069,7 +3068,8 @@ size_t getMessageTypeSizeOf(CrosMessageType type)
     case CROS_STD_MSGS_BYTE:
       return sizeof(char);
     default:
-      assert(0);
+      PRINT_ERROR ( "getMessageTypeSizeOf() : Invalid CrosMessageType specified\n" );
+      return 0;
   }
 }
 
@@ -3153,7 +3153,8 @@ const char * getMessageTypeString(CrosMessageType type)
     case CROS_STD_MSGS_HEADER:
       return "std_msgs/Header";
     default:
-      assert(0);
+      PRINT_ERROR ( "getMessageTypeString() : Invalid CrosMessageType specified\n" );
+      return NULL;
   }
 }
 
@@ -3198,6 +3199,7 @@ const char * getMessageTypeDeclaration(CrosMessageType type)
     case CROS_CUSTOM_TYPE:
       return "custom";
     default:
-      assert(0);
+      PRINT_ERROR ( "getMessageTypeString() : Invalid CrosMessageType specified\n" );
+      return NULL;
   }
 }

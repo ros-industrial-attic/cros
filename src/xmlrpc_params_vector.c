@@ -1,5 +1,4 @@
-#include <malloc.h>
-#include <string.h>
+#include <stdlib.h>
 
 #include "xmlrpc_params_vector.h"
 #include "cros_defs.h"
@@ -29,7 +28,7 @@ void xmlrpcParamVectorRelease ( XmlrpcParamVector *p_vec )
 
   free ( p_vec->data );
   p_vec->data = NULL;
-  
+
   p_vec->size = p_vec->max = 0;
 }
 
@@ -163,5 +162,5 @@ void xmlrpcParamVectorPrint( XmlrpcParamVector *p_vec )
   printf("XMLRPC parameters vector size : %d\n", p_vec->size);
   int i = 0;
   for( ; i < p_vec->size; i++)
-    xmlrpcParamPrint( xmlrpcParamVectorAt( p_vec, i ) ); 
+    xmlrpcParamPrint( xmlrpcParamVectorAt( p_vec, i ) );
 }
