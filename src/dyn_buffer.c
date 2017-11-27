@@ -33,7 +33,7 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
 {
   PRINT_VDEBUG ( "dynBufferPushBackBuf()\n" );
 
-  if ( n < 0  || (new_buf == NULL && n > 0)) // If n == 0, the function accepts NULL as new_buf since nothing have to be appended
+  if (new_buf == NULL && n > 0) // If n == 0, the function accepts NULL as new_buf since nothing have to be appended
   {
     PRINT_ERROR ( "dynBufferPushBackBuf() : Invalid function argument values: new buffer content must be different from NULL and no shorter than 0\n" );
     return -1;

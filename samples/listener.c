@@ -108,7 +108,7 @@ int main(int argc, char **argv)
   else
     node_name="/listener"; // Default node name if no command-line parameters are specified
   getcwd(path, sizeof(path));
-  strncat(path, "/rosdb", sizeof(path));
+  strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
 

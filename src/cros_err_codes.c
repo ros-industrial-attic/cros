@@ -9,7 +9,7 @@
 struct cRosErrCodeListElem CRosErrCodeList[]=
 {
   ERROR_CODE_LIST_DEF
-  {LAST_ERR_LIST_CODE, NULL} // Last value of the list (marker)
+  {LAST_ERR_LIST_CODE, NULL} // Last value of the list not used
 };
 #undef MSG_COD_ELEM
 
@@ -111,9 +111,9 @@ int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...)
     // Print error info included in err
     msg_str = cRosGetErrCodeStr(curr_err_cod);
     if(msg_str != NULL) // The error code has been found in the list
-      n_prn_chars+=printf(". Err %hu: %s", curr_err_cod, msg_str);
+      n_prn_chars+=printf(". Err %u: %s", curr_err_cod, msg_str);
     else
-      n_prn_chars+=printf(". Error code %hu (The description string for this error code has not been found).", curr_err_cod);
+      n_prn_chars+=printf(". Error code %u (The description string for this error code has not been found).", curr_err_cod);
 
     err_cod_pack = cRosRemoveLastErrCode(err_cod_pack); // Pass to the next error code
   }

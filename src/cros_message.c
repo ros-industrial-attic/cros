@@ -1269,11 +1269,11 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       case CROS_STD_MSGS_INT8:
       {
         if(!msg_field->is_array)
-          printf("%hi", msg_field->data.as_int8);
+          printf("%hi", (short)msg_field->data.as_int8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hi,", msg_field->data.as_int8_array[elem_ind]);
+            printf("%hi,", (short)msg_field->data.as_int8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
             printf("...");
         }
@@ -1282,11 +1282,11 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       case CROS_STD_MSGS_UINT8:
       {
         if(!msg_field->is_array)
-          printf("%hu", msg_field->data.as_uint8);
+          printf("%hu", (unsigned short)msg_field->data.as_uint8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hu,", msg_field->data.as_uint8_array[elem_ind]);
+            printf("%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
             printf("...");
         }
@@ -1399,11 +1399,11 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       case CROS_STD_MSGS_BOOL:
       {
         if(!msg_field->is_array)
-          printf("%hu", msg_field->data.as_uint8);
+          printf("%hu", (unsigned short)msg_field->data.as_uint8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hu,", msg_field->data.as_uint8_array[elem_ind]);
+            printf("%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
             printf("...");
         }
@@ -1412,11 +1412,11 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       case CROS_STD_MSGS_CHAR:
       {
         if(!msg_field->is_array)
-          printf("%hu", msg_field->data.as_uint8);
+          printf("%hu", (unsigned short)msg_field->data.as_uint8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hu,", msg_field->data.as_uint8_array[elem_ind]);
+            printf("%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
             printf("...");
         }
@@ -1425,11 +1425,11 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       case CROS_STD_MSGS_BYTE:
       {
         if(!msg_field->is_array)
-          printf("%hi", msg_field->data.as_int8);
+          printf("%hi", (short)msg_field->data.as_int8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hi,", msg_field->data.as_int8_array[elem_ind]);
+            printf("%hi,", (short)msg_field->data.as_int8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
             printf("...");
         }

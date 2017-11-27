@@ -91,6 +91,7 @@ int cRosMessageQueueRemove(cRosMessageQueue *q)
     // The queue is internally implemented as a circular buffer
     q->first_msg_ind = (q->first_msg_ind + 1) % MAX_QUEUE_LEN;
     q->length--;
+    ret=0;
   }
   else
     ret=-2;

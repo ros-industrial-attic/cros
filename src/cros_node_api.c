@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
+#define __USE_POSIX
 #include <limits.h>
 
 #include "cros_node_api.h"
@@ -210,7 +211,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
               if (clean_string != NULL)
               {
-                char topic_host_addr[HOST_NAME_MAX+1];
+                char topic_host_addr[_POSIX_HOST_NAME_MAX+1];
                 int topic_host_port;
                 strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
                 char *progress = NULL;
@@ -268,12 +269,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                 char* hostname = strtok_r(clean_string,":",&progress);
                 if(requesting_service_caller->service_host == NULL)
                 {
-                  requesting_service_caller->service_host = (char *)calloc(HOST_NAME_MAX+1,sizeof(char)); //deleted in cRosNodeDestroy
+                  requesting_service_caller->service_host = (char *)calloc(_POSIX_HOST_NAME_MAX+1,sizeof(char)); //deleted in cRosNodeDestroy
                 }
 
                 if (requesting_service_caller->service_host != NULL)
                 {
-                  int rc = lookup_host(hostname, requesting_service_caller->service_host, (HOST_NAME_MAX+1)*sizeof(char));
+                  int rc = lookup_host(hostname, requesting_service_caller->service_host, (_POSIX_HOST_NAME_MAX+1)*sizeof(char));
                   if (rc == 0)
                   {
                     requesting_service_caller->service_port = atoi(strtok_r(NULL,":",&progress));
@@ -482,7 +483,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         if( checkResponseValue( &client_proc->response ) )
         {
           int client_tcpros_ind;
-          char tcpros_host[HOST_NAME_MAX+1];
+          char tcpros_host[_POSIX_HOST_NAME_MAX+1];
           ret = 0;
 
           XmlrpcParam* param_array = xmlrpcParamVectorAt(&client_proc->response,0);
@@ -658,7 +659,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
               char* clean_string = (char *)calloc(dirty_string_len-8+1,sizeof(char));
               if (clean_string != NULL)
               {
-                char topic_host_addr[HOST_NAME_MAX+1];
+                char topic_host_addr[_POSIX_HOST_NAME_MAX+1];
                 int topic_host_port;
                 strncpy(clean_string,pub_host_string+7,dirty_string_len-8);
                 char * progress = NULL;
@@ -828,6 +829,8 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_PARAM_UPDATE:
     {
+      ParameterSubscription* subscription = NULL;
+
       XmlrpcParam *node_param = xmlrpcParamVectorAt(&server_proc->params, 0);
       XmlrpcParam *key_param = xmlrpcParamVectorAt(&server_proc->params, 1);
       XmlrpcParam *value_param = xmlrpcParamVectorAt(&server_proc->params, 2);
@@ -853,7 +856,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         }
       }
 
-      ParameterSubscription* subscription = NULL;
       if (paramsubidx != -1)
       {
         subscription = &n->paramsubs[it];

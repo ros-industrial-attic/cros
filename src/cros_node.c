@@ -2598,7 +2598,7 @@ cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatu
 
   strcpy (parameter_key, key);
 
-  int paramsubidx;
+  int paramsubidx = -1; // This value should never be used
   int it;
   for (it = 0; it < CN_MAX_PARAMETER_SUBSCRIPTIONS; it++)
   {

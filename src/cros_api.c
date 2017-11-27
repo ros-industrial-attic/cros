@@ -2,7 +2,7 @@
 
 #include <assert.h>
 #include <string.h>
-#include <linux/limits.h> // for PATH_MAX
+#include <limits.h> // for PATH_MAX
 
 #include "cros_defs.h"
 #include "cros_api.h"
@@ -270,6 +270,8 @@ static cRosErrCodePack cRosNodeServiceCallerCallback(DynBuffer *request, DynBuff
         else // The callback indicated and error in the return value when generating the service request
           ret_err = CROS_SVC_REQ_CALLBACK_ERR;
       }
+      else
+        ret_err = CROS_SUCCESS_ERR_PACK;
     }
     else // Non-periodic service call
       ret_err = cRosMessageSerialize(cRosMessageQueuePeekFirst(context->msg_queue), request); // Serialize the message request directly from the queue msg

@@ -147,7 +147,7 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
   // see https://www.winehq.org/pipermail/wine-devel/2015-July/108583.html
   val = idle;
 #ifdef __APPLE__
-  if ( setsockopt(skt, IPPROTO_TCP, TCP_KEEPALIVE, &val, sizeof ( val ) ) != 0 )
+  if ( setsockopt( s->fd, IPPROTO_TCP, TCP_KEEPALIVE, &val, sizeof ( val ) ) != 0 )
   {
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPALIVE option failed \n" );
     return 0;

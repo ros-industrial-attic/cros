@@ -510,7 +510,7 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
         return -1;
 
       int rc = arrayFromXml(message, param);
-      if (rc < rc)
+      if (rc < 0)
         return rc;
 
       break;
@@ -537,7 +537,7 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
         return -1;
 
       int rc = structFromXml(message, param);
-      if (rc < rc)
+      if (rc < 0)
         return rc;
 
       break;
@@ -739,7 +739,7 @@ int structMemberFromXml ( DynString *message, XmlrpcParam *param)
 
   dynStringSetPoseIndicator ( message, i);
 
-  rc = paramValueFromXml(message, param, XMLRPC_PARAM_STRUCT);
+  rc = paramValueFromXml(message, param, PARAM_CONTAINER_STRUCT );
   if (rc < 0)
     return rc;
 
@@ -1033,9 +1033,9 @@ XmlrpcParam * xmlrpcParamStructGetParam( XmlrpcParam *param, const char *name )
   int it = 0;
   for (; it < param->array_n_elem; it++)
   {
-    XmlrpcParam *param = &param->data.as_array[it];
-    if (strcmp(param->member_name, name) == 0)
-      return param;
+    XmlrpcParam *param_arr = &param->data.as_array[it];
+    if (strcmp(param_arr->member_name, name) == 0)
+      return param_arr;
   }
 
   return NULL;

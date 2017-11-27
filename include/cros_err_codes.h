@@ -46,7 +46,8 @@
   MSG_COD_ELEM(CROS_XMLRPC_CLI_WRITE_ERR, "An error arised when the XMLRPC client process tried to write the request on the socket") \
   MSG_COD_ELEM(CROS_XMLRPC_CLI_READ_ERR, "An error arised when the XMLRPC client process tried to read the response from the socket") \
   MSG_COD_ELEM(CROS_TCPROS_CLI_CONN_ERR, "A TCPROS client process could not establish the connection to the target address") \
-  MSG_COD_ELEM(CROS_RPCROS_CLI_CONN_ERR, "A RPCROS client process could not establish the connection to the target address")
+  MSG_COD_ELEM(CROS_RPCROS_CLI_CONN_ERR, "A RPCROS client process could not establish the connection to the target address") \
+  MSG_COD_ELEM(LAST_ERR_LIST_CODE, "") // Sentinel code used to mark the last element of the global error list
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
 
@@ -66,8 +67,6 @@ struct cRosErrCodeListElem
 //! Error data type returned by many cROS library functions. It is a pack that can contain up to 4 accumulated error codes (uint8_t)
 typedef uint32_t cRosErrCodePack;
 
-// Sentinel code used to mark the last element of the global error list
-#define LAST_ERR_LIST_CODE 255
 
 /*! \brief Locates the message string corresponding to the specified error code in the global error message list.
  *
