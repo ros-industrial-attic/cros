@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
-#include <assert.h>
 
 #include "xmlrpc_params.h"
 #include "xmlrpc_tags.h"
@@ -194,7 +193,8 @@ int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType co
     }
     default:
     {
-      assert(0);
+      PRINT_ERROR("paramFromXml() : Invalid ParamContainerType specified\n");
+      return -1;
     }
   }
 
@@ -235,7 +235,7 @@ int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType co
       }
       default:
       {
-        assert(0);
+        break; // Error
       }
     }
   }
@@ -1386,14 +1386,13 @@ int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
       break;
     case XMLRPC_PARAM_DATETIME:
     case XMLRPC_PARAM_BINARY:
-      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
-      assert(0);
-      break;
+      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type in source XmlrpcParam (binary or datetime)\n" );
+      return -1;
     case XMLRPC_PARAM_UNKNOWN:
       break;
     default:
-      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type\n" );
-      assert(0);
+      PRINT_ERROR ( "xmlrpcParamToXml() : Unsupported type in source XmlrpcParam\n" );
+      return -1;
   }
 
   return 0;

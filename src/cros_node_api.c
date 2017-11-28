@@ -5,9 +5,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <assert.h>
 #include <errno.h>
-#define __USE_POSIX
+#ifndef __USE_POSIX
+  #define __USE_POSIX
+#endif
 #include <limits.h>
 
 #include "cros_node_api.h"
@@ -117,7 +118,12 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
 
   client_proc->message_type = XMLRPC_MESSAGE_REQUEST;
 
-  assert(client_proc->current_call != NULL);
+  if(client_proc->current_call == NULL)
+  {
+    PRINT_ERROR ( "cRosApiPrepareRequest() : Invalid call corresponding to XmlrpcProcess\n" );
+    return;
+  }
+
   RosApiCall *call = client_proc->current_call;
   if(client_idx == 0) //requests managed by the xmlrpc client connected to roscore
   {
@@ -150,7 +156,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc[client_idx]);
   int ret = -1;
 
-  assert(client_proc->current_call != NULL);
+  if( client_proc->current_call == NULL )
+  {
+    PRINT_ERROR ( "cRosApiParseResponse() : Invalid current call for XMLRPC process\n" );
+    return ret;
+  }
+
   RosApiCall *call = client_proc->current_call;
   if(client_idx == 0 && call->user_call == 0) // xmlrpc client connected to roscore (master)
   {
@@ -185,7 +196,11 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         //Get the next subscriber without a topic host
-        assert(call->provider_idx != -1);
+        if(call->provider_idx == -1)
+        {
+          PRINT_ERROR ( "cRosApiParseResponse() : Invalid provider index in call CROS_API_REGISTER_SUBSCRIBER for XMLRPC process\n" );
+          return ret;
+        }
         int subidx = call->provider_idx;
         SubscriberNode* requesting_subscriber = &(n->subs[subidx]);
 
@@ -242,7 +257,12 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         //Get the next service caller without a topic host
-        assert(call->provider_idx != -1);
+        if(call->provider_idx == -1)
+        {
+          PRINT_ERROR ( "cRosApiParseResponse() : Invalid provider index in call CROS_API_LOOKUP_SERVICE for XMLRPC process\n" );
+          return ret;
+        }
+
         int srvcalleridx = call->provider_idx;
         ServiceCallerNode* requesting_service_caller = &(n->service_callers[srvcalleridx]);
 
@@ -436,7 +456,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       default:
       {
-        assert(0);
+         PRINT_ERROR ( "cRosApiParseResponse() : Invalid call method for XML RPC process connected to ROS master\n" );
+         ret=-1;
       }
     }
   }
@@ -549,7 +570,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       default:
       {
-        assert(0);
+         PRINT_ERROR ( "cRosApiParseResponse() : Invalid call method for XML RPC process connected to ROS node\n" );
+         ret=-1;
       }
     }
   }
@@ -1010,7 +1032,8 @@ const char * getMethodName(CrosApiMethod method)
     case CROS_API_GET_PARAM_NAMES:
       return "getParamNames";
     default:
-      assert(0);
+      PRINT_ERROR( "getMethodName() : Invalid CrosApiMethod value specified\n" );
+      return NULL;
   }
 }
 
@@ -1120,7 +1143,8 @@ int isRosMasterApi(CrosApiMethod method)
     case CROS_API_GET_PARAM_NAMES:
       return 1;
     default:
-      assert(0);
+      PRINT_ERROR ( "isRosMasterApi() : Invalid CrosApiMethod value specified\n" );
+      return -1;
   }
 }
 
@@ -1164,6 +1188,7 @@ int isRosSlaveApi(CrosApiMethod method)
     case CROS_API_GET_PARAM_NAMES:
       return 0;
     default:
-      assert(0);
+      PRINT_ERROR ( "isRosSlaveApi() : Invalid CrosApiMethod value specified\n" );
+      return -1;
   }
 }

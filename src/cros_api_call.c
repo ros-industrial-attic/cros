@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "cros_api_call.h"
 #include "cros_defs.h"

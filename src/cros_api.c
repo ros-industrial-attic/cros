@@ -1,6 +1,4 @@
 #include <stdlib.h>
-
-#include <assert.h>
 #include <string.h>
 #include <limits.h> // for PATH_MAX
 
@@ -151,7 +149,10 @@ static cRosErrCodePack newProviderContext(const char *provider_path, ProviderTyp
       break;
     }
     default:
-      assert(0);
+    {
+      PRINT_ERROR ( "newProviderContext() : Unknown ProviderType specified\n" );
+      ret_err = CROS_BAD_PARAM_ERR;
+    }
   }
 
   if(ret_err == CROS_SUCCESS_ERR_PACK)
