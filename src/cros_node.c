@@ -3147,18 +3147,20 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     PRINT_DEBUG ( "cRosNodeDoEventsLoop() : select() unblocked (timeout: %llu ms)\n", (long long unsigned)timeout);
     for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++ )
     {
-      int xmlrpc_client_fd = tcpIpSocketGetFD( &(n->xmlrpc_client_proc[i].socket) );
+      XmlrpcProcess *client_proc;
+      int xmlrpc_client_fd;
 
-      if( FD_ISSET(xmlrpc_client_fd, &err_fds) )
+      client_proc = &n->xmlrpc_client_proc[i];
+      xmlrpc_client_fd = tcpIpSocketGetFD( &client_proc->socket );
+      if( client_proc->state != XMLRPC_PROCESS_STATE_IDLE && FD_ISSET(xmlrpc_client_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC Client error\n" );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC client socket error\n" );
         handleXmlrpcClientError( n, i );
       }
-
       /* Check what is the socket unblocked by the select, and start the requested operations */
-      else if( ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_CONNECTING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
-          ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
-          ( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_READING && FD_ISSET(xmlrpc_client_fd, &r_fds) ) )
+      else if( ( client_proc->state == XMLRPC_PROCESS_STATE_CONNECTING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
+          ( client_proc->state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
+          ( client_proc->state == XMLRPC_PROCESS_STATE_READING && FD_ISSET(xmlrpc_client_fd, &r_fds) ) )
       {
         cRosErrCodePack new_errors;
         new_errors = doWithXmlrpcClientSocket( n, i );;
@@ -3166,15 +3168,15 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       }
     }
 
-    if ( next_xmlrpc_server_i >= 0 )
+    if ( next_xmlrpc_server_i >= 0 && xmlrpc_listner_fd != -1) // Check that there is an available free (idle) xmlrpx process and that the listener socket is still open
     {
       if( FD_ISSET( xmlrpc_listner_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC  listner error\n" );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC server listener-socket error\n" );
       }
       else if( FD_ISSET( xmlrpc_listner_fd, &r_fds) )
       {
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC listner ready\n" );
+        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC server listener-socket ready\n" );
         if( tcpIpSocketAccept( &(n->xmlrpc_listner_proc.socket),
             &(n->xmlrpc_server_proc[next_xmlrpc_server_i].socket) ) == TCPIPSOCKET_DONE &&
             tcpIpSocketSetReuse( &(n->xmlrpc_server_proc[next_xmlrpc_server_i].socket) ) &&
@@ -3186,15 +3188,19 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
     for( i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++ )
     {
-      int server_fd = tcpIpSocketGetFD( &(n->xmlrpc_server_proc[i].socket) );
-      if( FD_ISSET(server_fd, &err_fds) )
+      XmlrpcProcess *server_proc;
+      int server_fd;
+
+      server_proc = &n->xmlrpc_server_proc[i];
+      server_fd = tcpIpSocketGetFD( &server_proc->socket );
+      if( server_proc->state != XMLRPC_PROCESS_STATE_IDLE && FD_ISSET(server_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC server error\n" );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC server socket error\n" );
         tcpIpSocketClose( &(n->xmlrpc_server_proc[i].socket) );
-        xmlrpcProcessChangeState( &(n->xmlrpc_server_proc[next_xmlrpc_server_i]), XMLRPC_PROCESS_STATE_IDLE );
+        xmlrpcProcessChangeState( &(n->xmlrpc_server_proc[next_xmlrpc_server_i]), XMLRPC_PROCESS_STATE_IDLE ); // maybe server_proc instead of &(n->xmlrpc_server_proc[next_xmlrpc_server_i]) ???
       }
-      else if( ( n->xmlrpc_server_proc[i].state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(server_fd, &w_fds) ) ||
-               ( n->xmlrpc_server_proc[i].state == XMLRPC_PROCESS_STATE_READING && FD_ISSET(server_fd, &r_fds) ) )
+      else if( ( server_proc->state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(server_fd, &w_fds) ) ||
+               ( server_proc->state == XMLRPC_PROCESS_STATE_READING && FD_ISSET(server_fd, &r_fds) ) )
       {
         cRosErrCodePack new_errors;
         new_errors = doWithXmlrpcServerSocket( n, i );
@@ -3209,11 +3215,11 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
       if( client_proc->state != TCPROS_PROCESS_STATE_IDLE && FD_ISSET(tcpros_client_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC Client error\n" );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC client socket error\n" );
         handleTcprosClientError( n, i );
       }
 
-      if( (client_proc->state == TCPROS_PROCESS_STATE_CONNECTING && FD_ISSET(tcpros_client_fd, &w_fds) ) ||
+      if( (client_proc->state == TCPROS_PROCESS_STATE_CONNECTING && FD_ISSET(tcpros_client_fd, &w_fds) ) || // select() indicates connection completion through write-fd
           ( client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER && FD_ISSET(tcpros_client_fd, &w_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
@@ -3226,11 +3232,11 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       }
     }
 
-    if ( next_tcpros_server_i >= 0 )
+    if ( next_tcpros_server_i >= 0 && tcpros_listner_fd != -1)
     {
       if( FD_ISSET( tcpros_listner_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS listner error\n" );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS listener-socket error\n" );
       }
       else if( FD_ISSET( tcpros_listner_fd, &r_fds) )
       {
@@ -3241,7 +3247,6 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
             tcpIpSocketSetNonBlocking( &(n->tcpros_server_proc[next_tcpros_server_i].socket ) ) &&
             tcpIpSocketSetKeepAlive( &(n->tcpros_server_proc[next_tcpros_server_i].socket ), 60, 10, 9 ) )
         {
-
           tcprosProcessChangeState( &(n->tcpros_server_proc[next_tcpros_server_i]), TCPROS_PROCESS_STATE_READING_HEADER ); // A TCPROS process has been activated to attend the connection
           uint64_t cur_time = cRosClockGetTimeMs();
           n->tcpros_server_proc[next_tcpros_server_i].wake_up_time_ms = cur_time;
@@ -3251,16 +3256,20 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
     for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
     {
-      int server_fd = tcpIpSocketGetFD( &(n->tcpros_server_proc[i].socket) );
-      if( FD_ISSET(server_fd, &err_fds) )
+      TcprosProcess *server_proc;
+      int server_fd;
+
+      server_proc = &n->tcpros_server_proc[i];
+      server_fd = tcpIpSocketGetFD( &server_proc->socket );
+      if( server_proc->state != TCPROS_PROCESS_STATE_IDLE && FD_ISSET(server_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS server error\n" );
-        tcpIpSocketClose( &(n->tcpros_server_proc[i].socket) );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS server socket error\n" );
+        tcpIpSocketClose( &(server_proc->socket) );
         tcprosProcessChangeState( &(n->tcpros_server_proc[next_tcpros_server_i]), TCPROS_PROCESS_STATE_IDLE );
       }
-      else if( ( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_READING_HEADER && FD_ISSET(server_fd, &r_fds) ) ||
-        ( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_START_WRITING && FD_ISSET(server_fd, &w_fds) ) ||
-        ( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING && FD_ISSET(server_fd, &w_fds) ) )
+      else if( ( server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER && FD_ISSET(server_fd, &r_fds) ) ||
+        ( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING && FD_ISSET(server_fd, &w_fds) ) ||
+        ( server_proc->state == TCPROS_PROCESS_STATE_WRITING && FD_ISSET(server_fd, &w_fds) ) )
       {
         cRosErrCodePack new_errors;
         new_errors = doWithTcprosServerSocket( n, i );
@@ -3273,18 +3282,9 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       TcprosProcess *client_proc = &(n->rpcros_client_proc[i]);
       int rpcros_client_fd = tcpIpSocketGetFD( &(client_proc->socket) );
 
-      if( (client_proc->state == TCPROS_PROCESS_STATE_CONNECTING ||
-           client_proc->state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING ||
-           client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER ||
-           client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE ||
-           client_proc->state == TCPROS_PROCESS_STATE_READING ||
-           client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
-           client_proc->state == TCPROS_PROCESS_STATE_READING_HEADER ||
-           client_proc->state == TCPROS_PROCESS_STATE_START_WRITING ||
-           client_proc->state == TCPROS_PROCESS_STATE_WRITING )
-           && FD_ISSET(rpcros_client_fd, &err_fds) )
+      if( client_proc->state != TCPROS_PROCESS_STATE_IDLE && FD_ISSET(rpcros_client_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : RPCROS Client error\n" );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : RPCROS client socket error\n" );
         handleRpcrosClientError( n, i );
       }
 
@@ -3303,15 +3303,15 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       }
     }
 
-    if ( next_rpcros_server_i >= 0 )
+    if ( next_rpcros_server_i >= 0 && rpcros_listner_fd != -1)
     {
       if( FD_ISSET( rpcros_listner_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS listner error\n" );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS listener-socket error\n" );
       }
       else if( next_rpcros_server_i >= 0 && FD_ISSET( rpcros_listner_fd, &r_fds) )
       {
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
+        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listener ready\n" );
         if( tcpIpSocketAccept( &(n->rpcros_listner_proc.socket),
             &(n->rpcros_server_proc[next_rpcros_server_i].socket) ) == TCPIPSOCKET_DONE &&
             tcpIpSocketSetReuse( &(n->rpcros_server_proc[next_rpcros_server_i].socket) ) &&
@@ -3328,15 +3328,9 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       TcprosProcess *server_proc = &(n->rpcros_server_proc[i]);
       int server_fd = tcpIpSocketGetFD( &(server_proc->socket) );
 
-      if( ( server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER_SIZE ||
-            server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER ||
-            server_proc->state == TCPROS_PROCESS_STATE_READING_SIZE ||
-            server_proc->state == TCPROS_PROCESS_STATE_READING ||
-            server_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER ||
-            server_proc->state == TCPROS_PROCESS_STATE_WRITING )
-         && FD_ISSET(server_fd, &err_fds) )
+      if( server_proc->state != TCPROS_PROCESS_STATE_IDLE && FD_ISSET(server_fd, &err_fds) )
       {
-        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS server error\n" );
+        PRINT_ERROR ( "cRosNodeDoEventsLoop() : TCPROS server socket error\n" );
         tcpIpSocketClose( &(server_proc->socket) );
         tcprosProcessChangeState( &(n->rpcros_server_proc[next_rpcros_server_i]), TCPROS_PROCESS_STATE_IDLE );
       }
