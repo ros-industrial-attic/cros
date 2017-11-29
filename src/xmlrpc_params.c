@@ -272,37 +272,49 @@ int arrayFromXml(DynString *message, XmlrpcParam *param)
       data_init = c;
       break;
     }
-  }
-
-  if ( data_init == NULL )
-  {
-    PRINT_ERROR ( "arrayFromXml() : no data tag found\n" );
-    return -1;
-  }
-
-  dynStringSetPoseIndicator ( message, i);
-
-  while (paramFromXml (message, param, PARAM_CONTAINER_ARRAY ) != -1);
-
-  c = dynStringGetCurrentData ( message );
-  i = dynStringGetPoseIndicatorOffset ( message );
-
-  for ( ; i < len; i++, c++ )
-  {
-    if ( len - i >= XMLRPC_DATA_ETAG.dim &&
-         strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
+    else if ( len - i >= XMLRPC_DATA_NTAG.dim &&
+         strncmp ( c, XMLRPC_DATA_NTAG.str, XMLRPC_DATA_NTAG.dim ) == 0 ) // Empty array: start-tag and end-tag codified in a single tag: empty-element tag
     {
+      c += XMLRPC_DATA_NTAG.dim;
+      i += XMLRPC_DATA_NTAG.dim;
+      data_init = c;
       data_end = c;
-      c += XMLRPC_DATA_ETAG.dim;
-      i += XMLRPC_DATA_ETAG.dim;
       break;
     }
   }
 
+  if ( data_init == NULL )
+  {
+    PRINT_ERROR ( "arrayFromXml() : no data start-tag found in array\n" );
+    return -1;
+  }
+
   if ( data_end == NULL )
   {
-    PRINT_ERROR ( "arrayFromXml() : no end data tag found\n" );
-    return -1;
+    dynStringSetPoseIndicator ( message, i);
+
+    while (paramFromXml (message, param, PARAM_CONTAINER_ARRAY ) != -1);
+
+    c = dynStringGetCurrentData ( message );
+    i = dynStringGetPoseIndicatorOffset ( message );
+
+    for ( ; i < len; i++, c++ )
+    {
+      if ( len - i >= XMLRPC_DATA_ETAG.dim &&
+           strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
+      {
+        data_end = c;
+        c += XMLRPC_DATA_ETAG.dim;
+        i += XMLRPC_DATA_ETAG.dim;
+        break;
+      }
+    }
+
+    if ( data_end == NULL )
+    {
+      PRINT_ERROR ( "arrayFromXml() : no data end-tag found in array\n" );
+      return -1;
+    }
   }
 
   dynStringSetPoseIndicator ( message, i );

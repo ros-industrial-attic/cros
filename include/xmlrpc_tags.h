@@ -9,7 +9,7 @@
 
 /*! \brief Structure that contains a XMLRPC tag string and the related string length
  */
-typedef struct 
+typedef struct
 {
   char *str;
   int dim;
@@ -24,7 +24,7 @@ static XmlrpcTagStrDim XMLRPC_METHODNAME_BEGIN = { "<methodName>", 12 };
 static XmlrpcTagStrDim XMLRPC_METHODNAME_END = { "</methodName>", 13 };
 static XmlrpcTagStrDim XMLRPC_RESPONSE_BEGIN = { "<methodResponse>", 16 };
 static XmlrpcTagStrDim XMLRPC_RESPONSE_END = { "</methodResponse>", 17 };
-    
+
 static XmlrpcTagStrDim XMLRPC_PARAMS_TAG = { "<params>", 8 };
 static XmlrpcTagStrDim XMLRPC_PARAMS_ETAG = { "</params>", 9 };
 static XmlrpcTagStrDim XMLRPC_PARAM_TAG = { "<param>", 7 };
@@ -49,8 +49,9 @@ static XmlrpcTagStrDim XMLRPC_BASE64_TAG = { "<base64>", 8 };
 static XmlrpcTagStrDim XMLRPC_BASE64_ETAG = { "</base64>", 9 };
 static XmlrpcTagStrDim XMLRPC_ARRAY_TAG = { "<array>", 7 };
 static XmlrpcTagStrDim XMLRPC_ARRAY_ETAG = { "</array>", 8 };
-static XmlrpcTagStrDim XMLRPC_DATA_TAG = { "<data>", 6 };
-static XmlrpcTagStrDim XMLRPC_DATA_ETAG = { "</data>", 7 };
+static XmlrpcTagStrDim XMLRPC_DATA_TAG = { "<data>", 6 }; // start-tag
+static XmlrpcTagStrDim XMLRPC_DATA_ETAG = { "</data>", 7 }; // end-tag
+static XmlrpcTagStrDim XMLRPC_DATA_NTAG = { "<data/>", 7 }; // empty-element tag (no content)
 static XmlrpcTagStrDim XMLRPC_STRUCT_TAG = { "<struct>", 8 };
 static XmlrpcTagStrDim XMLRPC_STRUCT_ETAG = { "</struct>", 9 };
 static XmlrpcTagStrDim XMLRPC_MEMBER_TAG = { "<member>", 8 };
