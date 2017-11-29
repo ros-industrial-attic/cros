@@ -62,6 +62,8 @@ void tcpIpSocketClose ( TcpIpSocket *s )
 
 int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
 {
+  int prev_flags;
+
   PRINT_VDEBUG ( "tcpIpSocketSetNonBlocking()\n" );
 
   if ( !s->open )
@@ -70,7 +72,14 @@ int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
     return 0;
   }
 
-  int ret = fcntl ( s->fd, F_SETFL, O_NONBLOCK );
+  prev_flags = fcntl( s->fd, F_GETFL, 0 );
+  if(prev_flags < 0)
+  {
+    PRINT_ERROR ( "tcpIpSocketSetNonBlocking() : fcntl() failed getting the socket flags\n" );
+    prev_flags = 0; // Try to continue anyway
+  }
+
+  int ret = fcntl ( s->fd, F_SETFL, prev_flags | O_NONBLOCK );
   if ( ret == 0 )
   {
     s->is_nonblocking = 1;
@@ -78,7 +87,7 @@ int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
   }
   else
   {
-    PRINT_ERROR ( "tcpIpSocketSetNonBlocking() : fcntl() failed \n" );
+    PRINT_ERROR ( "tcpIpSocketSetNonBlocking() : fcntl() failed configuring socket as non blocking\n" );
     return 0;
   }
 }
@@ -179,6 +188,7 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
 
 TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned short port )
 {
+  int connect_ret;
   PRINT_VDEBUG ( "tcpIpSocketConnect():\n" );
 
   if ( !s->open )
@@ -203,7 +213,8 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
     return TCPIPSOCKET_FAILED;
   }
 
-  if ( connect ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) ) == -1 )
+  connect_ret = connect ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) );
+  if ( connect_ret == -1 && errno != EISCONN ) // The connection is not established so far
   {
     if ( s->is_nonblocking &&
        ( errno == EINPROGRESS || errno == EALREADY ) )
