@@ -235,8 +235,9 @@ char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps)
     char* full_text = NULL;
     char* msg_tag = "MSG: ";
     int full_size = 0;
-    char separator[81]; separator[80] = '\0';
-    int i;
+    char separator[81];
+    separator[80] = '\0';
+
     memset(&separator,'=', 80);
     full_size += strlen(srv->plain_text);
 
@@ -326,7 +327,6 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
     return ret_err;
   }
 
-  unsigned char* res = NULL;
   DynString buffer;
   dynStringInit(&buffer);
 

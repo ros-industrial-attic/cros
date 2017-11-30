@@ -1807,7 +1807,7 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
 CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
                           char *message_root_path, uint64_t const *select_timeout_ms)
 {
-  CrosNode *ret_val; // Value to be returned by this function. NULL on failure
+  CrosNode *new_n; // Value to be returned by this function. NULL on failure
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
 
   signal(SIGPIPE, SIG_IGN);
@@ -1818,15 +1818,13 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
     return NULL;
   }
 
-  CrosNode *new_n = ( CrosNode * ) malloc ( sizeof ( CrosNode ) );
+  new_n = ( CrosNode * ) malloc ( sizeof ( CrosNode ) );
 
   if ( new_n == NULL )
   {
     PRINT_ERROR ( "cRosNodeCreate() : Can't allocate memory\n" );
     return NULL;
   }
-
-  ret_val = new_n; // Default return value: node created
 
   new_n->name = new_n->host = new_n->roscore_host = NULL;
 
@@ -2269,17 +2267,16 @@ int cRosNodeRecruitTcprosClientProc(CrosNode *node, int subidx)
 int cRosNodeFindFirstTcprosClientProc(CrosNode *node, int subidx, const char *tcpros_hostname, int tcpros_port)
 {
   int ret; // Return value: -1 on error, or the found proc index on success
-  SubscriberNode *sub;
+  int clientidx;
 
   // Look for the first Tcpros client proc that was recruited for subidx subscriber and a specific publisher host and port
-  int clientidx;
   ret=-1;
-  sub = &node->subs[subidx];
   for(clientidx=0;clientidx<CN_MAX_TCPROS_CLIENT_CONNECTIONS && ret==-1;clientidx++)
   {
-    if((subidx == -1 || node->tcpros_client_proc[clientidx].topic_idx == subidx) &&
-       (tcpros_port == -1 || node->tcpros_client_proc[clientidx].sub_tcpros_port == tcpros_port) &&
-       (tcpros_hostname == NULL || strcmp(node->tcpros_client_proc[clientidx].sub_tcpros_host,tcpros_hostname)==0)
+    TcprosProcess *cur_cli = &node->tcpros_client_proc[clientidx];
+    if((subidx == -1 || cur_cli->topic_idx == subidx) &&
+       (tcpros_port == -1 || cur_cli->sub_tcpros_port == tcpros_port) &&
+       (tcpros_hostname == NULL || strcmp(cur_cli->sub_tcpros_host,tcpros_hostname)==0)
        )
       ret=clientidx;
   }
@@ -3047,20 +3044,27 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       if(rosproc->state == XMLRPC_PROCESS_STATE_IDLE)
       {
         /* Prepare to ping roscore ... */
-        PRINT_DEBUG("cRosApiPrepareRequest() : ping roscore\n");
+        PRINT_DEBUG("cRosNodeDoEventsLoop() : ping roscore\n");
 
         RosApiCall *call = newRosApiCall();
         if (call != NULL)
         {
           call->method = CROS_API_GET_PID;
           int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
+          if(rc >= 0)
+          {
+            rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
+            generateXmlrpcMessage( n->roscore_host, n->roscore_port, rosproc->message_type,
+                                  getMethodName(call->method), &call->params, &rosproc->message );
 
-          rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
-          generateXmlrpcMessage( n->roscore_host, n->roscore_port, rosproc->message_type,
-                                getMethodName(call->method), &call->params, &rosproc->message );
-
-          rosproc->current_call = call;
-          xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_CONNECTING );
+            rosproc->current_call = call;
+            xmlrpcProcessChangeState(rosproc, XMLRPC_PROCESS_STATE_CONNECTING );
+          }
+          else
+          {
+            PRINT_ERROR ( "cRosNodeDoEventsLoop() : Can't allocate memory\n");
+            ret_err=CROS_MEM_ALLOC_ERR;
+          }
 
           // The ROS master does not warn us when then a new service is registered, so we have to
           // continuously check for the required service
@@ -3077,7 +3081,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
         }
         else
         {
-          PRINT_ERROR ( "cRosApiPrepareRequest() : Can't allocate memory\n");
+          PRINT_ERROR ( "cRosNodeDoEventsLoop() : Can't allocate memory\n");
           ret_err=CROS_MEM_ALLOC_ERR;
         }
       }

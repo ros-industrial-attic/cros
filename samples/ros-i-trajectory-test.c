@@ -26,7 +26,6 @@ static void printHelp( char *cmd_name )
     printf("\t-h                       Print this help\n");
 }
 
-static uint64_t start_timer = 0;
 CrosNode *node;
 
 static CallbackResponse jointstates_sub_callback(cRosMessage *message, void* data_context)

@@ -202,7 +202,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           return ret;
         }
         int subidx = call->provider_idx;
-        SubscriberNode* requesting_subscriber = &(n->subs[subidx]);
 
         if(checkResponseValue( &client_proc->response ) )
         {
@@ -340,7 +339,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         if(checkResponseValue( &client_proc->response ) )
         {
           XmlrpcParam *array = xmlrpcParamVectorAt(&client_proc->response,0);
-          XmlrpcParam *status_msg = xmlrpcParamArrayGetParamAt(array, 1);
+          // XmlrpcParam *status_msg = xmlrpcParamArrayGetParamAt(array, 1);
           XmlrpcParam *value = xmlrpcParamArrayGetParamAt(array, 2);
 
           XmlrpcParam copy;
@@ -462,7 +461,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
   }
   else // client_idx > 0 || user_call = 1
   {
-    void *result = NULL;
     switch (call->method)
     {
       case CROS_API_LOOKUP_NODE:
@@ -631,7 +629,6 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       {
         int array_size = xmlrpcParamArrayGetSize( publishers_param );
         XmlrpcParam *uri;
-        XmlrpcParam *proto_name;
         int sub_idx = -1;
         int uri_found = 0;
 

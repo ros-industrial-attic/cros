@@ -239,7 +239,6 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   int n_params = xmlrpcParamVectorGetSize ( params );
   if ( n_params > 0 )
   {
-    char param_str[256];
     int i = 0;
     dynStringPushBackStr ( message, XMLRPC_PARAMS_TAG.str );
 

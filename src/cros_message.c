@@ -382,7 +382,6 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
     DynString buffer;
     cRosErrCodePack ret_err;
     unsigned char* result = (unsigned char*) malloc(16);
-    int i;
 
     dynStringInit(&buffer);
     msgConst* const_it = msg->first_const;
@@ -487,7 +486,6 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
 
 cRosErrCodePack getMD5Txt(cRosMessageDef* msg_def, DynString* buffer)
 {
-    int i;
     cRosErrCodePack ret_err;
 
     msgConst* const_it = msg_def->first_const;
@@ -632,7 +630,6 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
     char* new_line_saveptr = NULL;
     const char* delimiter = "\n";
 
-    int txt_len = strlen(text);
     msg->plain_text = strdup(text);
     if(msg->plain_text == NULL)
         return CROS_MEM_ALLOC_ERR;
