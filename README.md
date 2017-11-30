@@ -1,6 +1,6 @@
 ![cROS logo](resources/cROS_logo.jpg)
 
-# cROS 0.9 with Service-Call Support
+# cROS 1.0
 
 cROS is a library written in stadard c-language that provides a single thread
 implementation of the  basic features required to implement a ROS

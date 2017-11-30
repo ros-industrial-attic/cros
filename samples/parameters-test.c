@@ -15,6 +15,7 @@
  *  >> rosparam('set', '/testparam/x', int32(3))
  *  >> rosparam('set', '/testparam/y', 'ciao')
  *  >> rosparam('set', '/testparam/z', {int32(1),int32(2),int32(3)})
+ *  >> rosparam('get', '/testparam')
  *  To exit safely press Ctrl-C or 'kill' the process once. If this actions are repeated, the process
  *  will be finished immediately.
  */

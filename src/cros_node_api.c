@@ -245,7 +245,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
               }
               else
                 ret=-1;
-              break;
             }
           }
         }
@@ -608,11 +607,11 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_PUBLISHER_UPDATE:
     {
-      PRINT_INFO("publisherUpdate()\n");
+      PRINT_DEBUG("publisherUpdate()\n");
       // TODO Store the subscribed node name
       XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
 
-#ifdef DEBUG
+#if CROS_DEBUG_LEVEL >= 2
       xmlrpcParamVectorPrint( &server_proc->params );
 #endif
 
