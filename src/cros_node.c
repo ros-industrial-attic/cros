@@ -1805,7 +1805,7 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
 }
 
 CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
-                          char *message_root_path, uint64_t const *select_timeout_ms)
+                          char *message_root_path)
 {
   CrosNode *new_n; // Value to be returned by this function. NULL on failure
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
@@ -1900,10 +1900,6 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
     initParameterSubscrition(&new_n->paramsubs[i]);
   new_n->n_paramsubs = 0;
 
-  if (select_timeout_ms == NULL)
-    new_n->select_timeout = UINT64_MAX;
-  else
-    new_n->select_timeout = *select_timeout_ms;
   new_n->pid = (int)getpid();
 
   fn_ret = 0;
@@ -3363,7 +3359,7 @@ cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned cha
   start_time = cRosClockGetTimeMs();
   ret_err = CROS_SUCCESS_ERR_PACK; // ret_err == CROS_SUCCESS_ERR_PACK &&
   while(!(*exit_flag) && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
-    ret_err = cRosNodeDoEventsLoop( n, (time_out == CROS_INFINITE_TIMEOUT)? n->select_timeout : time_out-elapsed_time);
+    ret_err = cRosNodeDoEventsLoop( n, (time_out == CROS_INFINITE_TIMEOUT)? UINT64_MAX : time_out-elapsed_time);
 
   return ret_err;
 }

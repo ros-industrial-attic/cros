@@ -155,7 +155,7 @@ int main(int argc, char **argv)
 
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
-  node = cRosNodeCreate(node_name, node_host, roscore_host, roscore_port, path, NULL);
+  node = cRosNodeCreate(node_name, node_host, roscore_host, roscore_port, path);
 
   err_cod = cRosApiSubscribeParam(node,"/testparam", getNodeStatusCallback, NULL, NULL);
   if (err_cod != CROS_SUCCESS_ERR_PACK)
@@ -164,6 +164,8 @@ int main(int argc, char **argv)
     cRosNodeDestroy( node );
     return EXIT_FAILURE;
   }
+
+  printf("Node XMLRPC port: %i\n", node->xmlrpc_port);
 
   err_cod = cRosApiGetParamNames(node, getParamNamesCallback, NULL);
   if (err_cod != CROS_SUCCESS_ERR_PACK)

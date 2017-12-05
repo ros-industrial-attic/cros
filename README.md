@@ -1,6 +1,6 @@
 ![cROS logo](resources/cROS_logo.jpg)
 
-# cROS 1.0
+# cROS 1.0-rc1
 
 cROS is a library written in stadard c-language that provides a single thread
 implementation of the  basic features required to implement a ROS

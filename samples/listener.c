@@ -110,7 +110,7 @@ int main(int argc, char **argv)
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
   // Create a new node and tell it to connect to roscore in the usual place
-  node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
+  node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path);
 
   // Create a subscriber to topic /chatter of type "std_msgs/String" and supply a callback for received messages (callback_sub)
   err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, &subidx);

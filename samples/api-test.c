@@ -288,10 +288,10 @@ int main(int argc, char **argv)
   char path[1024];
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
-  node = cRosNodeCreate(node_name, node_host, roscore_host, roscore_port, path, NULL);
+  node = cRosNodeCreate(node_name, node_host, roscore_host, roscore_port, path);
 
   cRosErrCodePack err_cod;
-  ROS_INFO(node, "cROS Node (version %.2f) created!\n", 0.9);
+  ROS_INFO(node, "cROS Node created!\n");
 
 #ifdef SUBSCRIBER
 

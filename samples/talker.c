@@ -89,7 +89,7 @@ int main(int argc, char **argv)
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
   // Create a new node and tell it to connect to roscore in the usual place
-  node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path, NULL);
+  node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path);
 
   // Create a publisher to topic /chatter of type "std_msgs/String" and request that the associated callback be invoked every 100ms (10Hz)
   err_cod = cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 100, callback_pub, NULL, NULL, &pubidx);
