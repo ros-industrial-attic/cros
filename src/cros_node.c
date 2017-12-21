@@ -3364,7 +3364,7 @@ cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned cha
   return ret_err;
 }
 
-cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage *msg, unsigned char *buff_overflow, unsigned long time_out)
+cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage *msg, unsigned char *buff_overflow, unsigned long time_out )
 {
   cRosErrCodePack ret_err;
   SubscriberNode *subs_node;

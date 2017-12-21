@@ -70,8 +70,7 @@ typedef uint32_t cRosErrCodePack;
 
 /*! \brief Locates the message string corresponding to the specified error code in the global error message list.
  *
- * The function first to locate the message string describing the specified error code (a single error code, not a pack).
- * \param msg_list is pointer to a array of structures where the message is searched for
+ * The function locates the message string describing the specified error code (a single error code, not a pack).
  * \param err_code number of the error
  * \return Pointer to the message string. If no message is found for the specified code, it returns NULL
  */
@@ -130,6 +129,8 @@ cRosErrCodePack cRosAddErrCodePackIfErr(cRosErrCodePack prev_err_pack_0, cRosErr
  *  Additionally the text string specified by fmt_str is printed before the error strings. This string can be used to
  *  supply the user with context information about the error.
  *  \param err structure encoding the occurred error (usually returned by a failing function)
+ *  \param fmt_str string that specifies how subsequent arguments are printed in console. It has the same format as printf
+ *         function.
  * \return the number of characters written in the console
  */
 int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...);

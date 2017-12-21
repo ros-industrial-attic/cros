@@ -442,24 +442,24 @@ void getSystemStateCallback(int callid, GetSystemStateResult *result, void *cont
 
 void getTopicTypesCallback(int callid, GetTopicTypesResult *result, void *context)
 {
-  cRosApiGetSystemState(node, getSystemStateCallback, NULL);
+  cRosApiGetSystemState(node, getSystemStateCallback, NULL, NULL);
 }
 
 void getPublishedTopicsCallback(int callid, GetPublishedTopicsResult *result, void *context)
 {
-  cRosApiGetTopicTypes(node, getTopicTypesCallback, NULL);
+  cRosApiGetTopicTypes(node, getTopicTypesCallback, NULL, NULL);
 }
 
 void getBusStatsCallback(int callid, GetBusStatsResult *result, void *context)
 {
-  cRosApiGetPublishedTopics(node, NULL, getPublishedTopicsCallback, NULL);
+  cRosApiGetPublishedTopics(node, NULL, getPublishedTopicsCallback, NULL, NULL);
 }
 
 void getPidCallback(int callid, GetPidResult *result, void *context)
 {
   printf("Pid: %d\n", result->server_process_pid);
   fflush(stdout);
-  cRosApiGetBusStats(node, xmlrpc_host, xmlrpc_port, getBusStatsCallback, NULL);
+  cRosApiGetBusStats(node, xmlrpc_host, xmlrpc_port, getBusStatsCallback, NULL, NULL);
 }
 
 static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
@@ -474,7 +474,7 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
     xmlrpc_host = (char *)malloc(strlen(status->xmlrpc_host) + 1);
     strcpy(xmlrpc_host, status->xmlrpc_host);
     xmlrpc_port = status->xmlrpc_port;
-    cRosApiGetPid(node, xmlrpc_host, xmlrpc_port, getPidCallback, NULL);
+    cRosApiGetPid(node, xmlrpc_host, xmlrpc_port, getPidCallback, NULL, NULL);
   }
 }
 

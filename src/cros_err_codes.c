@@ -4,7 +4,8 @@
 #include "cros_err_codes.h"
 
 // Populate the error message list global variable using the messages defined before (ERROR_CODE_LIST_DEF) but
-// using the format defined by MSG_COD_ELEM for them
+// using the format defined by MSG_COD_ELEM for them.
+// This an array of structures where the error messages are searched for.
 #define MSG_COD_ELEM(code,msg) {code,msg},
 struct cRosErrCodeListElem CRosErrCodeList[]=
 {

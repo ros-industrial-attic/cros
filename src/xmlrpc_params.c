@@ -862,15 +862,15 @@ void xmlrpcParamSetDouble ( XmlrpcParam *param, double val )
   PRINT_DEBUG ( "xmlrpcSetDouble() : Set: %f\n", param->data.as_double );
 }
 
-void xmlrpcParamSetString ( XmlrpcParam *param, const char *val )
+int xmlrpcParamSetString ( XmlrpcParam *param, const char *val )
 {
   PRINT_VDEBUG ( "xmlrpcSetString()\n" );
 
   int str_len = strlen ( val );
-  xmlrpcParamSetStringN ( param, val, str_len );
+  return xmlrpcParamSetStringN ( param, val, str_len );
 }
 
-void xmlrpcParamSetStringN ( XmlrpcParam *param, const char *val, int n )
+int xmlrpcParamSetStringN ( XmlrpcParam *param, const char *val, int n )
 {
   PRINT_VDEBUG ( "xmlrpcSetStringN()\n" );
 
@@ -879,7 +879,7 @@ void xmlrpcParamSetStringN ( XmlrpcParam *param, const char *val, int n )
   if ( param->data.as_string == NULL )
   {
     PRINT_ERROR ( "xmlrpcSetStringN() : Can't allocate memory\n" );
-    return;
+    return -1;
   }
   int i = 0;
   const char *c = val;
@@ -901,6 +901,7 @@ void xmlrpcParamSetStringN ( XmlrpcParam *param, const char *val, int n )
   param->data.as_string[i] = '\0';
 
   PRINT_DEBUG ( "xmlrpcSetStringN() : Set: %s\n", param->data.as_string );
+  return 0;
 }
 
 int xmlrpcParamArrayGetSize( XmlrpcParam *param )
@@ -919,7 +920,7 @@ XmlrpcParam *xmlrpcParamArrayGetParamAt( XmlrpcParam *param, int idx )
     return NULL;
 }
 
-void xmlrpcParamSetArray ( XmlrpcParam *param )
+int xmlrpcParamSetArray ( XmlrpcParam *param )
 {
   PRINT_VDEBUG ( "xmlrpcSetArray()\n" );
   param->type = XMLRPC_PARAM_ARRAY;
@@ -929,13 +930,14 @@ void xmlrpcParamSetArray ( XmlrpcParam *param )
   {
     PRINT_ERROR ( "xmlrpcSetArray() : Can't allocate memory\n" );
     param->array_max_elem = param->array_n_elem = 0;
-    return;
+    return -1;
   }
   param->array_n_elem = 0;
   param->array_max_elem = XMLRPC_ARRAY_INIT_SIZE;
+    return 0;
 }
 
-void xmlrpcParamSetStruct( XmlrpcParam *param )
+int xmlrpcParamSetStruct( XmlrpcParam *param )
 {
   PRINT_VDEBUG ( "xmlrpcSetArray()\n" );
   param->type = XMLRPC_PARAM_STRUCT;
@@ -945,10 +947,11 @@ void xmlrpcParamSetStruct( XmlrpcParam *param )
   {
     PRINT_ERROR ( "xmlrpcSetArray() : Can't allocate memory\n" );
     param->array_max_elem = param->array_n_elem = 0;
-    return;
+    return -1;
   }
   param->array_n_elem = 0;
   param->array_max_elem = XMLRPC_ARRAY_INIT_SIZE;
+    return 0;
 }
 
 
@@ -1367,7 +1370,10 @@ int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
   if (source->member_name != NULL)
   {
     dest->member_name = (char *)malloc(strlen(source->member_name) + 1);
-    strcpy(dest->member_name, source->member_name);
+    if(dest->member_name != NULL)
+      strcpy(dest->member_name, source->member_name);
+    else
+      return -1;
   }
 
   switch ( source->type )

@@ -66,6 +66,7 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
     param2 = &status->parameter_value->data.as_array[2];
   }
 */
+
   if (status->state == CROS_STATUS_PARAM_UPDATE)
   {
     if (strcmp(status->parameter_key, "/testparam/x/") == 0)
@@ -93,7 +94,7 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
       xmlrpcParamArrayPushBackInt(array, 2);
       xmlrpcParamArrayPushBackInt(array, 4);
 
-      err_cod = cRosApiSetParam(node, "/testparam", &param, setParamCallback, NULL);
+      err_cod = cRosApiSetParam(node, "/testparam", &param, setParamCallback, NULL, NULL);
       if (err_cod != CROS_SUCCESS_ERR_PACK)
         cRosPrintErrCodePack(err_cod, "cRosApiSetParam() failed");
 
@@ -167,7 +168,7 @@ int main(int argc, char **argv)
 
   printf("Node XMLRPC port: %i\n", node->xmlrpc_port);
 
-  err_cod = cRosApiGetParamNames(node, getParamNamesCallback, NULL);
+  err_cod = cRosApiGetParamNames(node, getParamNamesCallback, NULL, NULL);
   if (err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosApiGetParamNames() failed");
