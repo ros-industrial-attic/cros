@@ -1,4 +1,4 @@
-cROS 1.0-rc1 (30/11/2017)
+cROS 1.0-rc1 (21/12/2017)
 -------------------------
 Most significant changes of this second release:
   * Now cROS compiles and works on OS X
@@ -17,6 +17,7 @@ Most significant changes of this second release:
   * cRosNodeDestroy() automatically unregisters all topic publishers, topic subscribers, service providers and parameter subscribers in the ROS master
   * The ROS node now supports the operation as a service caller (client)
   * Added compatibility with MATLAB ROS toolbox (tested with MATLAB R2017a)
+  * Added cROS library manual in PDF
 
 cROS 0.9
 --------
