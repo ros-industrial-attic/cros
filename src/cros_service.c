@@ -243,7 +243,6 @@ char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps)
 
     while(deps->next != NULL)
     {
-        //printf("%s\nMSG: %s\n", separator, deps->msg->name);
         full_size = strlen(deps->msg->plain_text) + strlen(separator) + strlen(msg_tag) + 3/*New lines*/;
         deps = deps->next;
     }
@@ -255,7 +254,6 @@ char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps)
 
     while(deps->next != NULL)
     {
-        //printf("%s\nMSG: %s\n", separator, deps->msg->name);
         strcat(full_text, "\n");
         strcat(full_text, separator);
         strcat(full_text, "\n");

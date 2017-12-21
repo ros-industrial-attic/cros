@@ -1281,21 +1281,21 @@ static void paramPrint( XmlrpcParam *param, char *head )
   switch ( param->type )
   {
   case XMLRPC_PARAM_BOOL:
-    printf("%s type : boolean Value : [%s]\n", head, param->data.as_bool?"TRUE":"FALSE" );
+    fprintf(cRosOutStreamGet(),"%s type : boolean Value : [%s]\n", head, param->data.as_bool?"TRUE":"FALSE" );
     break;
   case XMLRPC_PARAM_INT:
-    printf("%s type : integer Value : [%d]\n", head, param->data.as_int );
+    fprintf(cRosOutStreamGet(),"%s type : integer Value : [%d]\n", head, param->data.as_int );
     break;
   case XMLRPC_PARAM_DOUBLE:
-    printf("%s type : double Value : [%f]\n", head, param->data.as_double );
+    fprintf(cRosOutStreamGet(),"%s type : double Value : [%f]\n", head, param->data.as_double );
     break;
   case XMLRPC_PARAM_STRING:
-    printf("%s type : string Value : [%s]\n", head,
+    fprintf(cRosOutStreamGet(),"%s type : string Value : [%s]\n", head,
            (param->data.as_string != NULL)?param->data.as_string:"NULL" );
     break;
 
   case XMLRPC_PARAM_ARRAY:
-    printf("%s type : array\n\n========Start array========\n", head);
+    fprintf(cRosOutStreamGet(),"%s type : array\n\n========Start array========\n", head);
     if ( param->data.as_array != NULL && param->array_n_elem )
     {
       for ( i = 0; i< param->array_n_elem; i++ )
@@ -1306,9 +1306,9 @@ static void paramPrint( XmlrpcParam *param, char *head )
       }
     }
     else
-      printf("Empty array\n");
+      fprintf(cRosOutStreamGet(),"Empty array\n");
 
-    printf("=========End array=========\n\n");
+    fprintf(cRosOutStreamGet(),"=========End array=========\n\n");
     break;
 
   case XMLRPC_PARAM_DATETIME: /* WARNING: Currently unsupported */

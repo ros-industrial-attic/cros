@@ -18,6 +18,8 @@
 #define ROS_ERROR(node,...) PRINT_LOG(node, CROS_LOGLEVEL_ERROR, __VA_ARGS__)
 #define ROS_FATAL(node,...) PRINT_LOG(node, CROS_LOGLEVEL_FATAL, __VA_ARGS__)
 
+FILE *cRosOutStreamGet();
+void cRosOutStreamSet(FILE *new_stream);
 CrosLog * cRosLogNew();
 void cRosLogFree(CrosLog *log);
 

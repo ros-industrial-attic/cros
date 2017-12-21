@@ -291,7 +291,6 @@ char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps)
 
     while(deps->next != NULL)
     {
-        //printf("%s\nMSG: %s\n", separator, deps->msg->name);
         full_size = strlen(deps->msg->plain_text) + strlen(separator) + strlen(msg_tag) + 3/*New lines*/;
         deps = deps->next;
     }
@@ -302,7 +301,6 @@ char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps)
     memcpy(full_text,msg->plain_text,strlen(msg->plain_text) + 1);
     while(deps->next != NULL)
     {
-        //printf("%s\nMSG: %s\n", separator, deps->msg->name);
         strcat(full_text, "\n");
         strcat(full_text, separator);
         strcat(full_text, "\n");
@@ -637,7 +635,6 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
     new_line = strtok_r(text, delimiter, &new_line_saveptr);
     while(new_line != NULL)
     {
-        //printf("%s\n", new_line);
         char* iterator = new_line;
         int comment_char_found = 0;
         int char_count = 0; // Number of characters in the line before the comment
@@ -1245,19 +1242,20 @@ void printNSpaces(int n_spaces)
 {
   int spc_ind;
   for(spc_ind=0;spc_ind<n_spaces;spc_ind++)
-    printf(" ");
+    fprintf(cRosOutStreamGet()," ");
 }
 
 #define MAX_NUM_MSG_ELEM_PRINT 5 //! Maximum number of array elements that will be printed by cRosMessageFieldPrint()
 
-// This function prints a field of one message (msg_field) to console.
+// This function prints a field of one message (msg_field) to the output stream.
 void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
 {
+  FILE *msg_out = cRosOutStreamGet();
   printNSpaces(n_indent);
   if(msg_field != NULL)
   {
     int elem_ind;
-    printf("nam:'%s' siz:%i cons:%i arr(is:%i isFix:%i siz:%i cap:%i) typ:%s (%s):", \
+    fprintf(msg_out,"nam:'%s' siz:%i cons:%i arr(is:%i isFix:%i siz:%i cap:%i) typ:%s (%s):", \
            (msg_field->name!=NULL)?msg_field->name:"NULL", msg_field->size, msg_field->is_const, \
            msg_field->is_array, msg_field->is_fixed_array, msg_field->array_size, msg_field->array_capacity, \
            (msg_field->type_s!=NULL)?msg_field->type_s:"NULL", getMessageTypeDeclaration(msg_field->type));
@@ -1266,187 +1264,187 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
       case CROS_STD_MSGS_INT8:
       {
         if(!msg_field->is_array)
-          printf("%hi", (short)msg_field->data.as_int8);
+          fprintf(msg_out,"%hi", (short)msg_field->data.as_int8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hi,", (short)msg_field->data.as_int8_array[elem_ind]);
+            fprintf(msg_out,"%hi,", (short)msg_field->data.as_int8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_UINT8:
       {
         if(!msg_field->is_array)
-          printf("%hu", (unsigned short)msg_field->data.as_uint8);
+          fprintf(msg_out,"%hu", (unsigned short)msg_field->data.as_uint8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
+            fprintf(msg_out,"%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_INT16:
       {
         if(!msg_field->is_array)
-          printf("%hi", msg_field->data.as_int16);
+          fprintf(msg_out,"%hi", msg_field->data.as_int16);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hi,", msg_field->data.as_int16_array[elem_ind]);
+            fprintf(msg_out,"%hi,", msg_field->data.as_int16_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_UINT16:
       {
         if(!msg_field->is_array)
-          printf("%hu", msg_field->data.as_uint16);
+          fprintf(msg_out,"%hu", msg_field->data.as_uint16);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hu,", msg_field->data.as_uint16_array[elem_ind]);
+            fprintf(msg_out,"%hu,", msg_field->data.as_uint16_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_INT32:
       {
         if(!msg_field->is_array)
-          printf("%li", (long)msg_field->data.as_int32);
+          fprintf(msg_out,"%li", (long)msg_field->data.as_int32);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%li,", (long)msg_field->data.as_int32_array[elem_ind]);
+            fprintf(msg_out,"%li,", (long)msg_field->data.as_int32_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_UINT32:
       {
         if(!msg_field->is_array)
-          printf("%lu", (long unsigned)msg_field->data.as_uint32);
+          fprintf(msg_out,"%lu", (long unsigned)msg_field->data.as_uint32);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%lu,", (long unsigned)msg_field->data.as_uint32_array[elem_ind]);
+            fprintf(msg_out,"%lu,", (long unsigned)msg_field->data.as_uint32_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_INT64:
       {
         if(!msg_field->is_array)
-          printf("%lli", (long long)msg_field->data.as_int64);
+          fprintf(msg_out,"%lli", (long long)msg_field->data.as_int64);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%lli,", (long long)msg_field->data.as_int64_array[elem_ind]);
+            fprintf(msg_out,"%lli,", (long long)msg_field->data.as_int64_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_UINT64:
       {
         if(!msg_field->is_array)
-          printf("%llu", (long long unsigned)msg_field->data.as_uint64);
+          fprintf(msg_out,"%llu", (long long unsigned)msg_field->data.as_uint64);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%llu,", (long long unsigned)msg_field->data.as_uint64_array[elem_ind]);
+            fprintf(msg_out,"%llu,", (long long unsigned)msg_field->data.as_uint64_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_FLOAT32:
       {
         if(!msg_field->is_array)
-          printf("%f", msg_field->data.as_float32);
+          fprintf(msg_out,"%f", msg_field->data.as_float32);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%f,", msg_field->data.as_float32_array[elem_ind]);
+            fprintf(msg_out,"%f,", msg_field->data.as_float32_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_FLOAT64:
       {
         if(!msg_field->is_array)
-          printf("%f", msg_field->data.as_float64);
+          fprintf(msg_out,"%f", msg_field->data.as_float64);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%f,", msg_field->data.as_float64_array[elem_ind]);
+            fprintf(msg_out,"%f,", msg_field->data.as_float64_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_BOOL:
       {
         if(!msg_field->is_array)
-          printf("%hu", (unsigned short)msg_field->data.as_uint8);
+          fprintf(msg_out,"%hu", (unsigned short)msg_field->data.as_uint8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
+            fprintf(msg_out,"%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_CHAR:
       {
         if(!msg_field->is_array)
-          printf("%hu", (unsigned short)msg_field->data.as_uint8);
+          fprintf(msg_out,"%hu", (unsigned short)msg_field->data.as_uint8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
+            fprintf(msg_out,"%hu,", (unsigned short)msg_field->data.as_uint8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_BYTE:
       {
         if(!msg_field->is_array)
-          printf("%hi", (short)msg_field->data.as_int8);
+          fprintf(msg_out,"%hi", (short)msg_field->data.as_int8);
         else
         {
           for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-            printf("%hi,", (short)msg_field->data.as_int8_array[elem_ind]);
+            fprintf(msg_out,"%hi,", (short)msg_field->data.as_int8_array[elem_ind]);
           if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
         }
         break;
       }
       case CROS_STD_MSGS_STRING:
       {
         if(!msg_field->is_array)
-          printf("'%s'", (msg_field->data.as_string!=NULL)?msg_field->data.as_string:"NULL");
+          fprintf(msg_out,"'%s'", (msg_field->data.as_string!=NULL)?msg_field->data.as_string:"NULL");
         else
         {
           if(msg_field->data.as_string_array != NULL)
           {
             for(elem_ind=0;elem_ind < msg_field->array_size && elem_ind < MAX_NUM_MSG_ELEM_PRINT;elem_ind++)
-              printf("'%s',", (msg_field->data.as_string_array[elem_ind]!=NULL)?msg_field->data.as_string_array[elem_ind]:"NULL");
+              fprintf(msg_out,"'%s',", (msg_field->data.as_string_array[elem_ind]!=NULL)?msg_field->data.as_string_array[elem_ind]:"NULL");
             if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-              printf("...");
+              fprintf(msg_out,"...");
           }
           else
-            printf("NULL");
+            fprintf(msg_out,"NULL");
         }
           break;
       }
@@ -1463,27 +1461,27 @@ void cRosMessageFieldPrint(cRosMessageField *msg_field, int n_indent)
         cRosMessageFieldsPrint(msg_field->data.as_msg, n_indent);
       else
       {
-        printf("\n");
+        fprintf(msg_out,"\n");
         for(elem_ind=0;elem_ind < msg_field->array_size;elem_ind++)
           cRosMessageFieldsPrint(msg_field->data.as_msg_array[elem_ind], n_indent);
         if(msg_field->array_size > MAX_NUM_MSG_ELEM_PRINT)
-            printf("...");
+            fprintf(msg_out,"...");
       }
     }
     else
-      printf("\n");
+      fprintf(msg_out,"\n");
   }
   else
-    printf("Field NULL\n");
+    fprintf(msg_out,"Field NULL\n");
 }
 
-// This function prints the MD5 and all the fields (fields field struct) of one message (msg) to console.
+// This function prints the MD5 and all the fields (fields field struct) of one message (msg) to the output file stream.
 void cRosMessageFieldsPrint(cRosMessage *msg, int n_indent)
 {
   printNSpaces(n_indent);
   if(msg != NULL)
   {
-    printf("MsgAt 0x%p: MD5:'%s' N.Flds:%i Flds:%s\n", msg, (msg->md5sum != NULL)? msg->md5sum: "NULL", msg->n_fields, (msg->fields != NULL)?"":"NULL");
+    fprintf(cRosOutStreamGet(), "MsgAt 0x%p: MD5:'%s' N.Flds:%i Flds:%s\n", msg, (msg->md5sum != NULL)? msg->md5sum: "NULL", msg->n_fields, (msg->fields != NULL)?"":"NULL");
     if(msg->fields != NULL)
     {
       int field_ind;
@@ -1493,7 +1491,7 @@ void cRosMessageFieldsPrint(cRosMessage *msg, int n_indent)
     }
   }
   else
-    printf("MsgAt NULL\n");
+    fprintf(cRosOutStreamGet(), "MsgAt NULL\n");
 }
 
 // This function copies the MD5 and all the fields (fields field struct) from one message (m_src) to another (m_dst).

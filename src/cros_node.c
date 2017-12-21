@@ -449,7 +449,6 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
       PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Reading()\n" );
       TcpIpSocketState sock_state = tcpIpSocketReadString( &client_proc->socket,
                                                            &client_proc->message );
-      //printf("%s\n", client_proc->message.data);
       XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
 
       int disconnected = 0;
@@ -2253,7 +2252,6 @@ int cRosNodeRecruitTcprosClientProc(CrosNode *node, int subidx)
     {
       client_proc->topic_idx = subidx;
       client_proc->tcp_nodelay = (unsigned char)sub->tcp_nodelay;
-      //printf("TCPROS client proc %i assigned to subs %i\n",clientidx,subidx);
       ret=clientidx; // Exit loop
     }
   }
@@ -3357,8 +3355,8 @@ cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned cha
   PRINT_VDEBUG ( "cRosNodeStart ()\n" );
 
   start_time = cRosClockGetTimeMs();
-  ret_err = CROS_SUCCESS_ERR_PACK; // ret_err == CROS_SUCCESS_ERR_PACK &&
-  while(!(*exit_flag) && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
+  ret_err = CROS_SUCCESS_ERR_PACK;
+  while(ret_err == CROS_SUCCESS_ERR_PACK && !(*exit_flag) && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
     ret_err = cRosNodeDoEventsLoop( n, (time_out == CROS_INFINITE_TIMEOUT)? UINT64_MAX : time_out-elapsed_time);
 
   return ret_err;

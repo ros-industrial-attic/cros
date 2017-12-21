@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <sys/time.h>
@@ -7,7 +8,21 @@
 #include "cros_defs.h"
 #include "cros_node.h"
 
-CrosLog * cRosLogNew()
+FILE **Msg_output = &stdout; //! The pointer to file stream used to print all messages (except debug messages)
+
+FILE *cRosOutStreamGet()
+{
+  return *Msg_output;
+}
+
+void cRosOutStreamSet(FILE *new_stream)
+{
+  static FILE *msg_out_stream;
+  msg_out_stream = new_stream;
+  Msg_output = &msg_out_stream;
+}
+
+CrosLog *cRosLogNew()
 {
   CrosLog *ret = (CrosLog *)malloc(sizeof(CrosLog));
   ret->file = NULL;
@@ -149,7 +164,7 @@ void cRosLogPrint(CrosNode* node,
   if(node == NULL)
   {
 
-    printf("\n[%d,%ld] ", (int)wall_time.tv_sec, (long)wall_time.tv_usec);
+    fprintf(cRosOutStreamGet(), "\n[%d,%ld] ", (int)wall_time.tv_sec, (long)wall_time.tv_usec);
     size_t msg_size = strlen(msg) + 512;
 
     log_msg = calloc(msg_size + 1, sizeof(char));
@@ -219,9 +234,9 @@ void cRosLogPrint(CrosNode* node,
       log->pubs[i] = NULL;
   }
 
-  printf("\n[%d,%d] ",log->secs, log->nsecs);
+  fprintf(cRosOutStreamGet(),"\n[%d,%d] ",log->secs, log->nsecs);
 
-  size_t msg_size = vprintf(msg,args) + 512;
+  size_t msg_size = vfprintf(cRosOutStreamGet(),msg,args) + 512;
 
   log_msg = calloc(msg_size + 1, sizeof(char));
   vsprintf(log_msg,msg,args_copy);

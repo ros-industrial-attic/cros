@@ -9,6 +9,7 @@
 #include "tcpros_tags.h"
 #include "tcpros_process.h"
 #include "dyn_buffer.h"
+#include "cros_log.h"
 
 static uint32_t getLen( DynBuffer *pkt )
 {
@@ -41,7 +42,7 @@ static void printPacket( DynBuffer *pkt, int print_data )
 
   uint32_t bytes_to_read = getLen( pkt );
 
-  printf("Header len %d\n",bytes_to_read);
+  fprintf(cRosOutStreamGet(),"Header len %d\n",bytes_to_read);
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( pkt );
@@ -49,7 +50,7 @@ static void printPacket( DynBuffer *pkt, int print_data )
     if( field_len )
     {
       fwrite ( field, 1, field_len, stdout );
-      printf("\n" );
+      fprintf(cRosOutStreamGet(),"\n" );
       dynBufferMovePoseIndicator( pkt, field_len );
     }
     bytes_to_read -= ( sizeof(uint32_t) + field_len );
@@ -59,7 +60,7 @@ static void printPacket( DynBuffer *pkt, int print_data )
   {
     bytes_to_read = getLen( pkt );
 
-    printf("Data len %d\n",bytes_to_read);
+    fprintf(cRosOutStreamGet(),"Data len %d\n",bytes_to_read);
     while ( bytes_to_read > 0)
     {
       uint32_t field_len = getLen( pkt );
@@ -67,7 +68,7 @@ static void printPacket( DynBuffer *pkt, int print_data )
       if( field_len )
       {
         fwrite ( field, 1, field_len, stdout );
-        printf("\n");
+        fprintf(cRosOutStreamGet(),"\n");
         dynBufferMovePoseIndicator( pkt, field_len );
       }
       bytes_to_read -= ( sizeof(uint32_t) + field_len );
@@ -279,7 +280,6 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
       else
       {
         PRINT_ERROR("readPublicationHeader() : unknown field\n");
-        printf("FIELD: %s\n",field);
         *flags = 0x0;
         break;
       }

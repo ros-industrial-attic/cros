@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include "cros_log.h"
 #include "cros_err_codes.h"
 
 // Populate the error message list global variable using the messages defined before (ERROR_CODE_LIST_DEF) but
@@ -94,6 +95,7 @@ int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...)
   int n_prn_chars;
   const char *msg_str;
   cRosErrCode curr_err_cod;
+  FILE *msg_out = cRosOutStreamGet();
 
   n_prn_chars=0;
 
@@ -102,7 +104,7 @@ int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...)
     va_list arg_list;
 
     va_start(arg_list, fmt_str);
-    n_prn_chars+=vprintf(fmt_str, arg_list);
+    n_prn_chars+=vfprintf(msg_out, fmt_str, arg_list);
     va_end(arg_list);
   }
 
@@ -112,13 +114,13 @@ int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...)
     // Print error info included in err
     msg_str = cRosGetErrCodeStr(curr_err_cod);
     if(msg_str != NULL) // The error code has been found in the list
-      n_prn_chars+=printf(". Err %u: %s", curr_err_cod, msg_str);
+      n_prn_chars+=fprintf(msg_out, ". Err %u: %s", curr_err_cod, msg_str);
     else
-      n_prn_chars+=printf(". Error code %u (The description string for this error code has not been found).", curr_err_cod);
+      n_prn_chars+=fprintf(msg_out, ". Error code %u (The description string for this error code has not been found).", curr_err_cod);
 
     err_cod_pack = cRosRemoveLastErrCode(err_cod_pack); // Pass to the next error code
   }
-  n_prn_chars+=printf("\n");
+  n_prn_chars+=fprintf(msg_out, "\n");
   return(n_prn_chars);
 }
 

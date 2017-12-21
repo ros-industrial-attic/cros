@@ -125,13 +125,13 @@ cRosErrCodePack cRosAddErrCodePackIfErr(cRosErrCodePack prev_err_pack_0, cRosErr
 /*! \brief Composes and print the error message corresponding to the specified error code pack
  *
  *  The function search for the error strings indicated in the specified error pack. The composed message is printed
- *  in the console. The error pack can contain up to 4 error codes, so up to 4 message string can be printed.
+ *  in the output file stream. The error pack can contain up to 4 error codes, so up to 4 message string can be printed.
  *  Additionally the text string specified by fmt_str is printed before the error strings. This string can be used to
  *  supply the user with context information about the error.
  *  \param err structure encoding the occurred error (usually returned by a failing function)
- *  \param fmt_str string that specifies how subsequent arguments are printed in console. It has the same format as printf
+ *  \param fmt_str string that specifies how subsequent arguments are printed. It has the same format as printf
  *         function.
- * \return the number of characters written in the console
+ * \return the number of characters written in the output stream
  */
 int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...);
 
