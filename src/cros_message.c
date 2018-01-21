@@ -579,7 +579,7 @@ void cRosMessageInit(cRosMessage *message)
     message->md5sum = (char*) calloc(33, sizeof(char)); // 32 chars + '\0';
 }
 
-cRosMessage * cRosMessageNew()
+cRosMessage * cRosMessageNew(void)
 {
   cRosMessage *ret = (cRosMessage *)calloc(1, sizeof(cRosMessage));
 
@@ -2076,7 +2076,7 @@ void cRosMessageFree(cRosMessage *message)
   free(message);
 }
 
-cRosMessageField * cRosMessageFieldNew()
+cRosMessageField * cRosMessageFieldNew(void)
 {
   cRosMessageField *ret = (cRosMessageField *)calloc(1, sizeof(cRosMessageField));
   cRosMessageFieldInit(ret);

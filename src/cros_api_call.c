@@ -4,7 +4,7 @@
 #include "cros_api_call.h"
 #include "cros_defs.h"
 
-RosApiCall * newRosApiCall()
+RosApiCall * newRosApiCall(void)
 {
   RosApiCall *ret = (RosApiCall *)malloc(sizeof(RosApiCall));
   ret->id = -1;

@@ -1,6 +1,7 @@
 #ifndef _CROS_LOG_H_
 #define _CROS_LOG_H_
 
+#include <stdio.h>
 #include <stdint.h>
 #include "cros_node.h"
 
@@ -18,9 +19,9 @@
 #define ROS_ERROR(node,...) PRINT_LOG(node, CROS_LOGLEVEL_ERROR, __VA_ARGS__)
 #define ROS_FATAL(node,...) PRINT_LOG(node, CROS_LOGLEVEL_FATAL, __VA_ARGS__)
 
-FILE *cRosOutStreamGet();
+FILE *cRosOutStreamGet(void);
 void cRosOutStreamSet(FILE *new_stream);
-CrosLog * cRosLogNew();
+CrosLog * cRosLogNew(void);
 void cRosLogFree(CrosLog *log);
 
 void cRosLogPrint(CrosNode* node,
@@ -30,7 +31,7 @@ void cRosLogPrint(CrosNode* node,
                   uint32_t line,
                   const char* msg, ...);
 
-CrosLogQueue* cRosLogQueueNew();
+CrosLogQueue* cRosLogQueueNew(void);
 void cRosLogQueueInit(CrosLogQueue *queue);
 int cRosLogQueueEnqueue(CrosLogQueue *queue, CrosLog* log);
 CrosLog * cRosLogQueuePeek(CrosLogQueue *queue);

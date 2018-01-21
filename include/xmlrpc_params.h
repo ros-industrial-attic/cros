@@ -232,7 +232,7 @@ XmlrpcParam * xmlrpcParamStructPushBackStringN( XmlrpcParam *param, const char *
 XmlrpcParam * xmlrpcParamStructPushBackArray( XmlrpcParam *param, const char *name );
 XmlrpcParam * xmlrpcParamStructPushBackStruct ( XmlrpcParam *param, const char *name );
 
-XmlrpcParam * xmlrpcParamNew();
+XmlrpcParam * xmlrpcParamNew(void);
 
 void xmlrpcParamFree( XmlrpcParam *param );
 

@@ -1328,7 +1328,7 @@ void xmlrpcParamPrint( XmlrpcParam *param )
   paramPrint( param, "XMLRPC parameter" );
 }
 
-XmlrpcParam * xmlrpcParamNew()
+XmlrpcParam * xmlrpcParamNew(void)
 {
   XmlrpcParam *ret = (XmlrpcParam *)malloc(sizeof(XmlrpcParam));
   if (ret == NULL)

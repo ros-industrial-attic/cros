@@ -92,7 +92,7 @@ struct cRosMessage
     int n_fields;
 };
 
-cRosMessage * cRosMessageNew();
+cRosMessage * cRosMessageNew(void);
 
 void cRosMessageInit(cRosMessage *message);
 
@@ -118,7 +118,7 @@ void cRosMessageFieldsFree(cRosMessage *message);
 
 void cRosMessageRelease(cRosMessage *message);
 
-cRosMessageField * cRosMessageFieldNew();
+cRosMessageField * cRosMessageFieldNew(void);
 
 void cRosMessageFieldInit(cRosMessageField *field);
 

@@ -10,7 +10,7 @@
 
 FILE **Msg_output = &stdout; //! The pointer to file stream used to print all messages (except debug messages)
 
-FILE *cRosOutStreamGet()
+FILE *cRosOutStreamGet(void)
 {
   return *Msg_output;
 }
@@ -22,7 +22,7 @@ void cRosOutStreamSet(FILE *new_stream)
   Msg_output = &msg_out_stream;
 }
 
-CrosLog *cRosLogNew()
+CrosLog *cRosLogNew(void)
 {
   CrosLog *ret = (CrosLog *)malloc(sizeof(CrosLog));
   ret->file = NULL;
@@ -50,7 +50,7 @@ void cRosLogFree(CrosLog *log)
   free(log);
 }
 
-CrosLogQueue* cRosLogQueueNew()
+CrosLogQueue* cRosLogQueueNew(void)
 {
   CrosLogQueue* new_queue = calloc(1,sizeof(CrosLogQueue));
   cRosLogQueueInit(new_queue);

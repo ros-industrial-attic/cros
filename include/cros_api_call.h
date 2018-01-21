@@ -40,7 +40,7 @@ struct ApiCallQueue
   size_t count;
 };
 
-RosApiCall * newRosApiCall();
+RosApiCall * newRosApiCall(void);
 void freeRosApiCall(RosApiCall *call);
 
 void initApiCallQueue(ApiCallQueue *queue);
