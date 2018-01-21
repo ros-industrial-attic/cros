@@ -15,9 +15,11 @@
   MSG_COD_ELEM(CROS_UNSPECIFIED_ERR, "An unspecified error occurred") \
   MSG_COD_ELEM(CROS_MEM_ALLOC_ERR, "Error allocating memory") \
   MSG_COD_ELEM(CROS_BAD_PARAM_ERR, "An invalid value has been specified for at least one of the input parameters") \
-  MSG_COD_ELEM(CROS_OPEN_MSG_FILE_ERR, "The file defining the message cannot be opened") \
-  MSG_COD_ELEM(CROS_LOAD_MSG_FILE_ERR, "Error loading the message definition file") \
+  MSG_COD_ELEM(CROS_OPEN_MSG_FILE_ERR, "The message file definition the cannot be opened") \
+  MSG_COD_ELEM(CROS_READ_MSG_FILE_ERR, "Error reading the message definition file") \
+  MSG_COD_ELEM(CROS_LOAD_MSG_FILE_ERR, "Error loading or processing the message definition file") \
   MSG_COD_ELEM(CROS_OPEN_SVC_FILE_ERR, "The file defining the service cannot be opened") \
+  MSG_COD_ELEM(CROS_READ_SVC_FILE_ERR, "Error reading the service definition file") \
   MSG_COD_ELEM(CROS_UNREG_TIMEOUT_ERR, "The unregistration from the ROS master was abandoned before it finished because it was taking too long") \
   MSG_COD_ELEM(CROS_SELECT_FD_ERR, "An error ocurred while monitoring the socket file descriptors (select() function)") \
   MSG_COD_ELEM(CROS_MANY_PARAM_ERR, "The maximum number of paramter subscriptions has been reached") \

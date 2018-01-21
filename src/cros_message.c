@@ -85,37 +85,31 @@ int is_valid_msg_type(char* type_statement)
 
 int is_array_type(char* type_statement, int* size)
 {
-    //@return: True if the name is a syntatically legal message type name
+    //@return: True if the name is a syntactically legal message type name
     //    @rtype: bool
   //if not x or len(x) != len(x.strip()):
   //    return False
   char* type_it = type_statement;
   char* array_size;
-  char* num_start;
+  char* num_start = NULL;
   int count = 0;
-  int start_count = 0;
 
   while(*type_it != '\0' && *type_it != ']' && *type_it!= ' ')
   {
-    if(start_count)
-    {
+    if(num_start != NULL)
       count++;
-    }
 
-    if(*type_it == '[' )
-    {
-      start_count = 1;
+    if(*type_it == '[')
       num_start = type_it;
-    }
 
     type_it++;
   }
 
-  if(count == 0 && start_count == 0)
+  if(num_start == NULL)
     return 0;
 
   array_size = calloc(count + 1, sizeof(char));
-  memcpy(array_size,num_start + 1,count);
+  memcpy(array_size, num_start + 1, count);
   char *endptr;
   long int res = strtol(array_size, &endptr, 10);
   if (endptr == array_size)
@@ -820,23 +814,19 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
 cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg)
 {
     cRosErrCodePack ret_err;
+    size_t f_read_bytes;
+    char* file_tokenized;
+    FILE *f;
 
-    FILE *f = fopen(filename, "rb");
+    f = fopen(filename, "rb");
     if (f == NULL)
       return CROS_OPEN_MSG_FILE_ERR;
 
-    char* file_tokenized = (char*) calloc(strlen(filename)+1, sizeof(char));
-    if(file_tokenized == NULL)
-    {
-      fclose(f);
-      return CROS_MEM_ALLOC_ERR;
-    }
-
-    strcpy(file_tokenized, filename);
     char* token_pack = NULL;
     char* token_root = NULL;
     char* token_name = NULL;
 
+    // Load the entire message definition file in a buffer
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);
@@ -844,14 +834,27 @@ cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg)
     if(msg_text == NULL)
     {
       fclose(f);
-      free(file_tokenized);
       return CROS_MEM_ALLOC_ERR;
     }
 
-    fread(msg_text, fsize, 1, f);
+    f_read_bytes = fread(msg_text, 1, fsize, f);
     fclose(f);
 
+    if(f_read_bytes != (size_t)fsize)
+    {
+      free(msg_text);
+      return CROS_READ_MSG_FILE_ERR;
+    }
+
     msg_text[fsize] = '\0';
+
+    file_tokenized = (char*) calloc(strlen(filename)+1, sizeof(char));
+    if(file_tokenized == NULL)
+    {
+      free(msg_text);
+      return CROS_MEM_ALLOC_ERR;
+    }
+    strcpy(file_tokenized, filename);
     char* tok = strtok(file_tokenized,SPLIT_REGEX);
 
     while(tok != NULL)

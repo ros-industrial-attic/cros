@@ -60,6 +60,7 @@ cRosErrCodePack initCrosSrv(cRosSrvDef* srv)
 cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
 {
     cRosErrCodePack ret_err;
+    size_t f_read_bytes;
 
     char* file_tokenized = (char*) malloc(strlen(filename)+sizeof(char));
     if(file_tokenized == NULL)
@@ -90,8 +91,16 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
             return CROS_MEM_ALLOC_ERR;
         }
 
-        fread(srv_text, fsize, 1, f);
+        f_read_bytes = fread(srv_text, 1, fsize, f);
         fclose(f);
+
+        if(f_read_bytes != (size_t)fsize)
+        {
+            free(file_tokenized);
+            free(srv_text);
+            return CROS_READ_SVC_FILE_ERR;
+        }
+
 
         srv_text[fsize] = '\0';
         srv->plain_text = strdup(srv_text); // equiv. to malloc() + memcpy()

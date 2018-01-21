@@ -1943,21 +1943,24 @@ CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, 
                                   callback_pub_log, NULL, new_n, NULL);
   if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
-    PRINT_ERROR ( "cRosNodeCreate(): Error registering rosout. Error: %i\n", cRosGetLastErrCode(ret_err));
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering rosout.\n");
+    cRosPrintErrCodePack(ret_err, "cRosNodeCreate()");
   }
 
   ret_err = cRosApiRegisterServiceProvider(new_n,"~get_loggers","roscpp/GetLoggers",
                                       callback_srv_get_loggers, NULL, (void *)new_n, NULL);
   if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
-    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers. Error: %i\n", cRosGetLastErrCode(ret_err));
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers.\n");
+    cRosPrintErrCodePack(ret_err, "cRosNodeCreate()");
   }
 
   ret_err = cRosApiRegisterServiceProvider(new_n,"~set_logger_level","roscpp/SetLoggerLevel",
                                       callback_srv_set_logger_level, NULL, (void *)new_n, NULL);
   if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
-    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers. Error: %i\n", cRosGetLastErrCode(ret_err));
+    PRINT_ERROR ( "cRosNodeCreate(): Error registering loggers.\n");
+    cRosPrintErrCodePack(ret_err, "cRosNodeCreate()");
   }
 
   return new_n;
@@ -3366,7 +3369,7 @@ cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage
 {
   cRosErrCodePack ret_err;
   SubscriberNode *subs_node;
-  uint64_t start_time, elapsed_time;
+  uint64_t start_time, elapsed_time = 0; // Initialized just to avoid a compiler warning
   PRINT_VDEBUG ( "cRosNodeReceiveTopicMsg ()\n" );
 
   if(subidx < 0 || subidx >= CN_MAX_SUBSCRIBED_TOPICS)
@@ -3401,7 +3404,7 @@ cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *m
 {
   cRosErrCodePack ret_err;
   PublisherNode *pub_node;
-  uint64_t start_time, elapsed_time;
+  uint64_t start_time, elapsed_time = 0; // Initialized just to avoid a compiler warning
   PRINT_VDEBUG ( "cRosNodeSendTopicMsg ()\n" );
 
   if(pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
@@ -3452,7 +3455,7 @@ cRosErrCodePack cRosNodeServiceCall( CrosNode *node, int svcidx, cRosMessage *re
   cRosErrCodePack ret_err;
   ServiceCallerNode *caller_node;
   TcprosProcess *svc_client_proc;
-  uint64_t start_time, elapsed_time;
+  uint64_t start_time, elapsed_time = 0; // Initialized just to avoid a compiler warning
   PRINT_VDEBUG ( "cRosNodeServiceCall ()\n" );
 
   if(svcidx < 0 || svcidx >= CN_MAX_SERVICE_CALLERS)
