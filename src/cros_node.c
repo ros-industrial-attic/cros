@@ -2684,11 +2684,15 @@ void printNodeProcState( CrosNode *n )
 cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "cRosNodeDoEventsLoop ()\n" );
-
   int nfds = -1;
   fd_set r_fds, w_fds, err_fds;
   int i = 0;
+
+  PRINT_VDEBUG ( "cRosNodeDoEventsLoop ()\n" );
+
+  if(n == NULL)
+    return CROS_BAD_PARAM_ERR;
+
   ret_err = CROS_SUCCESS_ERR_PACK; // Default return value: success
 
   #if CROS_DEBUG_LEVEL >= 2
