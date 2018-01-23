@@ -124,3 +124,40 @@ int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...)
   return(n_prn_chars);
 }
 
+int cRosErrCodePackStr(char *out_str_buf, size_t out_str_buf_len, cRosErrCodePack err_cod_pack, const char *fmt_str, ...)
+{
+  int n_prn_chars;
+  const char *msg_str;
+  cRosErrCode curr_err_cod;
+
+  n_prn_chars=0;
+  if(out_str_buf_len == 0)
+    return(n_prn_chars);
+
+  out_str_buf[0]='\0';
+
+  if(fmt_str != NULL)
+  {
+    va_list arg_list;
+
+    va_start(arg_list, fmt_str);
+    n_prn_chars+=vsnprintf(out_str_buf+strlen(out_str_buf), out_str_buf_len-strlen(out_str_buf), fmt_str, arg_list);
+    va_end(arg_list);
+  }
+
+  // Iterate throughout all the errors contained in the pack (up to 4)
+  while((curr_err_cod=cRosGetLastErrCode(err_cod_pack)) != CROS_NO_ERR)
+  {
+    // Print error info included in err
+    msg_str = cRosGetErrCodeStr(curr_err_cod);
+    if(msg_str != NULL) // The error code has been found in the list
+      n_prn_chars+=snprintf(out_str_buf+strlen(out_str_buf), out_str_buf_len-strlen(out_str_buf), ". Err %u: %s", curr_err_cod, msg_str);
+    else
+      n_prn_chars+=snprintf(out_str_buf+strlen(out_str_buf), out_str_buf_len-strlen(out_str_buf), ". Error code %u (The description string for this error code has not been found).", curr_err_cod);
+
+    err_cod_pack = cRosRemoveLastErrCode(err_cod_pack); // Pass to the next error code
+  }
+
+  return(n_prn_chars);
+}
+

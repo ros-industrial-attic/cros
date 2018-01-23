@@ -124,17 +124,33 @@ cRosErrCode cRosGetLastErrCode(cRosErrCodePack err_pack);
  */
 cRosErrCodePack cRosAddErrCodePackIfErr(cRosErrCodePack prev_err_pack_0, cRosErrCodePack prev_err_pack_1);
 
-/*! \brief Composes and print the error message corresponding to the specified error code pack
+/*! \brief Composes and print the error message corresponding to the specified error code pack.
  *
  *  The function search for the error strings indicated in the specified error pack. The composed message is printed
  *  in the output file stream. The error pack can contain up to 4 error codes, so up to 4 message string can be printed.
  *  Additionally the text string specified by fmt_str is printed before the error strings. This string can be used to
  *  supply the user with context information about the error.
- *  \param err structure encoding the occurred error (usually returned by a failing function)
+ *  \param err structure encoding the occurred error (usually returned by a failing function).
  *  \param fmt_str string that specifies how subsequent arguments are printed. It has the same format as printf
  *         function.
- * \return the number of characters written in the output stream
+ * \return the number of characters written in the output stream.
  */
 int cRosPrintErrCodePack(cRosErrCodePack err_cod_pack, const char *fmt_str, ...);
+
+/*! \brief Composes the error message corresponding to the specified error code pack and writes it to the specified buffer.
+ *
+ *  The function search for the error strings indicated in the specified error pack. The error pack can contain up to 4 error
+ *  codes, so up to 4 message string can be printed.
+ *  Additionally the text string specified by fmt_str is printed before the error strings. This string can be used to
+ *  supply the user with context information about the error.
+ * If not enough space if available in the output buffer the output is truncated and a '\0' is added at the end of the buffer.
+ *  \param out_str_buf Pointer to the buffer where the output string will be stored.
+ *  \param out_str_buf_len Length of the output buffer.
+ *  \param err structure encoding the occurred error (usually returned by a failing function).
+ *  \param fmt_str string that specifies how subsequent arguments are printed. It has the same format as printf
+ *         function.
+ * \return the number of characters that would be written to the output buffer if it had enough space.
+ */
+int cRosErrCodePackStr(char *out_str_buf, size_t out_str_buf_len, cRosErrCodePack err_cod_pack, const char *fmt_str, ...);
 
 #endif /* __CROS_ERR_CODES_H__ */
