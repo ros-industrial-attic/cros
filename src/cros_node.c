@@ -3506,7 +3506,7 @@ cRosErrCodePack cRosNodeServiceCall( CrosNode *node, int svcidx, cRosMessage *re
 
   if(ret_err == CROS_SUCCESS_ERR_PACK)
   {
-    if(cRosMessageQueueUsage(&caller_node->msg_queue) > 0 && svc_client_proc->send_msg_now == 0) // If no error and the response is in the buffer
+    if(cRosMessageQueueUsage(&caller_node->msg_queue) > 1 && svc_client_proc->send_msg_now == 0) // If no error and the response is in the buffer
     {
       cRosMessageQueueRemove(&caller_node->msg_queue); // Remove request msg from queue
       if(resp_msg != NULL)
