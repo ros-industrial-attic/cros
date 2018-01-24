@@ -19,7 +19,8 @@ typedef enum
   TCPIPSOCKET_DISCONNECTED,
   TCPIPSOCKET_DONE,
 
-  TCPIPSOCKET_UNKNOWN
+  TCPIPSOCKET_UNKNOWN,
+  TCPIPSOCKET_REFUSED
 } TcpIpSocketState;
 
 /*! \brief TcpIpSocket object. Don't modify directly its internal members: use
@@ -101,6 +102,19 @@ int tcpIpSocketSetKeepAlive( TcpIpSocket *s, unsigned int idle, unsigned int int
  *          or TCPIPSOCKET_FAILED on failure
  */
 TcpIpSocketState tcpIpSocketConnect( TcpIpSocket *s, const char *host, unsigned short port );
+
+/*! \brief Checks if a network port is open is a host address.
+ *
+ *  This function tries to connect to a target port and reports the success. If the connection
+ *  is established it is closed immediately.
+ *  \param host_addr The target address
+ *  \param host_port The target port
+
+ *  \return Returns TCPIPSOCKET_DONE if the port is open,
+ *          TCPIPSOCKET_REFUSED if the connection was refused (e.g. the target port is closed),
+ *          or TCPIPSOCKET_FAILED on failure
+ */
+TcpIpSocketState tcpIpSocketCheckPort ( const char *host_addr, unsigned short host_port );
 
 /*! \brief Bind and listen for TCP/IP4  socket connections
  *

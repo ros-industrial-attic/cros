@@ -186,7 +186,7 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
   return 1;
 }
 
-TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned short port )
+TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, unsigned short host_port )
 {
   int connect_ret;
   PRINT_VDEBUG ( "tcpIpSocketConnect():\n" );
@@ -205,10 +205,10 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
   memset ( &adr, 0, sizeof ( struct sockaddr_in ) );
 
   adr.sin_family = AF_INET;
-  adr.sin_port = htons ( port );
-  if ( inet_pton ( AF_INET, host, &adr.sin_addr ) <= 0 )
+  adr.sin_port = htons ( host_port );
+  if ( inet_pton ( AF_INET, host_addr, &adr.sin_addr ) <= 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketConnect() : Can't get a valid address from %s\n", host );
+    PRINT_ERROR ( "tcpIpSocketConnect() : Can't get a valid address from %s\n", host_addr );
     s->connected = 0;
     return TCPIPSOCKET_FAILED;
   }
@@ -219,19 +219,27 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host, unsigned
     if ( s->is_nonblocking &&
        ( errno == EINPROGRESS || errno == EALREADY ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketConnect() : Connection in progress to %s:%i through FD:%i\n", host, port, s->fd);
+      PRINT_DEBUG ( "tcpIpSocketConnect() : Connection in progress to %s:%i through FD:%i\n", host_addr, host_port, s->fd);
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else
     {
-      PRINT_ERROR ( "tcpIpSocketConnect() : Connect to %s:%i through FD:%i failed. errno=%i\n", host, port, s->fd, errno);
       s->connected = 0;
-      return TCPIPSOCKET_FAILED;
+      if(errno == ECONNREFUSED)
+      {
+         PRINT_ERROR ( "tcpIpSocketConnect() : Connection to %s:%i through FD:%i was refused\n", host_addr, host_port, s->fd);
+         return TCPIPSOCKET_REFUSED;
+      }
+      else
+      {
+         PRINT_ERROR ( "tcpIpSocketConnect() : Connection to %s:%i through FD:%i failed due to error errno=%i\n", host_addr, host_port, s->fd, errno);
+         return TCPIPSOCKET_FAILED;
+      }
     }
   }
-  PRINT_DEBUG ( "tcpIpSocketConnect() : connection done to %s:%i through FD:%i\n", host, port, s->fd);
+  PRINT_DEBUG ( "tcpIpSocketConnect() : connection done to %s:%i through FD:%i\n", host_addr, host_port, s->fd);
 
-  s->port = port;
+  s->port = host_port;
   s->adr = adr;
   s->connected = 1;
 
@@ -252,6 +260,34 @@ int tcpIpSocketDisconnect ( TcpIpSocket *s )
     return 0;
   }
   return 1;
+}
+
+TcpIpSocketState tcpIpSocketCheckPort ( const char *host_addr, unsigned short host_port )
+{
+   TcpIpSocketState port_open, fn_ret;
+   TcpIpSocket socket_struct;
+
+   tcpIpSocketInit ( &socket_struct );
+   fn_ret = tcpIpSocketOpen ( &socket_struct );
+   if(fn_ret)
+   {
+      TcpIpSocketState socket_stat;
+      socket_stat = tcpIpSocketConnect ( &socket_struct, host_addr, host_port );
+      if ( socket_stat == TCPIPSOCKET_IN_PROGRESS )
+         port_open = TCPIPSOCKET_FAILED;
+      else
+      {
+         port_open = socket_stat;
+         if ( socket_stat == TCPIPSOCKET_DONE )
+            tcpIpSocketDisconnect (  &socket_struct );
+      }
+
+      tcpIpSocketClose ( &socket_struct );
+   }
+   else
+      port_open = TCPIPSOCKET_FAILED;
+
+   return port_open;
 }
 
 int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port, int backlog )

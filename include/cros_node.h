@@ -361,4 +361,19 @@ cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned cha
 XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/
 
+/*! \brief Waits until a network port is open is a host address.
+ *
+ *  This function repeatedly tries to connect to the specified port until it succeed, an error occurs or the
+ *  specified timeout is reached. When the connection is established it is closed immediately.
+ *  \param host_addr The target address
+ *  \param host_port The target port
+ *  \param time_out Maximum time in milliseconds that this function will block trying to connect. If
+ *         CROS_INFINITE_TIMEOUT is specified, the function will not finish until an error occurs or the
+ *         the port connection is established.
+ *  \return CROS_SUCCESS_ERR_PACK if the port could be connected. CROS_SOCK_OPEN_CONN_ERR is an error
+ *          occurred when trying to connect or CROS_SOCK_OPEN_TIMEOUT_ERR if the timeout was reached before
+ *          the port could be connected.
+ */
+cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port, unsigned long time_out);
+
 #endif

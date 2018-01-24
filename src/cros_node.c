@@ -378,12 +378,19 @@ static cRosErrCodePack xmlrpcClientConnect(CrosNode *n, int i)
     }
     else if( conn_state == TCPIPSOCKET_IN_PROGRESS )
     {
-      PRINT_DEBUG ( "xmlrpcClientConnect() : Wait: connection is established asynchronously\n" );
-      // Wait: connection is established asynchronously
+      PRINT_DEBUG ( "xmlrpcClientConnect() : Wait: connection is established asynchronously\n" ); // Not connected yet
     }
-    else if( conn_state == TCPIPSOCKET_FAILED )
+    else if( conn_state == TCPIPSOCKET_REFUSED )
     {
-      PRINT_ERROR("xmlrpcClientConnect() : Client number %i can't connect\n", i);
+      PRINT_ERROR("xmlrpcClientConnect() : Connection of XMLRPC client number %i was refused (is the target port not open?)\n", i);
+      handleXmlrpcClientError( n, i);
+      ret_err = CROS_XMLRPC_CLI_REFUS_ERR;
+    }
+    else
+    {
+      if( conn_state != TCPIPSOCKET_FAILED )
+         PRINT_ERROR ( "tcprosClientConnect() : invalid connection state\n" );
+      PRINT_ERROR("xmlrpcClientConnect() : XMLRPC client number %i can't connect\n", i);
       handleXmlrpcClientError( n, i);
       ret_err = CROS_XMLRPC_CLI_CONN_ERR;
     }
@@ -659,10 +666,21 @@ static cRosErrCodePack tcprosClientConnect( CrosNode *n, int client_idx)
       // Wait: connection is established asynchronously
       break;
     }
+    case TCPIPSOCKET_REFUSED:
+    {
+      PRINT_ERROR("xmlrpcClientConnect() : Connection of TCPROS client number %i was refused (is the target port not open?)\n", client_idx);
+      handleTcprosClientError( n, client_idx);
+      ret_err = CROS_TCPROS_CLI_REFUS_ERR;
+      break;
+    }
     default:
+    {
+      PRINT_ERROR ( "tcprosClientConnect() : invalid connection state\n" );
+      // no break execute next case too
+    }
     case TCPIPSOCKET_FAILED:
     {
-      PRINT_DEBUG ( "tcprosClientConnect() : error\n" );
+      PRINT_ERROR ( "tcprosClientConnect() : An error occurred when TCPROS client number %i was trying to connect\n", client_idx);
       handleTcprosClientError( n, client_idx);
       ret_err = CROS_TCPROS_CLI_CONN_ERR;
       break;
@@ -987,16 +1005,23 @@ static cRosErrCodePack rpcrosClientConnect(CrosNode *n, int client_idx)
       // Wait: connection is established asynchronously
       break;
     }
-    case TCPIPSOCKET_FAILED:
+    case TCPIPSOCKET_REFUSED:
     {
-      PRINT_DEBUG ( "rpcrosClientConnect() : error\n" );
+      PRINT_ERROR("xmlrpcClientConnect() : Connection of RPCROS client number %i was refused (is the target port not open?)\n", client_idx);
       handleRpcrosClientError( n, client_idx);
-      ret_err = CROS_RPCROS_CLI_CONN_ERR;
+      ret_err = CROS_RPCROS_CLI_REFUS_ERR;
       break;
     }
     default:
     {
-      PRINT_DEBUG ( "rpcrosClientConnect() : invalid connection state\n" );
+      PRINT_ERROR ( "rpcrosClientConnect() : invalid connection state\n" );
+      // no break execute next case too
+    }
+    case TCPIPSOCKET_FAILED:
+    {
+      PRINT_ERROR ( "rpcrosClientConnect() : An error occurred when RPCROS client number %i was trying to connect\n", client_idx);
+      handleRpcrosClientError( n, client_idx);
+      ret_err = CROS_RPCROS_CLI_CONN_ERR;
       break;
     }
   }
@@ -3936,3 +3961,38 @@ XmlrpcParam * cRosNodeGetParameterValue( CrosNode *node, const char *key)
 
   return NULL;
 }
+
+#define MAX_PORT_OPEN_CHECK_PERIOD 2000 //! Maximum time to wait until the target port is checked again by cRosWaitPortOpen()
+cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port, unsigned long time_out)
+{
+  uint64_t start_time, elapsed_time;
+  cRosErrCodePack ret_err;
+  TcpIpSocketState socket_state;
+  PRINT_VDEBUG ( "cRosWaitPortOpen ()\n" );
+
+  start_time = cRosClockGetTimeMs();
+  socket_state = TCPIPSOCKET_REFUSED;
+  while(socket_state == TCPIPSOCKET_REFUSED && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=(cRosClockGetTimeMs()-start_time)) <= time_out))
+  {
+    socket_state = tcpIpSocketCheckPort (host_addr, host_port);
+    if(socket_state == TCPIPSOCKET_REFUSED)
+    {
+      useconds_t pause_ms;
+      if(time_out == CROS_INFINITE_TIMEOUT || time_out-elapsed_time > MAX_PORT_OPEN_CHECK_PERIOD)
+        pause_ms = MAX_PORT_OPEN_CHECK_PERIOD;
+      else
+        pause_ms = time_out-elapsed_time;
+      usleep(pause_ms*1000);
+    }
+  }
+
+  if(socket_state == TCPIPSOCKET_FAILED)
+    ret_err = CROS_SOCK_OPEN_CONN_ERR;
+  else if(time_out != CROS_INFINITE_TIMEOUT && elapsed_time > time_out)
+    ret_err = CROS_SOCK_OPEN_TIMEOUT_ERR;
+  else // socket_state == TCPIPSOCKET_REFUSED
+    ret_err = CROS_SUCCESS_ERR_PACK; // Port is ready
+
+  return ret_err;
+}
+

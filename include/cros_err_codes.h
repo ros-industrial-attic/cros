@@ -44,11 +44,16 @@
   MSG_COD_ELEM(CROS_SEND_TOP_TIMEOUT_ERR, "The specified timeout was up while waiting for space in the message transmission queue") \
   MSG_COD_ELEM(CROS_CALL_SVC_TIMEOUT_ERR, "The specified timeout was up while waiting for the service call response") \
   MSG_COD_ELEM(CROS_CALL_INI_TIMEOUT_ERR, "The specified timeout was up while the service caller was waiting for the previous call to finish") \
-  MSG_COD_ELEM(CROS_XMLRPC_CLI_CONN_ERR, "An XMLRPC client process could not establish the connection to the target address") \
+  MSG_COD_ELEM(CROS_XMLRPC_CLI_CONN_ERR, "An error occurred when an XMLRPC client process was trying to establish the connection to the target address") \
+  MSG_COD_ELEM(CROS_XMLRPC_CLI_REFUS_ERR, "An XMLRPC client process could not establish the connection to the target address because the connection was refused") \
   MSG_COD_ELEM(CROS_XMLRPC_CLI_WRITE_ERR, "An error arised when the XMLRPC client process tried to write the request on the socket") \
   MSG_COD_ELEM(CROS_XMLRPC_CLI_READ_ERR, "An error arised when the XMLRPC client process tried to read the response from the socket") \
-  MSG_COD_ELEM(CROS_TCPROS_CLI_CONN_ERR, "A TCPROS client process could not establish the connection to the target address") \
-  MSG_COD_ELEM(CROS_RPCROS_CLI_CONN_ERR, "A RPCROS client process could not establish the connection to the target address") \
+  MSG_COD_ELEM(CROS_TCPROS_CLI_CONN_ERR, "A TCPROS client process could not establish the connection to the target address due to an error") \
+  MSG_COD_ELEM(CROS_TCPROS_CLI_REFUS_ERR, "An TCPROS client process could not establish the connection to the target address because the connection was refused") \
+  MSG_COD_ELEM(CROS_RPCROS_CLI_CONN_ERR, "A RPCROS client process could not establish the connection to the target address due to an error") \
+  MSG_COD_ELEM(CROS_RPCROS_CLI_REFUS_ERR, "An RPCROS client process could not establish the connection to the target address because the connection was refused") \
+  MSG_COD_ELEM(CROS_SOCK_OPEN_TIMEOUT_ERR, "The specified timeout was up while waiting for the specified port to be open") \
+  MSG_COD_ELEM(CROS_SOCK_OPEN_CONN_ERR, "An error occurred when the specified target port was tried to be connected (target address could not be resolved?)") \
   MSG_COD_ELEM(LAST_ERR_LIST_CODE, "") // Sentinel code used to mark the last element of the global error list
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success
