@@ -131,7 +131,6 @@ struct PublisherNode
 typedef cRosErrCodePack (*SubscriberCallback)(DynBuffer *buffer,  void* context);
 
 /*! Structure that define a subscribed topic
- * WARNING : not implemented!
  */
 struct SubscriberNode
 {

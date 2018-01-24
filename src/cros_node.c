@@ -3496,7 +3496,6 @@ cRosErrCodePack cRosNodeServiceCall( CrosNode *node, int svcidx, cRosMessage *re
 
   svc_client_proc = &node->rpcros_client_proc[caller_node->client_rpcros_id];
 
-
   start_time = cRosClockGetTimeMs();
   // Wait until the RPCROS process has finished the current call and the timeout is not reached wait
   ret_err = CROS_SUCCESS_ERR_PACK;
@@ -3803,6 +3802,7 @@ void initServiceCallerNode(ServiceCallerNode *node)
   node->persistent = 0;
   node->tcp_nodelay = 0;
   node->loop_period = -1; // Calling paused
+  cRosMessageQueueInit(&node->msg_queue);
 }
 
 void initParameterSubscrition(ParameterSubscription *subscription)
@@ -3962,7 +3962,7 @@ XmlrpcParam * cRosNodeGetParameterValue( CrosNode *node, const char *key)
   return NULL;
 }
 
-#define MAX_PORT_OPEN_CHECK_PERIOD 2000 //! Maximum time to wait until the target port is checked again by cRosWaitPortOpen()
+#define MAX_PORT_OPEN_CHECK_PERIOD 1000 //! Maximum time to wait until the target port is checked again by cRosWaitPortOpen()
 cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port, unsigned long time_out)
 {
   uint64_t start_time, elapsed_time;
