@@ -3388,7 +3388,7 @@ cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned cha
 
   start_time = cRosClockGetTimeMs();
   ret_err = CROS_SUCCESS_ERR_PACK;
-  while(ret_err == CROS_SUCCESS_ERR_PACK && !(*exit_flag) && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
+  while(ret_err == CROS_SUCCESS_ERR_PACK && (exit_flag==NULL || !(*exit_flag)) && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
     ret_err = cRosNodeDoEventsLoop( n, (time_out == CROS_INFINITE_TIMEOUT)? UINT64_MAX : time_out-elapsed_time);
 
   return ret_err;

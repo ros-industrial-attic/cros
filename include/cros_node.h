@@ -352,7 +352,8 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout );
  *         is specified, the function will not finish until an error occurs or the exit flag becomes different
  *         from 0.
  *  \param exit_flag Pointer to an unsigned char variable: the function will exit if this variable becomes
- *         different from zero
+ *         different from zero. If this pointer is NULL, the node will be run until the timeout is reached or an
+ *         an error occurs.
  *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
 cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned char *exit_flag );
