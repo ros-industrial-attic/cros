@@ -1163,9 +1163,11 @@ int cRosMessageFieldCopy(cRosMessageField* new_field, cRosMessageField* orig_fie
           case CROS_CUSTOM_TYPE:
           {
             if(!orig_field->is_array)
+            {
               new_field->data.as_msg = cRosMessageCopyWithoutDef(orig_field->data.as_msg);
               if(new_field->data.as_msg == NULL)
                 ret=-1;
+            }
             break;
           }
         }
