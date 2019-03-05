@@ -16,3 +16,7 @@ release/
 gmon.out
 *~
 .idea/
+
+# Python byte-compiled code
+__pycache__/
+*.py[cod]
