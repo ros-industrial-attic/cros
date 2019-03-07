@@ -297,7 +297,7 @@ struct CrosNode
  *
  *  \return A string with the resource name.
  */
-char* cRosNamespaceBuild(CrosNode* node, const char* resource_name);
+char *cRosNamespaceBuild(CrosNode *node, const char *resource_name);
 
 void cRosGetMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *topic_type);
 
@@ -312,8 +312,8 @@ void cRosGetMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char
  *
  *  \return A pointer to the new CrosNode on success, NULL on failure
  */
-CrosNode *cRosNodeCreate(char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
-                         char *message_root_path );
+CrosNode *cRosNodeCreate(const char *node_name, const char *node_host, const char *roscore_host, unsigned short roscore_port,
+                         const char *message_root_path);
 
 /*! \brief Unregister from ROS master and release all the internal allocated memory for a CrosNode
  *          object previously crated with cRosNodeCreate()
@@ -341,7 +341,7 @@ cRosErrCodePack cRosNodeDestroy( CrosNode *n );
  *  }
  *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
-cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout );
+cRosErrCodePack cRosNodeDoEventsLoop( CrosNode *n, uint64_t timeout );
 
 /*! \brief Run the cROS node for a specific time while the exit flag provided by the user is 0
  *
@@ -358,7 +358,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout );
  */
 cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned char *exit_flag );
 
-XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
+XmlrpcParam *cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/
 
 /*! \brief Waits until a network port is open is a host address.

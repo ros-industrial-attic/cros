@@ -50,9 +50,9 @@ void cRosLogFree(CrosLog *log)
   free(log);
 }
 
-CrosLogQueue* cRosLogQueueNew(void)
+CrosLogQueue *cRosLogQueueNew(void)
 {
-  CrosLogQueue* new_queue = calloc(1,sizeof(CrosLogQueue));
+  CrosLogQueue *new_queue = (CrosLogQueue *)calloc(1,sizeof(CrosLogQueue));
   cRosLogQueueInit(new_queue);
   return new_queue;
 }
@@ -74,7 +74,7 @@ CrosLog * cRosLogQueuePeek(CrosLogQueue *queue)
 
 int cRosLogQueueEnqueue(CrosLogQueue *queue, CrosLog* CrosLog)
 {
-  CrosLogNode* node = malloc(sizeof(CrosLogNode));
+  CrosLogNode *node = (CrosLogNode *)malloc(sizeof(CrosLogNode));
 
   if(node == NULL)
   {
@@ -167,7 +167,7 @@ void cRosLogPrint(CrosNode* node,
     fprintf(cRosOutStreamGet(), "\n[%d,%ld] ", (int)wall_time.tv_sec, (long)wall_time.tv_usec);
     size_t msg_size = strlen(msg) + 512;
 
-    log_msg = calloc(msg_size + 1, sizeof(char));
+    log_msg = (char *)calloc(msg_size + 1, sizeof(char));
     vsprintf(log_msg,msg,args);
 
     switch(level)
@@ -211,23 +211,23 @@ void cRosLogPrint(CrosNode* node,
 
   log->level = level;
 
-  log->file =  calloc(strlen(file)+1, sizeof(char));
+  log->file =  (char *)calloc(strlen(file)+1, sizeof(char));
   strncpy(log->file, file,strlen(file));
 
-  log->function =  calloc(strlen(function)+1, sizeof(char));
+  log->function =  (char *)calloc(strlen(function)+1, sizeof(char));
   strncpy(log->function, function,strlen(function));
 
   log->line = line;
 
   int i;
   log->n_pubs = node->n_pubs;
-  log->pubs = (char**) calloc(log->n_pubs,sizeof(char*));
+  log->pubs = (char **)calloc(log->n_pubs,sizeof(char*));
 
   for(i = 0; i <node->n_pubs; i++)
   {
     if(node->pubs[i].topic_name != NULL)
     {
-      log->pubs[i] = calloc(strlen(node->pubs[i].topic_name) + 1, sizeof(char));
+      log->pubs[i] = (char *)calloc(strlen(node->pubs[i].topic_name) + 1, sizeof(char));
       strncpy(log->pubs[i], node->pubs[i].topic_name,strlen(node->pubs[i].topic_name));
     }
     else
@@ -238,7 +238,7 @@ void cRosLogPrint(CrosNode* node,
 
   size_t msg_size = vfprintf(cRosOutStreamGet(),msg,args) + 512;
 
-  log_msg = calloc(msg_size + 1, sizeof(char));
+  log_msg = (char *)calloc(msg_size + 1, sizeof(char));
   vsprintf(log_msg,msg,args_copy);
   log->msg = log_msg;
 

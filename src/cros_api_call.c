@@ -45,7 +45,7 @@ RosApiCall * peekApiCallQueue(ApiCallQueue *queue)
 
 int enqueueApiCall(ApiCallQueue *queue, RosApiCall* apiCall)
 {
-  ApiCallNode* node = malloc(sizeof(ApiCallNode));
+  ApiCallNode *node = (ApiCallNode *)malloc(sizeof(ApiCallNode));
 
   if(node == NULL)
   {

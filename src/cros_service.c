@@ -17,8 +17,8 @@ cRosErrCodePack initCrosSrv(cRosSrvDef* srv)
     if(srv == NULL)
         return CROS_BAD_PARAM_ERR;
 
-    srv->request = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
-    srv->response = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+    srv->request = (cRosMessageDef *)malloc(sizeof(cRosMessageDef));
+    srv->response = (cRosMessageDef *)malloc(sizeof(cRosMessageDef));
     if(srv->request != NULL && srv->response != NULL)
     {
         ret_err = initCrosMsg(srv->request);
@@ -57,12 +57,12 @@ cRosErrCodePack initCrosSrv(cRosSrvDef* srv)
     return ret_err;
 }
 
-cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
+cRosErrCodePack loadFromFileSrv(char *filename, cRosSrvDef *srv)
 {
     cRosErrCodePack ret_err;
     size_t f_read_bytes;
 
-    char* file_tokenized = (char*) malloc(strlen(filename)+sizeof(char));
+    char* file_tokenized = (char* )malloc(strlen(filename)+sizeof(char));
     if(file_tokenized == NULL)
         return CROS_MEM_ALLOC_ERR;
 
@@ -83,7 +83,7 @@ cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv)
         fseek(f, 0, SEEK_SET);
         char *srv_req = NULL;
         char *srv_res = NULL;
-        char *srv_text = malloc(fsize + 1);
+        char *srv_text = (char *)malloc(fsize + 1);
         if(srv_text == NULL)
         {
             fclose(f);
@@ -258,7 +258,7 @@ char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps)
 
     //rollback
     while(deps->prev != NULL) deps = deps->prev;
-    full_text = (char*) malloc(full_size + 1);
+    full_text = (char *)malloc(full_size + 1);
     memcpy(full_text,srv->plain_text,strlen(srv->plain_text) + 1);
 
     while(deps->next != NULL)
@@ -291,7 +291,7 @@ cRosErrCodePack cRosServiceInit(cRosService* service)
 
   service->request = NULL;
   service->response = NULL;
-  service->md5sum = (char*) malloc(33*sizeof(char));// 32 chars + '\0';
+  service->md5sum = (char *)malloc(33*sizeof(char));// 32 chars + '\0';
 
   ret_err = (service->md5sum != NULL)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 
@@ -307,7 +307,7 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
 {
   cRosErrCodePack ret_err;
 
-  cRosSrvDef* srv = (cRosSrvDef*) malloc(sizeof(cRosSrvDef));
+  cRosSrvDef* srv = (cRosSrvDef *)malloc(sizeof(cRosSrvDef));
   if(srv == NULL)
     return CROS_MEM_ALLOC_ERR;
 
@@ -317,7 +317,7 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
     free(srv);
     return ret_err;
   }
-  char* copy_filepath = malloc(strlen(filepath)+sizeof(char));
+  char *copy_filepath = (char *)malloc(strlen(filepath)+sizeof(char));
   if(copy_filepath == NULL)
   {
     cRosServiceDefFree(srv);
@@ -354,7 +354,7 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
   }
   dynStringRelease(&buffer);
 
-  unsigned char* result = (unsigned char*) malloc(16);
+  unsigned char* result = (unsigned char *)malloc(16);
   MD5_Final(result, &md5_t);
   DynString output;
   dynStringInit(&output);

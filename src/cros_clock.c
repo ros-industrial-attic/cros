@@ -12,7 +12,7 @@ uint64_t cRosClockGetTimeMs()
 
 struct timeval cRosClockGetTimeVal( uint64_t msec )
 {
-  PRINT_VDEBUG ( "cRosClockGetTimeVal()\n" );
+  PRINT_VDEBUG ( "cRosClockGetTimeVal() msec: %lu\n", msec );
   struct timeval tv;
   if (msec > ( LONG_MAX * 1000ULL ))
   {

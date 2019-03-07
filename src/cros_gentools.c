@@ -10,7 +10,7 @@
 
 char* cRosGentoolsMD5(char* filename)
 {
-	char* filename_tokenized = (char*)malloc(strlen(filename)+1);
+	char* filename_tokenized = (char *)malloc(strlen(filename)+1);
 	strcpy(filename_tokenized, filename);
 	strtok(filename_tokenized, ".");
 	char* file_ext = strtok(NULL,".");
@@ -22,7 +22,7 @@ char* cRosGentoolsMD5(char* filename)
 	  cRosMessageNewBuild(NULL, filename, &msg);
 	  if(msg != NULL)
       {
-	    md5sum = calloc(strlen(msg->md5sum)+1,sizeof(char));
+	    md5sum = (char *)calloc(strlen(msg->md5sum)+1,sizeof(char));
 	    if(md5sum != NULL)
   	      strcpy(md5sum,msg->md5sum);
         cRosMessageFree(msg);
@@ -37,7 +37,7 @@ char* cRosGentoolsMD5(char* filename)
       cRosService srv;
       cRosServiceInit(&srv);
       cRosServiceBuild(&srv,filename);
-      char *md5sum = calloc(strlen(srv.md5sum)+1,sizeof(char));
+      char *md5sum = (char *)calloc(strlen(srv.md5sum)+1,sizeof(char));
       if(md5sum != NULL)
         strcpy(md5sum,srv.md5sum);
       cRosServiceRelease(&srv);
@@ -59,7 +59,7 @@ int cRosGentoolsFulltext(char* filename)
 {
 	char* full_text = NULL;;
 
-	char* filename_tokenized = (char*)malloc(strlen(filename)+1);
+	char* filename_tokenized = (char *)malloc(strlen(filename)+1);
 	strcpy(filename_tokenized, filename);
 	strtok(filename_tokenized, ".");
 	char* file_ext = strtok(NULL,".");

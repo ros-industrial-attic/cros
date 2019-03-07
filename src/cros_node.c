@@ -1603,37 +1603,37 @@ static int stringToLogLevel(const char* level_str, CrosLogLevel *level_num)
 
 static char* LogLevelToString(CrosLogLevel log_level)
 {
-  char* ret = NULL;
+  char *ret = NULL;
 
   switch(log_level)
   {
     case CROS_LOGLEVEL_INFO:
     {
-      ret = calloc(strlen("INFO") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("INFO") + 1, sizeof(char));
       strncpy(ret, "INFO",strlen("INFO"));
       return ret;
     }
     case CROS_LOGLEVEL_DEBUG:
     {
-      ret = calloc(strlen("DEBUG") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("DEBUG") + 1, sizeof(char));
       strncpy(ret, "DEBUG",strlen("DEBUG"));
       return ret;
     }
     case CROS_LOGLEVEL_WARN:
     {
-      ret = calloc(strlen("WARN") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("WARN") + 1, sizeof(char));
       strncpy(ret, "WARN",strlen("WARN"));
       return  ret;
     }
     case CROS_LOGLEVEL_ERROR:
     {
-      ret = calloc(strlen("ERROR") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("ERROR") + 1, sizeof(char));
       strncpy(ret, "ERROR",strlen("ERROR"));
       return ret;
     }
     case CROS_LOGLEVEL_FATAL:
     {
-      ret = calloc(strlen("FATAL") + 1, sizeof(char));
+      ret = (char *)calloc(strlen("FATAL") + 1, sizeof(char));
       strncpy(ret, "FATAL",strlen("FATAL"));
       return ret;
     }
@@ -1728,9 +1728,9 @@ static CallbackResponse callback_srv_get_loggers(cRosMessage *request, cRosMessa
   return 0;
 }
 
-int checkNamespaceFormat(const char* namespace)
+int checkNamespaceFormat(const char* name_space)
 {
-  const char* it_ns = namespace;
+  const char* it_ns = name_space;
 
   if(*it_ns == '~')
     it_ns++;
@@ -1757,7 +1757,7 @@ int checkNamespaceFormat(const char* namespace)
 
 char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
 {
-  char* resolved_name = NULL;
+  char *resolved_name = NULL;
 
   if(!checkNamespaceFormat(resource_name))
     return NULL;
@@ -1766,12 +1766,12 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
   {
     if(resource_name[0] == '/')
     {
-      resolved_name = calloc(strlen(resource_name) + 1, sizeof(char));
+      resolved_name = (char *)calloc(strlen(resource_name) + 1, sizeof(char));
       strncat(resolved_name, resource_name,strlen(resource_name));
     }
     else
     {
-      resolved_name = calloc(strlen(resource_name) + strlen("/") + 1, sizeof(char));
+      resolved_name = (char *)calloc(strlen(resource_name) + strlen("/") + 1, sizeof(char));
       strncat(resolved_name, "/",strlen("/"));
       strncat(resolved_name, resource_name,strlen(resource_name));
     }
@@ -1786,7 +1786,7 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
         //global namespace
        if(node != NULL || 1)
        {
-         resolved_name = calloc(strlen(resource_name) + 1,
+         resolved_name = (char *)calloc(strlen(resource_name) + 1,
                                 sizeof(char));
          strncat(resolved_name,resource_name,strlen(resource_name));
        }
@@ -1797,7 +1797,7 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
          //private namespace
         if(node != NULL || 1)
         {
-          resolved_name = calloc(strlen(node_name) +
+          resolved_name = (char *)calloc(strlen(node_name) +
                                  strlen("/") +
                                  strlen(resource_name) + 1,
                                  sizeof(char));
@@ -1809,15 +1809,15 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
       }
       default:
       {
-        //the resource has a name that is not global or private
+        // the resource has a name that is not global or private
         if(node != NULL || 1)
         {
-          char* node_namespace = calloc(strlen(node_name) + 1, sizeof(char));
+          char *node_namespace = (char *)calloc(strlen(node_name) + 1, sizeof(char));
           strcpy(node_namespace, node_name);
-          char* it = node_namespace + strlen(node_name);
+          char *it = node_namespace + strlen(node_name);
           while(*(it--) != '/');
           *(it + 2) = '\0';
-          resolved_name = calloc(strlen(node_namespace) + strlen(resource_name) + 1,sizeof(char));
+          resolved_name = (char *)calloc(strlen(node_namespace) + strlen(resource_name) + 1,sizeof(char));
           strncat(resolved_name,node_namespace,strlen(node_namespace));
           strncat(resolved_name,resource_name,strlen(resource_name));
         }
@@ -1828,8 +1828,8 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
   return resolved_name;
 }
 
-CrosNode *cRosNodeCreate (char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
-                          char *message_root_path)
+CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const char *roscore_host, unsigned short roscore_port,
+                          const char *message_root_path)
 {
   CrosNode *new_n; // Value to be returned by this function. NULL on failure
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
@@ -3899,7 +3899,7 @@ int enqueueSlaveApiCall(CrosNode *node, RosApiCall *call, const char *host, int 
   }
   else
   {
-    call->host = malloc(strlen(host) + 1);
+    call->host = (char *)malloc(strlen(host) + 1);
     if (call->host == NULL)
     {
       PRINT_ERROR("enqueueSlaveApiCall() : Not enough memory\n");

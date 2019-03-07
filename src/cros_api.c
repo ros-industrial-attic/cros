@@ -109,7 +109,7 @@ static cRosErrCodePack newProviderContext(const char *provider_path, ProviderTyp
 
   initProviderContext(context);
   context->type = type;
-  context->md5sum = (char*) calloc(sizeof(char), 33);// 32 chars + '\0';
+  context->md5sum = (char *)calloc(sizeof(char), 33);// 32 chars + '\0';
   if (context->md5sum == NULL)
   {
     free(context);
@@ -180,7 +180,7 @@ static cRosErrCodePack cRosNodePublisherCallback(DynBuffer *buffer, int non_peri
   else
   {
     // Cast to the appropriate public api callback and invoke it on the user context
-    PublisherApiCallback publisherApiCallback = (SubscriberApiCallback)context->api_callback;
+    PublisherApiCallback publisherApiCallback = (PublisherApiCallback)context->api_callback;
     if(publisherApiCallback != NULL)
     {
       ret_err = CROS_SUCCESS_ERR_PACK;
@@ -1190,7 +1190,7 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
-      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      user = (char *)malloc(strlen(user_xml->data.as_string) + 1);
       if (user == NULL)
         goto clean;
       strcpy(user, user_xml->data.as_string);
@@ -1226,7 +1226,7 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
-      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      user = (char *)malloc(strlen(user_xml->data.as_string) + 1);
       if (user == NULL)
         goto clean;
       strcpy(user, user_xml->data.as_string);
@@ -1262,7 +1262,7 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
-      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      user = (char *)malloc(strlen(user_xml->data.as_string) + 1);
       if (user == NULL)
         goto clean;
       strcpy(user, user_xml->data.as_string);
@@ -1842,7 +1842,7 @@ static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *respons
   int it = 0;
   for (; it < param_names->array_n_elem; it++)
   {
-    ret->parameter_names[it] = malloc(strlen(param_names->data.as_array[it].data.as_string) + 1);
+    ret->parameter_names[it] = (char *)malloc(strlen(param_names->data.as_array[it].data.as_string) + 1);
     if (ret->parameter_names[it] == NULL)
       goto clean;
 

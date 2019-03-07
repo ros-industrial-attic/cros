@@ -21,21 +21,21 @@
 
 FILE *cRosOutStreamGet(void);
 void cRosOutStreamSet(FILE *new_stream);
-CrosLog * cRosLogNew(void);
+CrosLog *cRosLogNew(void);
 void cRosLogFree(CrosLog *log);
 
-void cRosLogPrint(CrosNode* node,
+void cRosLogPrint(CrosNode *node,
                   CrosLogLevel level,   // debug level
-                  const char* file,     // file the message came from
-                  const char* function, // function the message came from
+                  const char *file,     // file the message came from
+                  const char *function, // function the message came from
                   uint32_t line,
-                  const char* msg, ...);
+                  const char *msg, ...);
 
-CrosLogQueue* cRosLogQueueNew(void);
+CrosLogQueue *cRosLogQueueNew(void);
 void cRosLogQueueInit(CrosLogQueue *queue);
 int cRosLogQueueEnqueue(CrosLogQueue *queue, CrosLog* log);
-CrosLog * cRosLogQueuePeek(CrosLogQueue *queue);
-CrosLog * cRosLogQueueDequeue(CrosLogQueue *queue);
+CrosLog *cRosLogQueuePeek(CrosLogQueue *queue);
+CrosLog *cRosLogQueueDequeue(CrosLogQueue *queue);
 void cRosLogQueueRelease(CrosLogQueue *queue);
 size_t cRosLogQueueCount(CrosLogQueue *queue);
 int cRosLogQueueIsEmpty(CrosLogQueue *queue);

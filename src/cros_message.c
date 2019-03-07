@@ -34,7 +34,7 @@ char* base_msg_type(const char* type)
         iterator++;
     }
 
-    base = malloc(char_count + 1);
+    base = (char *)malloc(char_count + 1);
     memcpy(base, type, char_count);
     base[char_count] = '\0';
 
@@ -108,7 +108,7 @@ int is_array_type(char* type_statement, int* size)
   if(num_start == NULL)
     return 0;
 
-  array_size = calloc(count + 1, sizeof(char));
+  array_size = (char *)calloc(count + 1, sizeof(char));
   memcpy(array_size, num_start + 1, count);
   char *endptr;
   long int res = strtol(array_size, &endptr, 10);
@@ -123,7 +123,7 @@ int is_array_type(char* type_statement, int* size)
 
 int containsDep(msgDep* iterator, char* depName)
 {
-    char* dep = (char*) malloc(strlen(depName)+1);
+    char* dep = (char *)malloc(strlen(depName)+1);
     memcpy(dep,depName, strlen(depName)+1);
     char* pack = dep;
     char* name = dep;
@@ -173,22 +173,22 @@ cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                 continue;
             }
 
-            currentDep->msg = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+            currentDep->msg = (cRosMessageDef *)malloc(sizeof(cRosMessageDef));
             // special mapping for header
             if(currentField->type == CROS_STD_MSGS_HEADER)
             {
                 //have to re-names Header
-                currentDep->msg->package = (char*) malloc(strlen(HEADER_DEFAULT_PACK) + 1);
+                currentDep->msg->package = (char *)malloc(strlen(HEADER_DEFAULT_PACK) + 1);
                 currentDep->msg->package[0] = '\0';
                 strcpy(currentDep->msg->package,HEADER_DEFAULT_PACK);
-                currentDep->msg->name = (char*) malloc(strlen(HEADER_DEFAULT_NAME) + 1);
+                currentDep->msg->name = (char *)malloc(strlen(HEADER_DEFAULT_NAME) + 1);
                 currentDep->msg->name[0] = '\0';
                 strcpy(currentDep->msg->name,HEADER_DEFAULT_NAME);
 
-                currentDep->msg->plain_text = (char*) malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+                currentDep->msg->plain_text = (char *)malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
                 memcpy(currentDep->msg->plain_text,"\0",1);
                 strcpy(currentDep->msg->plain_text, HEADER_DEFAULT_TYPEDEF);
-                msgDep* next = malloc(sizeof(msgDep));
+                msgDep *next = (msgDep *)malloc(sizeof(msgDep));
                 next->msg = NULL;
                 next->prev = currentDep;
                 currentDep->next = next;
@@ -200,7 +200,7 @@ cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                 if(strstr(base_type,"/") == NULL)
                 {
                     char* trail = msg->package;
-                    currentDep->msg->name = (char*) malloc(strlen(trail) + strlen(base_type) + 1 + 1);
+                    currentDep->msg->name = (char *)malloc(strlen(trail) + strlen(base_type) + 1 + 1);
                     memcpy(currentDep->msg->name, trail, strlen(trail) + 1);
                     strcat(currentDep->msg->name, "/");
                     strcat(currentDep->msg->name, base_type);
@@ -208,7 +208,7 @@ cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                 else
                 {
 
-                    char* dep = (char*) malloc(strlen(base_type)+1);
+                    char* dep = (char *)malloc(strlen(base_type)+1);
                     memcpy(dep,base_type, strlen(base_type)+1);
                     char* pack = dep;
                     char* name = dep;
@@ -218,14 +218,13 @@ cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                     currentDep->msg->package = pack;
                 }
 
-                currentDep->msg->fields = (msgFieldDef*) calloc(1, sizeof(msgFieldDef));
+                currentDep->msg->fields = (msgFieldDef *)calloc(1, sizeof(msgFieldDef));
                 initFieldDef(currentDep->msg->fields);
                 currentDep->msg->first_field = currentDep->msg->fields;
-                currentDep->msg->constants = (msgConst*) malloc(sizeof(msgConst));
+                currentDep->msg->constants = (msgConst *)malloc(sizeof(msgConst));
                 currentDep->msg->first_const = currentDep->msg->constants;
 
-                char* path = (char*) malloc(
-                                            strlen(msg->root_dir) + 1 +
+                char* path = (char *)malloc(strlen(msg->root_dir) + 1 +
                                             strlen(currentDep->msg->package) + 1 +
                                             strlen(currentDep->msg->name) + 4 + 1);
                 memcpy(path, msg->root_dir, strlen(msg->root_dir) + 1);
@@ -238,7 +237,7 @@ cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps)
                 ret_err = loadFromFileMsg(path,currentDep->msg);
                 if(ret_err == CROS_SUCCESS_ERR_PACK)
                 {
-                    msgDep* next = malloc(sizeof(msgDep));
+                    msgDep *next = (msgDep *)malloc(sizeof(msgDep));
                     next->msg = NULL;
                     next->prev = currentDep;
                     currentDep->next = next;
@@ -291,7 +290,7 @@ char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps)
 
     //rollback
     while(deps->prev != NULL) deps = deps->prev;
-    full_text = (char*) malloc(full_size + 1);
+    full_text = (char *)malloc(full_size + 1);
     memcpy(full_text,msg->plain_text,strlen(msg->plain_text) + 1);
     while(deps->next != NULL)
     {
@@ -314,8 +313,8 @@ cRosErrCodePack initCrosMsg(cRosMessageDef* msg)
   cRosErrCodePack ret_err;
   if(msg != NULL)
   {
-    msg->constants = (msgConst*) malloc(sizeof(msgConst));
-    msg->fields = (msgFieldDef*) calloc(1, sizeof(msgFieldDef));
+    msg->constants = (msgConst *)malloc(sizeof(msgConst));
+    msg->fields = (msgFieldDef *)calloc(1, sizeof(msgFieldDef));
     if(msg->constants != NULL && msg->fields != NULL)
     {
       initMsgConst(msg->constants);
@@ -369,11 +368,15 @@ void initFieldDef(msgFieldDef* field)
   field->child_msg_def = NULL;
 }
 
-unsigned char* getMD5Msg(cRosMessageDef* msg)
+unsigned char *getMD5Msg(cRosMessageDef* msg)
 {
     DynString buffer;
     cRosErrCodePack ret_err;
-    unsigned char* result = (unsigned char*) malloc(16);
+    unsigned char *result;
+
+    result = (unsigned char *)malloc(16);
+    if(result == NULL)
+        return(NULL);
 
     dynStringInit(&buffer);
     msgConst* const_it = msg->first_const;
@@ -422,19 +425,48 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
         }
         else if(fields_it->type == CROS_STD_MSGS_HEADER)
         {
-            cRosMessageDef* msg_header = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
-            initCrosMsg(msg_header);
-            char* header_text = malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
-            memcpy(header_text,HEADER_DEFAULT_TYPEDEF,strlen(HEADER_DEFAULT_TYPEDEF) + 1);
-            loadFromStringMsg(header_text, msg_header);
-            free(header_text);
-            unsigned char* res =  getMD5Msg(msg_header);
-            cRosMessageDefFree(msg_header);
-            cRosMD5Readable(res, &buffer);
-            free(res);
-            dynStringPushBackStr(&buffer," ");
-            dynStringPushBackStr(&buffer,fields_it->name);
-            dynStringPushBackStr(&buffer,"\n");
+            cRosMessageDef *msg_header;
+            char *header_text;
+            unsigned char *res;
+
+            msg_header = (cRosMessageDef *)malloc(sizeof(cRosMessageDef));
+            if(msg_header != NULL)
+            {
+                initCrosMsg(msg_header);
+                header_text = (char *)malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+                if(header_text != NULL)
+                {
+                    memcpy(header_text,HEADER_DEFAULT_TYPEDEF,strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+                    loadFromStringMsg(header_text, msg_header);
+                    free(header_text);
+                    res =  getMD5Msg(msg_header);
+                    cRosMessageDefFree(msg_header);
+                    if(res != NULL)
+                    {
+                        cRosMD5Readable(res, &buffer);
+                        free(res);
+                        dynStringPushBackStr(&buffer," ");
+                        dynStringPushBackStr(&buffer,fields_it->name);
+                        dynStringPushBackStr(&buffer,"\n");
+                    }
+                    else
+                    {
+                        dynStringRelease(&buffer);
+                        return NULL;
+                    }
+                }
+                else
+                {
+                    cRosMessageDefFree(msg_header);
+                    dynStringRelease(&buffer);
+                    return NULL;
+                }
+            }
+            else
+            {
+                dynStringRelease(&buffer);
+                return NULL;
+            }
         }
         else
         {
@@ -451,10 +483,10 @@ unsigned char* getMD5Msg(cRosMessageDef* msg)
                     dynStringPushBackStr(&buffer," ");
                     dynStringPushBackStr(&buffer,fields_it->name);
                     dynStringPushBackStr(&buffer,"\n");
+                    free(md5sum);
                 }
                 else
-                    ret_err= CROS_MEM_ALLOC_ERR;
-                free(md5sum);
+                    ret_err = CROS_MEM_ALLOC_ERR;
             }
 
         }
@@ -497,7 +529,7 @@ cRosErrCodePack getMD5Txt(cRosMessageDef* msg_def, DynString* buffer)
 
     msgFieldDef* fields_it = msg_def->first_field;
 
-    while(fields_it->next != NULL)
+    while(ret_err == CROS_SUCCESS_ERR_PACK && fields_it->next != NULL)
     {
         const char *type_decl = getMessageTypeDeclarationField(fields_it);
 
@@ -522,18 +554,38 @@ cRosErrCodePack getMD5Txt(cRosMessageDef* msg_def, DynString* buffer)
         }
         else if(fields_it->type == CROS_STD_MSGS_HEADER)
         {
-            cRosMessageDef* msg_header = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
-            initCrosMsg(msg_header);
-            char* header_text = malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
-            memcpy(header_text,HEADER_DEFAULT_TYPEDEF,strlen(HEADER_DEFAULT_TYPEDEF) + 1);
-            loadFromStringMsg(header_text, msg_header);
-            unsigned char* res =  getMD5Msg(msg_header);
-            cRosMD5Readable(res, buffer);
-            free(res);
-            dynStringPushBackStr(buffer," ");
-            dynStringPushBackStr(buffer,fields_it->name);
-            dynStringPushBackStr(buffer,"\n");
-            cRosMessageDefFree(msg_header);
+            char *header_text;
+            unsigned char *res;
+            cRosMessageDef *msg_header;
+
+            msg_header = (cRosMessageDef *)malloc(sizeof(cRosMessageDef));
+            if(msg_header != NULL)
+            {
+                initCrosMsg(msg_header);
+                header_text = (char *)malloc(strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+                if(header_text != NULL)
+                {
+                    memcpy(header_text,HEADER_DEFAULT_TYPEDEF,strlen(HEADER_DEFAULT_TYPEDEF) + 1);
+                    loadFromStringMsg(header_text, msg_header);
+                    free(header_text);
+                    res =  getMD5Msg(msg_header);
+                    if(res != NULL)
+                    {
+                        cRosMD5Readable(res, buffer);
+                        free(res);
+                        dynStringPushBackStr(buffer," ");
+                        dynStringPushBackStr(buffer,fields_it->name);
+                        dynStringPushBackStr(buffer,"\n");
+                    }
+                    else
+                        ret_err = CROS_MEM_ALLOC_ERR;
+                }
+                else
+                    ret_err = CROS_MEM_ALLOC_ERR;
+                cRosMessageDefFree(msg_header);
+            }
+            else
+                ret_err = CROS_MEM_ALLOC_ERR;
         }
         else
         {
@@ -565,7 +617,7 @@ void cRosMD5Readable(unsigned char* data, DynString* output)
     int i;
     for(i = 0; i < 16; i++)
     {
-      snprintf(val, 4, "%02x", (unsigned char) data[i]);
+        snprintf(val, 4, "%02x", (unsigned char) data[i]);
         dynStringPushBackStr(output,val);
     }
 }
@@ -576,42 +628,42 @@ void cRosMessageInit(cRosMessage *message)
     message->n_fields = 0;
     message->msgDef = NULL;
 
-    message->md5sum = (char*) calloc(33, sizeof(char)); // 32 chars + '\0';
+    message->md5sum = (char *)calloc(33, sizeof(char)); // 32 chars + '\0';
 }
 
 cRosMessage * cRosMessageNew(void)
 {
-  cRosMessage *ret = (cRosMessage *)calloc(1, sizeof(cRosMessage));
+    cRosMessage *ret = (cRosMessage *)calloc(1, sizeof(cRosMessage));
 
-  if (ret == NULL)
-    return NULL;
+    if (ret == NULL)
+        return NULL;
 
-  cRosMessageInit(ret);
+    cRosMessageInit(ret);
 
-  if (ret->md5sum == NULL)
-  {
-    free(ret);
-    return NULL;
-  }
+    if (ret->md5sum == NULL)
+    {
+        free(ret);
+        return NULL;
+    }
 
-  return ret;
+    return ret;
 }
 
 void cRosMessageFieldInit(cRosMessageField *field)
 {
-  if(field != NULL)
-  {
-    field->is_const = 0;
-    field->name = NULL;
-    field->type = CROS_CUSTOM_TYPE;
-    field->type_s = NULL;
-    field->size = -1;
-    field->is_array = 0;
-    field->is_fixed_array = 0;
-    field->array_size = -1;
-    field->array_capacity = -1;
-    memset(field->data.opaque, 0, sizeof(field->data.opaque));
-  }
+    if(field != NULL)
+    {
+        field->is_const = 0;
+        field->name = NULL;
+        field->type = CROS_CUSTOM_TYPE;
+        field->type_s = NULL;
+        field->size = -1;
+        field->is_array = 0;
+        field->is_fixed_array = 0;
+        field->array_size = -1;
+        field->array_capacity = -1;
+        memset(field->data.opaque, 0, sizeof(field->data.opaque));
+    }
 }
 
 //  Load message specification from a string:
@@ -663,7 +715,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
           }
         }
 
-        char* msg_entry = (char*) calloc(char_count + 1, sizeof(char)); // type/name
+        char* msg_entry = (char *)calloc(char_count + 1, sizeof(char)); // type/name
         strncpy(msg_entry, new_line, char_count);
         char* entry_type;
         char* entry_name;
@@ -678,7 +730,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
         }
         *(msg_entry_itr - 1) = '\0'; // Convert the found space into a \0
 
-        entry_name = (char*) calloc(strlen(msg_entry_itr) + 1, sizeof(char));
+        entry_name = (char *)calloc(strlen(msg_entry_itr) + 1, sizeof(char));
         strcpy(entry_name, msg_entry_itr);
         entry_type = base_msg_type(msg_entry); // Return the type of the entry in a new allocated memory string
 
@@ -744,7 +796,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
               entry_type = NULL;
             }
             current->value = strdup(entry_const_val); // strdup() will allocate a memory buffer that is independent of entry_name memory buffer so that it can freed independently as well
-            current->next = (msgConst*)malloc(sizeof(msgConst));
+            current->next = (msgConst *)malloc(sizeof(msgConst));
             msgConst* next = current->next;
             initMsgConst(next);
             next->prev = current;
@@ -762,7 +814,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
 
               if(strstr(entry_type,"/") == NULL)
               {
-                  current->type_s = (char*) calloc(strlen(msg->package)+ 1 + strlen(entry_type) + 1, sizeof(char));
+                  current->type_s = (char *)calloc(strlen(msg->package)+ 1 + strlen(entry_type) + 1, sizeof(char));
                   memcpy(current->type_s, msg->package, strlen(msg->package)+ 1);
                   strcat(current->type_s,"/");
                   strcat(current->type_s,entry_type);
@@ -793,7 +845,7 @@ cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg)
               current->array_size = array_size;
             }
 
-            current->next = (msgFieldDef*)malloc(sizeof(msgFieldDef));
+            current->next = (msgFieldDef *)malloc(sizeof(msgFieldDef));
             msgFieldDef* next = current->next;
             initFieldDef(next);
             next->prev = current;
@@ -817,20 +869,19 @@ cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg)
     size_t f_read_bytes;
     char* file_tokenized;
     FILE *f;
+    char* token_pack = NULL;
+    char* token_root = NULL;
+    char* token_name = NULL;
 
     f = fopen(filename, "rb");
     if (f == NULL)
       return CROS_OPEN_MSG_FILE_ERR;
 
-    char* token_pack = NULL;
-    char* token_root = NULL;
-    char* token_name = NULL;
-
     // Load the entire message definition file in a buffer
     fseek(f, 0, SEEK_END);
     long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);
-    char *msg_text = malloc(fsize + 1);
+    char *msg_text = (char *)malloc(fsize + 1);
     if(msg_text == NULL)
     {
       fclose(f);
@@ -848,7 +899,7 @@ cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg)
 
     msg_text[fsize] = '\0';
 
-    file_tokenized = (char*) calloc(strlen(filename)+1, sizeof(char));
+    file_tokenized = (char *)calloc(strlen(filename)+1, sizeof(char));
     if(file_tokenized == NULL)
     {
       free(msg_text);
@@ -907,7 +958,7 @@ cRosMessage *build_time_field(void)
   cRosMessage* time_msg = cRosMessageNew();
   if(time_msg != NULL)
   {
-    time_msg->fields = (cRosMessageField**) calloc(2,sizeof(cRosMessageField*));
+    time_msg->fields = (cRosMessageField **)calloc(2,sizeof(cRosMessageField*));
     if(time_msg->fields != NULL)
     {
       time_msg->n_fields = 2;
@@ -957,7 +1008,7 @@ cRosMessage *build_duration_field(void)
   cRosMessage* durat_msg = cRosMessageNew();
   if(durat_msg != NULL)
   {
-    durat_msg->fields = (cRosMessageField**) calloc(2,sizeof(cRosMessageField*));
+    durat_msg->fields = (cRosMessageField **)calloc(2,sizeof(cRosMessageField*));
     if(durat_msg->fields != NULL)
     {
       durat_msg->n_fields = 2;
@@ -1007,7 +1058,7 @@ cRosMessage *build_header_field(void)
   cRosMessage* header_msg = cRosMessageNew();
   if(header_msg != NULL)
   {
-    header_msg->fields = (cRosMessageField**) calloc(3,sizeof(cRosMessageField*));
+    header_msg->fields = (cRosMessageField **)calloc(3,sizeof(cRosMessageField*));
     if(header_msg->fields != NULL)
     {
       header_msg->n_fields = 3;
@@ -1064,7 +1115,7 @@ cRosMessage *build_header_field(void)
 cRosErrCodePack cRosMessageDefBuild(cRosMessageDef **msg_def_ptr, const char *msg_root_dir, const char *msg_type)
 {
   cRosErrCodePack ret;
-  cRosMessageDef* msg_def = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+  cRosMessageDef* msg_def = (cRosMessageDef *)malloc(sizeof(cRosMessageDef));
   if(msg_def == NULL)
     return CROS_MEM_ALLOC_ERR;
 
@@ -1688,7 +1739,7 @@ cRosErrCodePack cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessage
     return CROS_SUCCESS_ERR_PACK;
   }
 
-  *ptr_new_msg_def = (cRosMessageDef*) malloc(sizeof(cRosMessageDef));
+  *ptr_new_msg_def = (cRosMessageDef *)malloc(sizeof(cRosMessageDef));
   if(*ptr_new_msg_def != NULL)
   {
     initCrosMsg(*ptr_new_msg_def);
@@ -1711,7 +1762,7 @@ cRosErrCodePack cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessage
       // Copy the rest of message definition fields
       while(orig_field_itr->next != NULL && ret == CROS_SUCCESS_ERR_PACK)
       {
-        new_field_itr->next = (msgFieldDef*)malloc(sizeof(msgFieldDef));
+        new_field_itr->next = (msgFieldDef *)malloc(sizeof(msgFieldDef));
         if(new_field_itr->next != NULL)
         {
           initFieldDef(new_field_itr->next);
@@ -1753,7 +1804,7 @@ cRosErrCodePack cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessage
       // Copy message definition constants
       while(orig_const_itr->next != NULL && ret == CROS_SUCCESS_ERR_PACK)
       {
-        new_const_itr->next = (msgConst*)malloc(sizeof(msgConst));
+        new_const_itr->next = (msgConst *)malloc(sizeof(msgConst));
         if(new_const_itr->next != NULL)
         {
           initMsgConst(new_const_itr->next);
@@ -1842,23 +1893,23 @@ cRosErrCodePack cRosMessageBuildFromDef(cRosMessage** message_ptr, cRosMessageDe
     field_def_itr = field_def_itr->next;
   }
 
-  message->fields = (cRosMessageField**) calloc(message->n_fields, sizeof(cRosMessageField*));
+  message->fields = (cRosMessageField **)calloc(message->n_fields, sizeof(cRosMessageField*));
 
   field_def_itr =  msg_def->first_field;
   cRosMessageField** msg_field_itr = message->fields;
 
   while(field_def_itr->next != NULL && ret == CROS_SUCCESS_ERR_PACK)
   {
-    *msg_field_itr = (cRosMessageField*) malloc(sizeof(cRosMessageField));
+    *msg_field_itr = (cRosMessageField *)malloc(sizeof(cRosMessageField));
     cRosMessageField* field = *msg_field_itr;
     cRosMessageFieldInit(field);
 
     field->type = field_def_itr->type;
-    field->name = (char*) calloc(strlen(field_def_itr->name)+1,sizeof(char));
+    field->name = (char *)calloc(strlen(field_def_itr->name)+1,sizeof(char));
     strcpy(field->name, field_def_itr->name);
     if (field_def_itr->type_s != NULL)
     {
-      field->type_s = (char*) calloc(strlen(field_def_itr->type_s)+1,sizeof(char));
+      field->type_s = (char *)calloc(strlen(field_def_itr->type_s)+1,sizeof(char));
       strcpy(field->type_s, field_def_itr->type_s);
     }
 
@@ -2141,7 +2192,7 @@ void cRosMessageFieldFree(cRosMessageField *field)
   free(field);
 }
 
-cRosMessageField* cRosMessageGetField(cRosMessage *message, char *field_name)
+cRosMessageField *cRosMessageGetField(cRosMessage *message, const char *field_name)
 {
   cRosMessageField* matching_field = NULL;
 
@@ -2185,7 +2236,7 @@ int arrayFieldValuesPushBack(cRosMessageField *field, const void* data, int elem
 
   if(field->array_capacity < field->array_size + n_new_elements)
   {
-    void* new_location;
+    void *new_location;
     size_t new_arr_cap;
 
     new_arr_cap = (field->array_size + n_new_elements) * 3 / 2;
@@ -2319,7 +2370,7 @@ int cRosMessageFieldArrayPushBackString(cRosMessageField *field, const char* val
   ret=0;
   if(val != NULL)
   {
-    element_val = (char*)calloc(strlen(val) + sizeof(char), 1);
+    element_val = (char *)calloc(strlen(val) + sizeof(char), 1);
     if(element_val != NULL)
       strcpy(element_val, val);
     else
@@ -2909,7 +2960,7 @@ cRosErrCodePack cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
           uint32_t curr_data_size;
           ret_err = (dynBufferGetCurrentContent( (unsigned char *)&curr_data_size, buffer, sizeof(uint32_t) ) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR; // equiv. to: curr_data_size = *((uint32_t*)dynBufferGetCurrentData(buffer));
           dynBufferMovePoseIndicator(buffer, sizeof(uint32_t));
-          field->data.as_string = (char*)realloc(field->data.as_string, (curr_data_size + 1) * sizeof(char)); // If field->data.as_string was NULL previously, realloc behaves as malloc
+          field->data.as_string = (char *)realloc(field->data.as_string, (curr_data_size + 1) * sizeof(char)); // If field->data.as_string was NULL previously, realloc behaves as malloc
           if(field->data.as_string != NULL)
           {
             dynBufferGetCurrentContent( (unsigned char *)field->data.as_string, buffer, curr_data_size ); // equiv. to: memcpy(field->data.as_string, dynBufferGetCurrentData(buffer), curr_data_size);
