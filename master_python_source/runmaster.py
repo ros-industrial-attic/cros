@@ -9,6 +9,11 @@ This script does not requires that a ROS distribution is installed.
 #sys.path.append('.')
 import rosmaster
 
+try:
+    input = raw_input
+except NameError:
+    pass
+
 ros_master=rosmaster.master.Master()
 ros_master.start()
 
