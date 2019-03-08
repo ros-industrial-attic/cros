@@ -51,11 +51,11 @@ static CallbackResponse jointstates_sub_callback(cRosMessage *message, void* dat
 
 int main(int argc, char **argv)
 {
-    char *default_node_name = "/robot_listener",
-            *node_name = default_node_name;
-    char *default_host = "127.0.0.1",
-            *node_host = default_host,
-            *roscore_host = default_host;
+    const char *default_node_name = "/robot_listener",
+               *node_name = default_node_name;
+    const char *default_host = "127.0.0.1",
+               *node_host = default_host,
+               *roscore_host = default_host;
     unsigned short roscore_port = 11311;
 
     if(argc == 2)

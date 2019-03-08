@@ -678,7 +678,7 @@ int main(int argc, char **argv)
   if (rc == -1)
     return EXIT_FAILURE;
 
-  char *gripperjointstatus_def = "uint32 PowerStatus\n"
+  const char *gripperjointstatus_def = "uint32 PowerStatus\n"
                                  "uint32[4] ClampStatus\n"
                                  "uint32[] AlarmCodes\n"
                                  "uint32 Configuration\n\n";
@@ -754,7 +754,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef STD_MSGS_TEST
-  char *header_def = "# Standard metadata for higher-level stamped data types.\n"
+  const char *header_def = "# Standard metadata for higher-level stamped data types.\n"
                      "# This is generally used to communicate timestamped data \n"
                      "# in a particular coordinate frame.\n"
                      "# \n"

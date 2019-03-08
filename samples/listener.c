@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 {
   // We need to tell our node where to find the .msg files that we'll be using
   char path[1024];
-  char *node_name;
+  const char *node_name;
   int subidx; // Index (identifier) of the created subscriber
   cRosErrCodePack err_cod;
 

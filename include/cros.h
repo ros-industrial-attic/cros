@@ -11,7 +11,16 @@
 #ifndef INCLUDE_CROS_H_
 #define INCLUDE_CROS_H_
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include "cros_api.h"
 #include "cros_log.h"
 
 #endif /* INCLUDE_CROS_H_ */
+
+#ifdef __cplusplus
+}
+#endif

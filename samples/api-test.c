@@ -239,9 +239,9 @@ static CallbackResponse callback_srv_transfer(cRosMessage *request, cRosMessage 
 
 int main(int argc, char **argv)
 {
-  char *default_node_name = "/Gripper",
+  const char *default_node_name = "/Gripper",
        *node_name = default_node_name;
-  char *default_host = "127.0.0.1",
+  const char *default_host = "127.0.0.1",
        *node_host = default_host,
        *roscore_host = default_host;
   unsigned short roscore_port = 11311;
