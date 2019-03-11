@@ -6,6 +6,11 @@
 #include <ctype.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
+#  include <windows.h>
+#endif
+
 #include "cros_node.h"
 #include "cros_api_internal.h"
 #include "cros_api.h"
@@ -1834,7 +1839,11 @@ CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const ch
   CrosNode *new_n; // Value to be returned by this function. NULL on failure
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
 
+  // Ignore the SIGPIPE signal. That is, prevent the process from being terminated when it tries to write to a closed socket
+#ifndef _WIN32
   signal(SIGPIPE, SIG_IGN);
+#endif
+  // In Windows this default behavior does not occur, so nothing has to be done
 
   if(node_name == NULL || node_host == NULL || roscore_host == NULL )
   {
@@ -1924,7 +1933,11 @@ CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const ch
     initParameterSubscrition(&new_n->paramsubs[i]);
   new_n->n_paramsubs = 0;
 
+#ifdef _WIN32
+  new_n->pid = (int)GetCurrentProcessId();
+#else
   new_n->pid = (int)getpid();
+#endif
 
   fn_ret = 0;
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS && fn_ret == 0; i++)

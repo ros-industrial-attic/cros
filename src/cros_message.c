@@ -7,15 +7,24 @@
 #include "cros_defs.h"
 #include "md5.h"
 
-#define SPLIT_REGEX "/."
-#define DIR_SEPARATOR_CHAR '/'
-#define DIR_SEPARATOR_STR "/"
+#ifdef _WIN32
+#  define SPLIT_REGEX "\\."
+#  define DIR_SEPARATOR_CHAR '\\'
+#  define DIR_SEPARATOR_STR "\\"
+// strtok_s is the Windows implementation of strtok_r
+#  define strtok_r strtok_s
+#else
+#  define SPLIT_REGEX "/."
+#  define DIR_SEPARATOR_CHAR '/'
+#  define DIR_SEPARATOR_STR "/"
+#endif
 
-static void * arrayFieldValueAt(cRosMessageField *field, int position, size_t element_size);
-static const char * getMessageTypeDeclarationConst(msgConst *msgConst);
-static const char * getMessageTypeDeclarationField(msgFieldDef *fieldDef);
 
-char* base_msg_type(const char* type)
+static void *arrayFieldValueAt(cRosMessageField *field, int position, size_t element_size);
+static const char *getMessageTypeDeclarationConst(msgConst *msgConst);
+static const char *getMessageTypeDeclarationField(msgFieldDef *fieldDef);
+
+char *base_msg_type(const char* type)
 {
     //  """
     //  Compute the base data type, e.g. for arrays, get the underlying array item type
@@ -268,7 +277,7 @@ cRosErrCodePack getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgD
 //  msg files are denoted first by an 80-character '=' separator,
 //  followed by a type declaration line,'MSG: pkg/type', followed by
 //  the text of the embedded type.
-char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps)
+char *computeFullTextMsg(cRosMessageDef* msg, msgDep* deps)
 {
     char* full_text = NULL;
     char* msg_tag = "MSG: ";
@@ -2526,7 +2535,7 @@ cRosMessage *cRosMessageFieldArrayRemoveLastMsg(cRosMessageField *field)
   return msg;
 }
 
-int8_t * cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position)
+int8_t *cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_INT8)
     return NULL;
@@ -2534,7 +2543,7 @@ int8_t * cRosMessageFieldArrayAtInt8(cRosMessageField *field, int position)
   return (int8_t *)arrayFieldValueAt(field, position, sizeof(int8_t));
 }
 
-int16_t * cRosMessageFieldArrayAtInt16(cRosMessageField *field, int position)
+int16_t *cRosMessageFieldArrayAtInt16(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_INT16)
     return NULL;
@@ -2542,7 +2551,7 @@ int16_t * cRosMessageFieldArrayAtInt16(cRosMessageField *field, int position)
   return (int16_t *)arrayFieldValueAt(field, position, sizeof(int16_t));
 }
 
-int32_t * cRosMessageFieldArrayAtInt32(cRosMessageField *field, int position)
+int32_t *cRosMessageFieldArrayAtInt32(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_INT32)
     return NULL;
@@ -2550,7 +2559,7 @@ int32_t * cRosMessageFieldArrayAtInt32(cRosMessageField *field, int position)
   return (int32_t *)arrayFieldValueAt(field, position, sizeof(int32_t));
 }
 
-int64_t * cRosMessageFieldArrayAtInt64(cRosMessageField *field, int position)
+int64_t *cRosMessageFieldArrayAtInt64(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_INT64)
     return NULL;
@@ -2558,7 +2567,7 @@ int64_t * cRosMessageFieldArrayAtInt64(cRosMessageField *field, int position)
   return (int64_t *)arrayFieldValueAt(field, position, sizeof(int64_t));
 }
 
-uint8_t * cRosMessageFieldArrayAtUInt8(cRosMessageField *field, int position)
+uint8_t *cRosMessageFieldArrayAtUInt8(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_UINT8)
     return NULL;
@@ -2566,7 +2575,7 @@ uint8_t * cRosMessageFieldArrayAtUInt8(cRosMessageField *field, int position)
   return (uint8_t *)arrayFieldValueAt(field, position, sizeof(uint8_t));
 }
 
-uint16_t * cRosMessageFieldArrayAtUInt16(cRosMessageField *field, int position)
+uint16_t *cRosMessageFieldArrayAtUInt16(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_UINT16)
     return NULL;
@@ -2574,7 +2583,7 @@ uint16_t * cRosMessageFieldArrayAtUInt16(cRosMessageField *field, int position)
   return (uint16_t *)arrayFieldValueAt(field, position, sizeof(uint16_t));
 }
 
-uint32_t * cRosMessageFieldArrayAtUInt32(cRosMessageField *field, int position)
+uint32_t *cRosMessageFieldArrayAtUInt32(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_UINT32)
     return NULL;
@@ -2582,7 +2591,7 @@ uint32_t * cRosMessageFieldArrayAtUInt32(cRosMessageField *field, int position)
   return (uint32_t *)arrayFieldValueAt(field, position, sizeof(uint32_t));
 }
 
-uint64_t * cRosMessageFieldArrayAtUInt64(cRosMessageField *field, int position)
+uint64_t *cRosMessageFieldArrayAtUInt64(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_UINT64)
     return NULL;
@@ -2590,7 +2599,7 @@ uint64_t * cRosMessageFieldArrayAtUInt64(cRosMessageField *field, int position)
   return (uint64_t *)arrayFieldValueAt(field, position, sizeof(uint64_t));
 }
 
-float * cRosMessageFieldArrayAtFloat32(cRosMessageField *field, int position)
+float *cRosMessageFieldArrayAtFloat32(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_FLOAT32)
     return NULL;
@@ -2598,7 +2607,7 @@ float * cRosMessageFieldArrayAtFloat32(cRosMessageField *field, int position)
   return (float *)arrayFieldValueAt(field, position, sizeof(float));
 }
 
-double * cRosMessageFieldArrayAtFloat64(cRosMessageField *field, int position)
+double *cRosMessageFieldArrayAtFloat64(cRosMessageField *field, int position)
 {
   if(field->type != CROS_STD_MSGS_FLOAT64)
     return NULL;
@@ -2701,7 +2710,7 @@ int cRosMessageFieldArrayClear(cRosMessageField *field)
   return 0;
 }
 
-void * arrayFieldValueAt(cRosMessageField *field, int position, size_t size)
+void *arrayFieldValueAt(cRosMessageField *field, int position, size_t size)
 {
   if(!field->is_array)
     return NULL;
@@ -3043,7 +3052,7 @@ cRosErrCodePack cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
   return ret_err;
 }
 
-const char * getMessageTypeDeclarationConst(msgConst *msgConst)
+const char *getMessageTypeDeclarationConst(msgConst *msgConst)
 {
   if (msgConst->type_s == NULL)
     return getMessageTypeDeclaration(msgConst->type);
@@ -3051,7 +3060,7 @@ const char * getMessageTypeDeclarationConst(msgConst *msgConst)
      return msgConst->type_s;
 }
 
-const char * getMessageTypeDeclarationField(msgFieldDef *fieldDef)
+const char *getMessageTypeDeclarationField(msgFieldDef *fieldDef)
 {
   if (fieldDef->type_s == NULL)
     return getMessageTypeDeclaration(fieldDef->type);
@@ -3165,7 +3174,7 @@ CrosMessageType getMessageType(const char *type_s)
     return CROS_CUSTOM_TYPE;
 }
 
-const char * getMessageTypeString(CrosMessageType type)
+const char *getMessageTypeString(CrosMessageType type)
 {
   switch(type)
   {
@@ -3209,7 +3218,7 @@ const char * getMessageTypeString(CrosMessageType type)
   }
 }
 
-const char * getMessageTypeDeclaration(CrosMessageType type)
+const char *getMessageTypeDeclaration(CrosMessageType type)
 {
   switch(type)
   {

@@ -1,7 +1,12 @@
 #ifndef _TCPIP_SOCKET_H_
 #define _TCPIP_SOCKET_H_
 
-# include <arpa/inet.h>
+// _WIN32 is defined when compiling 32 bit and 64 bit applications, so _WIN64 does not have to be checked here
+#ifdef _WIN32
+#  include <winsock2.h>
+#else
+#  include <netinet/in.h>
+#endif
 
 #include "dyn_string.h"
 #include "dyn_buffer.h"
