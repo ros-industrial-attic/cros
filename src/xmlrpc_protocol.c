@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#  define strtok_r strtok_s
+#endif
+
 #include "xmlrpc_protocol.h"
 #include "xmlrpc_tags.h"
 #include "cros_defs.h"

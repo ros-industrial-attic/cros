@@ -244,6 +244,20 @@ unsigned short tcpIpSocketGetPort( TcpIpSocket *s );
  */
 int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, uint64_t time_out );
 
+/*! \brief Initiate the use of the TcpIpSocket library.
+ *         This function must be called when before using the tcpIpSocketStartUp library functions.
+ *
+ *  \return Returns 0 on success or an error code in case of failure.
+ */
+int tcpIpSocketStartUp( void );
+
+/*! \brief Terminate the use of the TcpIpSocket library.
+ *         This function must be called when the application called tcpIpSocketStartUp and it does not need to use the library anymore to free resources.
+ *
+ *  \return Returns 0 on success or FN_SOCKET_ERROR in case of failure.
+ */
+int tcpIpSocketCleanUp( void );
+
 /*! \brief Get the error code returned by the last socket-function call that failed.
  *         So this code is significant only when the return value of the call indicated an error.
  *

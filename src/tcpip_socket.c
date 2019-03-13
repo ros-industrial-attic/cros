@@ -22,7 +22,7 @@
 void tcpIpSocketInit ( TcpIpSocket *s )
 {
   PRINT_VDEBUG ( "tcpIpSocketInit()\n" );
-  s->fd = -1;
+  s->fd = FN_INVALID_SOCKET;
   s->port = 0;
   memset ( & ( s->adr ), 0, sizeof ( struct sockaddr_in ) );
   s->open = 0;
@@ -42,7 +42,6 @@ int tcpIpSocketOpen ( TcpIpSocket *s )
   if ( s->fd == FN_INVALID_SOCKET )
   {
     PRINT_ERROR ( "tcpIpSocketOpen() : Can't open a socket\n" );
-    s->fd = -1;
     ret_success = 0;
   }
   else
@@ -62,7 +61,7 @@ void tcpIpSocketClose ( TcpIpSocket *s )
     return;
 
   PRINT_DEBUG ( "tcpIpSocketClose(): Closing socket FD: %i\n", s->fd);
-  if ( s->fd != -1 )
+  if ( s->fd != FN_INVALID_SOCKET )
     close ( s->fd );
   else
     PRINT_ERROR ( "tcpIpSocketClose(): Invalid file descriptor: %i\n", s->fd);
@@ -665,6 +664,44 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
   }
 
   return(nfds_set);
+}
+
+int tcpIpSocketStartUp( void )
+{
+  int ret_val;
+
+#ifdef _WIN32
+  WORD ws_ver_requested;
+  WSADATA ws_ver_obtained;
+
+  ws_ver_requested = MAKEWORD(1, 1); // Request version 1.1 of Winsock
+  ret_val = WSAStartup(ws_ver_requested, &ws_ver_obtained);
+  if (ret_val != 0)
+  {
+    // Ckeck that WinSock supports the requeste version
+    if(LOBYTE(ws_ver_obtained.wVersion) != 1 || HIBYTE(ws_ver_obtained.wVersion) != 1)
+      PRINT_ERROR("tcpIpSocketStartUp(): Could not find the required version of Winsock.\n");
+  }
+  else
+    PRINT_ERROR ( "tcpIpSocketStartUp(): Loading of Winsock failed with error code: %i.\n", ret_val);
+#else
+  ret_val = 0; // The socket library does not have to be initialized on Linux or OS X
+#endif
+
+  return(ret_val);
+}
+
+int tcpIpSocketCleanUp( void )
+{
+  int ret_val;
+
+#ifdef _WIN32
+  ret_val = WSACleanup();
+#else
+  ret_val = 0; // The socket library does not need to be initialized on Linux or OS X
+#endif
+
+  return(ret_val);
 }
 
 int tcpIpSocketGetError( void )

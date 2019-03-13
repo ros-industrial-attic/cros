@@ -1,15 +1,22 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <netdb.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <errno.h>
 #ifndef __USE_POSIX
   #define __USE_POSIX
 #endif
 #include <limits.h>
+
+#ifdef _WIN32
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#  define strtok_r strtok_s
+#else
+#  include <sys/socket.h>
+#  include <arpa/inet.h>
+#  include <netdb.h>
+#endif
 
 #include "cros_node_api.h"
 #include "cros_api.h"
