@@ -1055,6 +1055,8 @@ clean:
 
 GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetPublishedTopicsResult *ret = (GetPublishedTopicsResult *)calloc(1, sizeof(GetPublishedTopicsResult));
   if (ret == NULL)
     return NULL;
@@ -1074,8 +1076,7 @@ GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *resp
     goto clean;
   ret->topic_count = topics->array_n_elem;
 
-  int it = 0;
-  for (; it < topics->array_n_elem; it++)
+  for (it = 0; it < topics->array_n_elem; it++)
   {
     struct TopicTypePair *pair = &ret->topics[it];
     XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
@@ -1101,6 +1102,8 @@ clean:
 
 GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetTopicTypesResult *ret = (GetTopicTypesResult *)calloc(1, sizeof(GetTopicTypesResult));
   if (ret == NULL)
     return NULL;
@@ -1120,8 +1123,7 @@ GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response)
     goto clean;
   ret->topic_count = topics->array_n_elem;
 
-  int it = 0;
-  for (; it < topics->array_n_elem; it++)
+  for (it = 0; it < topics->array_n_elem; it++)
   {
     struct TopicTypePair *pair = &ret->topics[it];
     XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
@@ -1147,6 +1149,8 @@ clean:
 
 GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
 {
+  int it1;
+
   GetSystemStateResult *ret = (GetSystemStateResult *)calloc(1, sizeof(GetSystemStateResult));
   if (ret == NULL)
     return NULL;
@@ -1169,9 +1173,10 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     goto clean;
   ret->pub_count = publishers->array_n_elem;
 
-  int it1;
   for (it1 = 0; it1 < publishers->array_n_elem; it1++)
   {
+    int it2;
+
     struct ProviderState *state = &ret->publishers[it1];
     XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(publishers, it1);
     XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
@@ -1185,8 +1190,7 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     if (state->users == NULL)
       goto clean;
 
-    int it2 = 0;
-    for (; it2 < users_xml->array_n_elem; it2++)
+    for (it2 = 0; it2 < users_xml->array_n_elem; it2++)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
@@ -1208,6 +1212,8 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
 
   for (it1 = 0; it1 < subscribers->array_n_elem; it1++)
   {
+    int it2;
+
     struct ProviderState *state = &ret->subscribers[it1];
     XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(subscribers, it1);
     XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
@@ -1221,8 +1227,7 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     if (state->users == NULL)
       goto clean;
 
-    int it2 = 0;
-    for (; it2 < users_xml->array_n_elem; it2++)
+    for (it2 = 0; it2 < users_xml->array_n_elem; it2++)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
@@ -1244,6 +1249,8 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
 
   for (it1 = 0; it1 < services->array_n_elem; it1++)
   {
+    int it2;
+
     struct ProviderState *state = &ret->service_providers[it1];
     XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(services, it1);
     XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
@@ -1257,8 +1264,7 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     if (state->users == NULL)
       goto clean;
 
-    int it2 = 0;
-    for (; it2 < users_xml->array_n_elem; it2++)
+    for (it2 = 0; it2 < users_xml->array_n_elem; it2++)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
@@ -1334,6 +1340,8 @@ clean:
 
 GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
 {
+  int it1;
+
   GetBusStatsResult *ret = (GetBusStatsResult *)calloc(1, sizeof(GetBusStatsResult));
   if (ret == NULL)
     return NULL;
@@ -1356,9 +1364,10 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
     goto clean;
   ret->stats.pub_stats_count = pubs_stats->array_n_elem;
 
-  int it1;
   for (it1 = 0; it1 < pubs_stats->array_n_elem; it1++)
   {
+    int it2;
+
     struct TopicPubStats *pub_stats = &ret->stats.pub_stats[it1];
     XmlrpcParam* pub_stats_xml = xmlrpcParamArrayGetParamAt(pubs_stats, it1);
     if (pub_stats_xml->array_n_elem < 3)
@@ -1379,8 +1388,7 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
       goto clean;
     pub_stats->datas_count = pub_datas->array_n_elem;
 
-    int it2 = 0;
-    for (; it2 < pub_datas->array_n_elem; it2++)
+    for (it2 = 0; it2 < pub_datas->array_n_elem; it2++)
     {
       struct PubConnectionData *pub_data = &pub_stats->datas[it2];
       XmlrpcParam* pub_data_xml = xmlrpcParamArrayGetParamAt(pub_datas, it2);
@@ -1406,6 +1414,8 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
 
   for (it1 = 0; it1 < subs_stats->array_n_elem; it1++)
   {
+    int it2;
+
     struct TopicSubStats *sub_stats = &ret->stats.sub_stats[it1];
     XmlrpcParam *sub_stats_xml = xmlrpcParamArrayGetParamAt(subs_stats, it1);
     if (sub_stats_xml->array_n_elem < 3)
@@ -1423,8 +1433,7 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
       goto clean;
     sub_stats->datas_count = sub_datas->array_n_elem;
 
-    int it2 = 0;
-    for (; it2 < sub_datas->array_n_elem; it2++)
+    for (it2 = 0; it2 < sub_datas->array_n_elem; it2++)
     {
       struct SubConnectionData *sub_data = &sub_stats->datas[it2];
       XmlrpcParam *sub_data_xml = xmlrpcParamArrayGetParamAt(sub_datas, it2);
@@ -1460,6 +1469,8 @@ clean:
 
 GetBusInfoResult * fetchGetBusInfoResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetBusInfoResult *ret = (GetBusInfoResult *)calloc(1, sizeof(GetBusInfoResult));
   if (ret == NULL)
     return NULL;
@@ -1482,8 +1493,7 @@ GetBusInfoResult * fetchGetBusInfoResult(XmlrpcParamVector *response)
     goto clean;
   ret->bus_infos_count = businfos->array_n_elem;
 
-  int it = 0;
-  for (; it < businfos->array_n_elem; it++)
+  for (it = 0; it < businfos->array_n_elem; it++)
   {
     struct BusInfo *businfo = &ret->bus_infos[it];
     XmlrpcParam *businfo_xml = xmlrpcParamArrayGetParamAt(businfos, it);
@@ -1605,6 +1615,8 @@ clean:
 
 GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetSubscriptionsResult *ret = (GetSubscriptionsResult *)calloc(1, sizeof(GetSubscriptionsResult));
   if (ret == NULL)
     return NULL;
@@ -1624,8 +1636,7 @@ GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response
     goto clean;
   ret->topic_count = topics->array_n_elem;
 
-  int it = 0;
-  for (; it < topics->array_n_elem; it++)
+  for (it = 0; it < topics->array_n_elem; it++)
   {
     struct TopicTypePair *pair = &ret->topic_list[it];
     XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
@@ -1651,6 +1662,8 @@ clean:
 
 GetPublicationsResult * fetchGetPublicationsResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetPublicationsResult *ret = (GetPublicationsResult *)calloc(1, sizeof(GetPublicationsResult));
   if (ret == NULL)
     return NULL;
@@ -1670,8 +1683,7 @@ GetPublicationsResult * fetchGetPublicationsResult(XmlrpcParamVector *response)
     goto clean;
   ret->topic_count = topics->array_n_elem;
 
-  int it = 0;
-  for (; it < topics->array_n_elem; it++)
+  for (it = 0; it < topics->array_n_elem; it++)
   {
     struct TopicTypePair *pair = &ret->topic_list[it];
     XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
@@ -1822,6 +1834,8 @@ clean:
 
 static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetParamNamesResult *ret = (GetParamNamesResult *)calloc(1, sizeof(GetParamNamesResult));
   if (ret == NULL)
     return NULL;
@@ -1839,8 +1853,7 @@ static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *respons
   if (ret->parameter_names== NULL)
     goto clean;
 
-  int it = 0;
-  for (; it < param_names->array_n_elem; it++)
+  for (it = 0; it < param_names->array_n_elem; it++)
   {
     ret->parameter_names[it] = (char *)malloc(strlen(param_names->data.as_array[it].data.as_string) + 1);
     if (ret->parameter_names[it] == NULL)
@@ -1905,9 +1918,10 @@ void freeLookupNodeResult(LookupNodeResult *result)
 
 void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result)
 {
+  int it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->topic_count; it++)
+  for (it = 0; it < result->topic_count; it++)
   {
     free(result->topics[it].topic);
     free(result->topics[it].type);
@@ -1918,9 +1932,10 @@ void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result)
 
 void freeGetTopicTypesResult(GetTopicTypesResult *result)
 {
-  free(result->status);
   int it = 0;
-  for (; it < result->topic_count; it++)
+
+  free(result->status);
+  for (it = 0; it < result->topic_count; it++)
   {
     free(result->topics[it].topic);
     free(result->topics[it].type);
@@ -1931,33 +1946,37 @@ void freeGetTopicTypesResult(GetTopicTypesResult *result)
 
 void freeGetSystemStateResult(GetSystemStateResult *result)
 {
+  int it1;
+
   free(result->status);
-  int it1 = 0;
-  for (; it1 < result->sub_count; it1++)
+  for (it1 = 0; it1 < result->sub_count; it1++)
   {
+    int it2;
+
     free(result->publishers[it1].provider_name);
-    int it2 = 0;
-    for (; it2 < result->publishers[it1].user_count; it2)
+    for (it2 = 0; it2 < result->publishers[it1].user_count; it2++)
       free(result->publishers[it1].users[it2]);
     free(result->publishers[it1].users);
   }
   free(result->publishers);
 
-  for (; it1 < result->sub_count; it1++)
+  for (it1 = 0; it1 < result->sub_count; it1++)
   {
+    int it2;
+
     free(result->subscribers[it1].provider_name);
-    int it2 = 0;
-    for (; it2 < result->subscribers[it1].user_count; it2)
+    for (it2 = 0; it2 < result->subscribers[it1].user_count; it2++)
       free(result->subscribers[it1].users[it2]);
     free(result->subscribers[it1].users);
   }
   free(result->subscribers);
 
-  for (; it1 < result->svc_count; it1++)
+  for (it1 = 0; it1 < result->svc_count; it1++)
   {
+    int it2;
+
     free(result->service_providers[it1].provider_name);
-    int it2 = 0;
-    for (; it2 < result->service_providers[it1].user_count; it2)
+    for (it2 = 0; it2 < result->service_providers[it1].user_count; it2++)
       free(result->service_providers[it1].users[it2]);
     free(result->service_providers[it1].users);
   }
@@ -1982,14 +2001,15 @@ void freeLookupServiceResult(LookupServiceResult *result)
 
 void freeGetBusStatsResult(GetBusStatsResult *result)
 {
+  int it1;
+
   free(result->status);
-  int it1 = 0;
-  for (; it1 < result->stats.pub_stats_count; it1++)
+  for (it1 = 0; it1 < result->stats.pub_stats_count; it1++)
     free(result->stats.pub_stats[it1].topic_name);
   free(result->stats.pub_stats);
 
-  for (; it1 < result->stats.sub_stats_count; it1++)
-    free(result->stats.pub_stats[it1].topic_name);
+  for (it1 = 0; it1 < result->stats.sub_stats_count; it1++)
+    free(result->stats.sub_stats[it1].topic_name);
   free(result->stats.sub_stats);
 
   free(result);
@@ -1997,9 +2017,10 @@ void freeGetBusStatsResult(GetBusStatsResult *result)
 
 void freeGetBusInfoResult(GetBusInfoResult *result)
 {
+  int it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->bus_infos_count; it++)
+  for (it = 0; it < result->bus_infos_count; it++)
     free(result->bus_infos[it].topic);
   free(result->bus_infos);
   free(result);
@@ -2026,9 +2047,10 @@ void freeGetPidResult(GetPidResult *result)
 
 void freeGetSubscriptionsResult(GetSubscriptionsResult *result)
 {
+  int it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->topic_count; it++)
+  for (it = 0; it < result->topic_count; it++)
   {
     free(result->topic_list[it].topic);
     free(result->topic_list[it].type);
@@ -2039,9 +2061,10 @@ void freeGetSubscriptionsResult(GetSubscriptionsResult *result)
 
 void freeGetPublicationsResult(GetPublicationsResult *result)
 {
+  int it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->topic_count; it++)
+  for (it = 0; it < result->topic_count; it++)
   {
     free(result->topic_list[it].topic);
     free(result->topic_list[it].type);
@@ -2084,9 +2107,10 @@ static void freeHasParamResult(HasParamResult *result)
 
 static void freeGetParamNamesResult(GetParamNamesResult *result)
 {
+  int it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->parameter_count; it++)
+  for (it = 0; it < result->parameter_count; it++)
     free(result->parameter_names[it]);
   free(result->parameter_names);
   free(result);
