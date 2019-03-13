@@ -629,3 +629,16 @@ unsigned short tcpIpSocketGetPort( TcpIpSocket *s )
 {
   return s->port;
 }
+
+int tcpIpSocketGetError( void )
+{
+  int socket_err_num;
+
+#ifdef _WIN32
+  socket_err_num = WSAGetLastError();
+#else
+  socket_err_num = errno;
+#endif
+
+  return(socket_err_num);
+}

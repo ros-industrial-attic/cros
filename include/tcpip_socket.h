@@ -6,6 +6,7 @@
 #  include <winsock2.h>
 #else
 #  include <netinet/in.h>
+#  define  SOCKET_ERROR (-1)
 #endif
 
 #include "dyn_string.h"
@@ -142,7 +143,7 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port
  *          TCPIPSOCKET_IN_PROGRESS if the connection is not yet completed,
  *          or TCPIPSOCKET_FAILED on failure
  */
-TcpIpSocketState  tcpIpSocketAccept( TcpIpSocket *s, TcpIpSocket *new_s );
+TcpIpSocketState tcpIpSocketAccept( TcpIpSocket *s, TcpIpSocket *new_s );
 
 /*! \brief Shutdown a connectd TCP/IP4 socket to a server
  *
@@ -232,6 +233,14 @@ int tcpIpSocketGetFD( TcpIpSocket *s );
  *  \return Returns the tcp/ip port
  */
 unsigned short tcpIpSocketGetPort( TcpIpSocket *s );
+
+/*! \brief Get the error code returned by the last socket-function call that failed.
+ *         So this code is significant only when the return value of the call indicated an error.
+ *
+ *  \return Returns the error code
+ */
+int tcpIpSocketGetError( void );
+
 
 /*! @}*/
 

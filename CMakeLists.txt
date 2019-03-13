@@ -7,7 +7,8 @@ cmake_policy(SET CMP0015 NEW)
 execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion
                 OUTPUT_VARIABLE GCC_VERSION)
 
-set(CMAKE_C_FLAGS "-Wall -Wno-unused")
+#  -Wno-unused
+set(CMAKE_C_FLAGS "-Wall")
 if (GCC_VERSION VERSION_GREATER 4.8 OR GCC_VERSION VERSION_EQUAL 4.8)
   set(CMAKE_C_FLAGS_DEBUG "-g -pg -DDEBUG -fsanitize=address")
 else()

@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
@@ -9,6 +8,8 @@
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
 #  include <windows.h>
+#else
+#  include <signal.h>
 #endif
 
 #include "cros_node.h"
@@ -19,6 +20,7 @@
 #include "cros_defs.h"
 #include "cros_node_api.h"
 #include "cros_tcpros.h"
+#include "tcpip_socket.h"
 #include "cros_log.h"
 
 static void initPublisherNode(PublisherNode *node);
@@ -3059,15 +3061,19 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
   int n_set = select(nfds + 1, &r_fds, &w_fds, &err_fds, &tv);
 
-  if (n_set == -1)
+  if (n_set == SOCKET_ERROR)
   {
-    if (errno == EINTR)
+    int socket_err_num;
+
+    socket_err_num = tcpIpSocketGetError();
+
+    if(socket_err_num == EINTR)
     {
       PRINT_DEBUG("cRosNodeDoEventsLoop() : select() returned EINTR\n");
     }
     else
     {
-      PRINT_ERROR("cRosNodeDoEventsLoop() : select() function failed. errno=%i\n", errno);
+      PRINT_ERROR("cRosNodeDoEventsLoop() : select() function failed. errno=%i\n", socket_err_num);
       ret_err=CROS_SELECT_FD_ERR;
     }
   }
