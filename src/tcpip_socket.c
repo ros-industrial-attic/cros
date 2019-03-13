@@ -1,13 +1,21 @@
-#include <unistd.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
 #include <string.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <errno.h>
+
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
+#  include <windows.h>
+#  include <winsock2.h>
+#else
+#  include <unistd.h>
+#  include <fcntl.h>
+#  include <signal.h>
+#  include <sys/socket.h>
+#  include <netinet/tcp.h>
+#  include <arpa/inet.h>
+#  include <errno.h>
+#endif
 
 #include "tcpip_socket.h"
 #include "cros_defs.h"
@@ -18,6 +26,10 @@
 // Definitions for debug messages only:
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
+
+// This global variable is incremented for each call to tcpIpSocketStartUp() that has been successfuly executed,
+// and it decremented after each successful call to tcpIpSocketCleanUp()
+int socket_lib_initialized = 0;
 
 void tcpIpSocketInit ( TcpIpSocket *s )
 {
@@ -666,27 +678,39 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
   return(nfds_set);
 }
 
+#define REQUESTED_WS_HIGH_VER 2
+#define REQUESTED_WS_LOW_VER 0
 int tcpIpSocketStartUp( void )
 {
   int ret_val;
 
-#ifdef _WIN32
-  WORD ws_ver_requested;
-  WSADATA ws_ver_obtained;
-
-  ws_ver_requested = MAKEWORD(1, 1); // Request version 1.1 of Winsock
-  ret_val = WSAStartup(ws_ver_requested, &ws_ver_obtained);
-  if (ret_val != 0)
+  if(socket_lib_initialized == 0) // If the library is not aready initialized:
   {
-    // Ckeck that WinSock supports the requeste version
-    if(LOBYTE(ws_ver_obtained.wVersion) != 1 || HIBYTE(ws_ver_obtained.wVersion) != 1)
-      PRINT_ERROR("tcpIpSocketStartUp(): Could not find the required version of Winsock.\n");
+#ifdef _WIN32
+    WORD ws_ver_requested;
+    WSADATA ws_ver_obtained;
+
+    ws_ver_requested = MAKEWORD(REQUESTED_WS_HIGH_VER, REQUESTED_WS_LOW_VER); // Codify the requested version of Winsock
+    ret_val = WSAStartup(ws_ver_requested, &ws_ver_obtained);
+    if(ret_val != 0)
+    {
+      // Ckeck that WinSock supports the requeste version
+      if(LOBYTE(ws_ver_obtained.wVersion) != REQUESTED_WS_HIGH_VER || HIBYTE(ws_ver_obtained.wVersion) != REQUESTED_WS_LOW_VER)
+        PRINT_ERROR("tcpIpSocketStartUp(): Could not find the required version of Winsock: %i.%i.\n", REQUESTED_WS_HIGH_VER, REQUESTED_WS_LOW_VER);
+    }
+    else
+      PRINT_ERROR ( "tcpIpSocketStartUp(): Loading of Winsock failed with error code: %i.\n", ret_val);
+#else
+    // Ignore the SIGPIPE signal. That is, prevent the process from being terminated when it tries to write to a closed socket
+    signal(SIGPIPE, SIG_IGN);
+    // In Windows this default behavior does not occur, so nothing has to be done
+    ret_val = 0; // The socket library does not have to be initialized on Linux or OS X
+#endif
+    if(ret_val == 0)
+      socket_lib_initialized++;
   }
   else
-    PRINT_ERROR ( "tcpIpSocketStartUp(): Loading of Winsock failed with error code: %i.\n", ret_val);
-#else
-  ret_val = 0; // The socket library does not have to be initialized on Linux or OS X
-#endif
+    ret_val = 0;
 
   return(ret_val);
 }
@@ -695,11 +719,18 @@ int tcpIpSocketCleanUp( void )
 {
   int ret_val;
 
+  if(socket_lib_initialized != 0) // If the library is initialized:
+  {
 #ifdef _WIN32
-  ret_val = WSACleanup();
+    ret_val = WSACleanup();
 #else
-  ret_val = 0; // The socket library does not need to be initialized on Linux or OS X
+    ret_val = 0; // The socket library does not need to be initialized on Linux or OS X
 #endif
+    if(ret_val == 0)
+      socket_lib_initialized--;
+  }
+  else
+    ret_val = 0;
 
   return(ret_val);
 }

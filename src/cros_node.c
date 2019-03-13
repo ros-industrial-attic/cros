@@ -7,8 +7,6 @@
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
 #  include <windows.h>
-#else
-#  include <signal.h>
 #endif
 
 #include "cros_node.h"
@@ -1840,17 +1838,14 @@ CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const ch
   CrosNode *new_n; // Value to be returned by this function. NULL on failure
   PRINT_VDEBUG ( "cRosNodeCreate()\n" );
 
-  // Ignore the SIGPIPE signal. That is, prevent the process from being terminated when it tries to write to a closed socket
-#ifndef _WIN32
-  signal(SIGPIPE, SIG_IGN);
-#endif
-  // In Windows this default behavior does not occur, so nothing has to be done
-
   if(node_name == NULL || node_host == NULL || roscore_host == NULL )
   {
     PRINT_ERROR ( "cRosNodeCreate() : NULL parameters\n" );
     return NULL;
   }
+
+  if(tcpIpSocketStartUp() != 0)
+    return NULL; // Initialization of the socket library failed: exit
 
   new_n = ( CrosNode * ) malloc ( sizeof ( CrosNode ) );
 
@@ -2142,6 +2137,8 @@ cRosErrCodePack cRosNodeDestroy ( CrosNode *n )
 
   for ( i = 0; i < CN_MAX_PARAMETER_SUBSCRIPTIONS; i++)
     cRosNodeReleaseParameterSubscrition(&n->paramsubs[i]);
+
+  tcpIpSocketCleanUp();
 
   return ret_err;
 }
