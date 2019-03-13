@@ -4,10 +4,12 @@
 // _WIN32 is defined when compiling 32 bit and 64 bit applications, so _WIN64 does not have to be checked here
 #ifdef _WIN32
 #  include <winsock2.h>
-#  define  TCPIP_SOCKET_ERROR SOCKET_ERROR
+#  define  FN_SOCKET_ERROR SOCKET_ERROR
+#  define  FN_INVALID_SOCKET INVALID_SOCKET
 #else
 #  include <netinet/in.h>
-#  define  TCPIP_SOCKET_ERROR (-1)
+#  define  FN_SOCKET_ERROR (-1)
+#  define  FN_INVALID_SOCKET (-1)
 #endif
 
 #include "dyn_string.h"

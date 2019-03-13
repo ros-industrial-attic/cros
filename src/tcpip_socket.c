@@ -33,17 +33,25 @@ void tcpIpSocketInit ( TcpIpSocket *s )
 
 int tcpIpSocketOpen ( TcpIpSocket *s )
 {
+  int ret_success;
   PRINT_VDEBUG ( "tcpIpSocketOpen()\n" );
   if ( s->open )
     return 1;
 
   s->fd = socket ( AF_INET, SOCK_STREAM, IPPROTO_TCP );
-  if ( s->fd == -1 )
+  if ( s->fd == FN_INVALID_SOCKET )
+  {
     PRINT_ERROR ( "tcpIpSocketOpen() : Can't open a socket\n" );
+    s->fd = -1;
+    ret_success = 0;
+  }
   else
+  {
     s->open = 1;
+    ret_success = 1;
+  }
 
-  return ( s->fd != -1 );
+  return ( ret_success );
 }
 
 void tcpIpSocketClose ( TcpIpSocket *s )
@@ -640,10 +648,8 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
 
   nfds_set = select(nfds, readfds, writefds, exceptfds, &timeout_tv);
 
-#ifdef _WIN32
-  if(nfds_set == SOCKET_ERROR) // It is not needed but it is recommended
+  if(nfds_set == FN_SOCKET_ERROR) // It is not needed but it is recommended on Windows
     nfds_set = -1;
-#endif
 
   if(nfds_set == -1)
   {

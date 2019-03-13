@@ -2771,7 +2771,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     next_idle_client_idx++;
   }
 
-  /* If active (not idle state), add to the select() the XMLRPC clients */
+  /* If active (not idle state), add to the tcpIpSocketSelect() the XMLRPC clients */
   for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++)
   {
     fd_set *fdset = NULL;
@@ -2780,7 +2780,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       cRosErrCodePack new_errors;
       new_errors =  xmlrpcClientConnect(n, i);
       ret_err = cRosAddErrCodePackIfErr(ret_err, new_errors);
-      fdset = &w_fds; // select() will acknowledge the socket connection completion in the file descriptors checked for writing
+      fdset = &w_fds; // tcpIpSocketSelect() will acknowledge the socket connection completion in the file descriptors checked for writing
     }
     else if( n->xmlrpc_client_proc[i].state == XMLRPC_PROCESS_STATE_WRITING )
       fdset = &w_fds;
@@ -2803,7 +2803,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
   //printf("FD_SET COUNT. R: %d W: %d\n", r_count, w_count);
 
-  /* Add to the select() the active XMLRPC servers */
+  /* Add to the tcpIpSocketSelect() the active XMLRPC servers */
   int next_xmlrpc_server_i = -1;
   for( i = 0; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++ )
   {
@@ -2828,10 +2828,10 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     }
   }
 
-  /* If one XMLRPC server is active at least, add to the select() the listener socket */
+  /* If one XMLRPC server is active at least, add to the tcpIpSocketSelect() the listener socket */
   if( next_xmlrpc_server_i >= 0)
   {
-    if(xmlrpc_listner_fd != -1) // If the listener socket is still opened, add it to the select() file descriptors
+    if(xmlrpc_listner_fd != -1) // If the listener socket is still opened, add it to the tcpIpSocketSelect() file descriptors
     {
       FD_SET( xmlrpc_listner_fd, &r_fds);
       FD_SET( xmlrpc_listner_fd, &err_fds);
@@ -2841,11 +2841,11 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
   /*
    *
-   * TCPROS PROCESSES SELECT() MANAGEMENT
+   * TCPROS PROCESSES tcpIpSocketSelect() MANAGEMENT
    *
    */
 
-  /* If active (not idle state), add to the select() the TCPROS clients */
+  /* If active (not idle state), add to the tcpIpSocketSelect() the TCPROS clients */
   int next_tcpros_client_i = -1; // Unused ???
   for(i = 0; i < CN_MAX_TCPROS_CLIENT_CONNECTIONS; i++)
   {
@@ -2888,7 +2888,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     }
   }
 
-  /* Add to the select() the active TCPROS servers */
+  /* Add to the tcpIpSocketSelect() the active TCPROS servers */
   int next_tcpros_server_i = -1; // Index of the first server that is idle (ready to be activated). -1 = no one is idle
   for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
   {
@@ -2919,7 +2919,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     }
   }
 
-  /* If one TCPROS server is available at least, add to the select() the listener socket */
+  /* If one TCPROS server is available at least, add to the tcpIpSocketSelect() the listener socket */
   if( next_tcpros_server_i >= 0)
   {
     if(tcpros_listner_fd != -1) // If the listener socket is still opened
@@ -2956,11 +2956,11 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
   /*
    *
-   * RPCROS PROCESSES SELECT() MANAGEMENT
+   * RPCROS PROCESSES tcpIpSocketSelect() MANAGEMENT
    *
    */
 
-  /* If active (not idle state), add to the select() the TCPROS clients */
+  /* If active (not idle state), add to the tcpIpSocketSelect() the TCPROS clients */
   for(i = 0; i < CN_MAX_RPCROS_CLIENT_CONNECTIONS; i++)
   {
     int rpcros_client_fd;
@@ -3016,7 +3016,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     }
   }
 
-  /* Add to the select() the active RPCROS servers */
+  /* Add to the tcpIpSocketSelect() the active RPCROS servers */
   int next_rpcros_server_i = -1;
 
   for( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++ )
@@ -3046,7 +3046,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     }
   }
 
-  /* If one RPCROS server is available at least, add to the select() the listner socket */
+  /* If one RPCROS server is available at least, add to the tcpIpSocketSelect() the listner socket */
   if( next_rpcros_server_i >= 0)
   {
     if(rpcros_listner_fd != -1) // If the listener socket is still opened
@@ -3065,12 +3065,12 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
     socket_err_num = tcpIpSocketGetError();
 
-    PRINT_ERROR("cRosNodeDoEventsLoop() : select() function failed. error code=%i\n", socket_err_num);
+    PRINT_ERROR("cRosNodeDoEventsLoop() : tcpIpSocketSelect() function failed. error code=%i\n", socket_err_num);
     ret_err = CROS_SELECT_FD_ERR;
   }
   else if( n_set == 0 )
   {
-    PRINT_DEBUG ("cRosNodeDoEventsLoop() : select() timeout: %llu ms\n", (long long unsigned)timeout);
+    PRINT_DEBUG ("cRosNodeDoEventsLoop() : tcpIpSocketSelect() timeout: %llu ms or function call has been interrupted\n", (long long unsigned)timeout);
 
     uint64_t cur_time = cRosClockGetTimeMs();
 
@@ -3184,7 +3184,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   }
   else
   {
-    PRINT_DEBUG ( "cRosNodeDoEventsLoop() : select() unblocked (timeout: %llu ms)\n", (long long unsigned)timeout);
+    PRINT_DEBUG ( "cRosNodeDoEventsLoop() : tcpIpSocketSelect() unblocked (timeout: %llu ms)\n", (long long unsigned)timeout);
     for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++ )
     {
       XmlrpcProcess *client_proc;
@@ -3197,7 +3197,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
         PRINT_ERROR ( "cRosNodeDoEventsLoop() : XMLRPC client socket error\n" );
         handleXmlrpcClientError( n, i );
       }
-      /* Check what is the socket unblocked by the select, and start the requested operations */
+      /* Check what is the socket unblocked by tcpIpSocketSelect(), and start the requested operations */
       else if( ( client_proc->state == XMLRPC_PROCESS_STATE_CONNECTING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
           ( client_proc->state == XMLRPC_PROCESS_STATE_WRITING && FD_ISSET(xmlrpc_client_fd, &w_fds) ) ||
           ( client_proc->state == XMLRPC_PROCESS_STATE_READING && FD_ISSET(xmlrpc_client_fd, &r_fds) ) )
@@ -3259,7 +3259,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
         handleTcprosClientError( n, i );
       }
 
-      if( (client_proc->state == TCPROS_PROCESS_STATE_CONNECTING && FD_ISSET(tcpros_client_fd, &w_fds) ) || // select() indicates connection completion through write-fd
+      if( (client_proc->state == TCPROS_PROCESS_STATE_CONNECTING && FD_ISSET(tcpros_client_fd, &w_fds) ) || // tcpIpSocketSelect() indicates connection completion through write-fd
           ( client_proc->state == TCPROS_PROCESS_STATE_WRITING_HEADER && FD_ISSET(tcpros_client_fd, &w_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING_SIZE && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
           ( client_proc->state == TCPROS_PROCESS_STATE_READING && FD_ISSET(tcpros_client_fd, &r_fds) ) ||
