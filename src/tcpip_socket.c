@@ -12,6 +12,7 @@
 #include "tcpip_socket.h"
 #include "cros_defs.h"
 #include "cros_log.h"
+#include "cros_clock.h"
 
 #define TCPIP_SOCKET_READ_BUFFER_SIZE 2048
 // Definitions for debug messages only:
@@ -628,6 +629,36 @@ int tcpIpSocketGetFD ( TcpIpSocket *s )
 unsigned short tcpIpSocketGetPort( TcpIpSocket *s )
 {
   return s->port;
+}
+
+int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, uint64_t time_out )
+{
+  struct timeval timeout_tv;
+  int nfds_set;
+
+  timeout_tv = cRosClockGetTimeVal( time_out );
+
+  nfds_set = select(nfds, readfds, writefds, exceptfds, &timeout_tv);
+
+#ifdef _WIN32
+  if(nfds_set == SOCKET_ERROR) // It is not needed but it is recommended
+    nfds_set = -1;
+#endif
+
+  if(nfds_set == -1)
+  {
+    int socket_err_num;
+
+    socket_err_num = tcpIpSocketGetError();
+
+    if(socket_err_num == EINTR)
+    {
+      PRINT_DEBUG("tcpIpSocketSelect() : select() returned EINTR error code\n");
+      nfds_set = 0;
+    }
+  }
+
+  return(nfds_set);
 }
 
 int tcpIpSocketGetError( void )

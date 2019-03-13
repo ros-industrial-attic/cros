@@ -4,9 +4,10 @@
 // _WIN32 is defined when compiling 32 bit and 64 bit applications, so _WIN64 does not have to be checked here
 #ifdef _WIN32
 #  include <winsock2.h>
+#  define  TCPIP_SOCKET_ERROR SOCKET_ERROR
 #else
 #  include <netinet/in.h>
-#  define  SOCKET_ERROR (-1)
+#  define  TCPIP_SOCKET_ERROR (-1)
 #endif
 
 #include "dyn_string.h"
@@ -234,10 +235,17 @@ int tcpIpSocketGetFD( TcpIpSocket *s );
  */
 unsigned short tcpIpSocketGetPort( TcpIpSocket *s );
 
+/*! \brief Check several file descriptors simultaneously waiting until at least one of them is ready
+ *          for reading, writing or atteding an exceptional condition. That is, the select() function is called.
+ *
+ *  \return Returns the error code
+ */
+int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, uint64_t time_out );
+
 /*! \brief Get the error code returned by the last socket-function call that failed.
  *         So this code is significant only when the return value of the call indicated an error.
  *
- *  \return Returns the error code
+ *  \return Returns the number of file descriptors that this function has set sets in the fd_set variables or -1 on error.
  */
 int tcpIpSocketGetError( void );
 

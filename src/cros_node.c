@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
 
@@ -2280,6 +2279,7 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
 int cRosNodeRecruitTcprosClientProc(CrosNode *node, int subidx)
 {
   int ret; // Return value: -1 on error, or the recruited proc index on success
+
   SubscriberNode *sub;
   TcprosProcess *client_proc;
 
@@ -3057,25 +3057,16 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     }
   }
 
-  struct timeval tv = cRosClockGetTimeVal( timeout );
+  int n_set = tcpIpSocketSelect(nfds + 1, &r_fds, &w_fds, &err_fds, timeout);
 
-  int n_set = select(nfds + 1, &r_fds, &w_fds, &err_fds, &tv);
-
-  if (n_set == SOCKET_ERROR)
+  if (n_set == -1)
   {
     int socket_err_num;
 
     socket_err_num = tcpIpSocketGetError();
 
-    if(socket_err_num == EINTR)
-    {
-      PRINT_DEBUG("cRosNodeDoEventsLoop() : select() returned EINTR\n");
-    }
-    else
-    {
-      PRINT_ERROR("cRosNodeDoEventsLoop() : select() function failed. errno=%i\n", socket_err_num);
-      ret_err=CROS_SELECT_FD_ERR;
-    }
+    PRINT_ERROR("cRosNodeDoEventsLoop() : select() function failed. error code=%i\n", socket_err_num);
+    ret_err = CROS_SELECT_FD_ERR;
   }
   else if( n_set == 0 )
   {
