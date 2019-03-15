@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <errno.h>
 
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
@@ -15,6 +14,7 @@
 #  include <netinet/tcp.h>
 #  include <arpa/inet.h>
 #  include <errno.h>
+#  define closesocket close
 #endif
 
 #include "tcpip_socket.h"
@@ -23,13 +23,13 @@
 #include "cros_clock.h"
 
 #define TCPIP_SOCKET_READ_BUFFER_SIZE 2048
-// Definitions for debug messages only:
+// Definitions for debug messages only. Console terminal color sequence:
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 // This global variable is incremented for each call to tcpIpSocketStartUp() that has been successfuly executed,
 // and it decremented after each successful call to tcpIpSocketCleanUp()
-int socket_lib_initialized = 0;
+int socket_lib_initialized = 0; // Default value: 0 = library not initialized
 
 void tcpIpSocketInit ( TcpIpSocket *s )
 {
@@ -46,14 +46,15 @@ void tcpIpSocketInit ( TcpIpSocket *s )
 int tcpIpSocketOpen ( TcpIpSocket *s )
 {
   int ret_success;
+
   PRINT_VDEBUG ( "tcpIpSocketOpen()\n" );
   if ( s->open )
-    return 1;
+    return(1);
 
   s->fd = socket ( AF_INET, SOCK_STREAM, IPPROTO_TCP );
   if ( s->fd == FN_INVALID_SOCKET )
   {
-    PRINT_ERROR ( "tcpIpSocketOpen() : Can't open a socket\n" );
+    PRINT_ERROR ( "tcpIpSocketOpen() : Can't open a socket. Error code: %i\n", tcpIpSocketGetError());
     ret_success = 0;
   }
   else
@@ -62,54 +63,71 @@ int tcpIpSocketOpen ( TcpIpSocket *s )
     ret_success = 1;
   }
 
-  return ( ret_success );
+  return(ret_success);
 }
 
-void tcpIpSocketClose ( TcpIpSocket *s )
+int tcpIpSocketClose ( TcpIpSocket *s )
 {
+  int ret_success;
+
   PRINT_VDEBUG ( "tcpIpSocketClose()\n");
 
   if ( !s->open )
-    return;
+    return(1);
 
   PRINT_DEBUG ( "tcpIpSocketClose(): Closing socket FD: %i\n", s->fd);
   if ( s->fd != FN_INVALID_SOCKET )
-    close ( s->fd );
-  else
-    PRINT_ERROR ( "tcpIpSocketClose(): Invalid file descriptor: %i\n", s->fd);
+  {
+    int close_ret_val;
 
-  tcpIpSocketInit ( s );
+    close_ret_val = closesocket( s->fd );
+    ret_success = (close_ret_val != FN_SOCKET_ERROR);
+  }
+  else
+  {
+    PRINT_ERROR ( "tcpIpSocketClose(): Invalid file descriptor: %i\n", s->fd);
+    tcpIpSocketInit ( s );
+    ret_success = 0;
+  }
+
+  return(ret_success);
 }
 
 int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
 {
-  int prev_flags;
+  int ret_fn_ctl;
 
   PRINT_VDEBUG ( "tcpIpSocketSetNonBlocking()\n" );
 
   if ( !s->open )
   {
     PRINT_ERROR ( "tcpIpSocketSetNonBlocking() : Socket not opened\n" );
-    return 0;
+    return(0);
   }
 
+#ifdef _WIN32
+  u_long enable_non_blocking = 1;
+  ret_fn_ctl = ioctlsocket(s->fd, FIONBIO, &enable_non_blocking);
+#else
+  int prev_flags;
   prev_flags = fcntl( s->fd, F_GETFL, 0 );
   if(prev_flags < 0)
   {
     PRINT_ERROR ( "tcpIpSocketSetNonBlocking() : fcntl() failed getting the socket flags\n" );
     prev_flags = 0; // Try to continue anyway
   }
+  ret_fn_ctl = fcntl ( s->fd, F_SETFL, prev_flags | O_NONBLOCK );
+#endif
 
-  int ret = fcntl ( s->fd, F_SETFL, prev_flags | O_NONBLOCK );
-  if ( ret == 0 )
+  if(ret_fn_ctl == 0)
   {
     s->is_nonblocking = 1;
-    return 1;
+    return(1);
   }
   else
   {
-    PRINT_ERROR ( "tcpIpSocketSetNonBlocking() : fcntl() failed configuring socket as non blocking\n" );
-    return 0;
+    PRINT_ERROR ( "tcpIpSocketSetNonBlocking() : fcntl()/ ioctlsocket() failed configuring socket as non blocking. Error code: %i\n", tcpIpSocketGetError());
+    return(0);
   }
 }
 
@@ -120,20 +138,20 @@ int tcpIpSocketSetNoDelay ( TcpIpSocket *s )
   if ( !s->open )
   {
     PRINT_ERROR ( "tcpIpSocketSetNoDelay() : Socket not opened\n" );
-    return 0;
+    return(0);
   }
 
-  int val = 1;
-  int ret = setsockopt ( s->fd, IPPROTO_TCP, TCP_NODELAY, ( const void * ) ( &val ), sizeof ( int ) );
+  int enable_no_delay = 1;
+  int ret = setsockopt ( s->fd, IPPROTO_TCP, TCP_NODELAY, (const void *)&enable_no_delay, sizeof(enable_no_delay) );
 
   if ( ret == 0 )
   {
-    return 1;
+    return(1);
   }
   else
   {
-    PRINT_ERROR ( "tcpIpSocketSetNoDelay() : setsockopt() with TCP_NODELAY failed. System error number: %i \n", errno );
-    return 0;
+    PRINT_ERROR ( "tcpIpSocketSetNoDelay() : setsockopt() with TCP_NODELAY failed. System error code: %i \n", tcpIpSocketGetError());
+    return(0);
   }
 }
 
@@ -144,16 +162,16 @@ int tcpIpSocketSetReuse ( TcpIpSocket *s )
   if ( !s->open )
   {
     PRINT_ERROR ( "tcpIpSocketSetReuse() : Socket not opened\n" );
-    return 0;
+    return(0);
   }
 
-  int val = 1;
-  if ( setsockopt ( s->fd, SOL_SOCKET, SO_REUSEADDR, ( const char* ) ( &val ), sizeof ( int ) ) != 0 )
+  int enable_reuse_addr = 1;
+  if ( setsockopt ( s->fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable_reuse_addr, sizeof(enable_reuse_addr) ) != 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketSetReuse() : setsockopt() with SO_REUSEADDR option failed \n" );
-    return 0;
+    PRINT_ERROR ( "tcpIpSocketSetReuse() : setsockopt() with SO_REUSEADDR option failed. System error code: %i \n", tcpIpSocketGetError());
+    return(0);
   }
-  return 1;
+  return(1);
 }
 
 int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int interval, unsigned int count )
@@ -163,53 +181,57 @@ int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int in
   if ( !s->open )
   {
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : Socket not opened\n" );
-    return 0;
+    return(0);
   }
 
-  int val = 1;
-  if ( setsockopt ( s->fd, SOL_SOCKET, SO_KEEPALIVE, ( const char* ) ( &val ), sizeof ( int ) ) != 0 )
+  int sock_opt_val = 1;
+  if ( setsockopt ( s->fd, SOL_SOCKET, SO_KEEPALIVE, (const char *)&sock_opt_val, sizeof ( sock_opt_val ) ) != 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with SO_KEEPALIVE option failed \n" );
-    return 0;
+    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with SO_KEEPALIVE option failed. System error code: %i \n", tcpIpSocketGetError());
+    return(0);
   }
 
-  // TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE option on OSX
+  // TCP_KEEPIDLE on Linux is equivalent to TCP_KEEPALIVE option on OS X
   // see https://www.winehq.org/pipermail/wine-devel/2015-July/108583.html
-  val = idle;
+  sock_opt_val = idle;
 #ifdef __APPLE__
-  if ( setsockopt( s->fd, IPPROTO_TCP, TCP_KEEPALIVE, &val, sizeof ( val ) ) != 0 )
+  if ( setsockopt( s->fd, IPPROTO_TCP, TCP_KEEPALIVE, (void *)&sock_opt_val, sizeof ( sock_opt_val ) ) != 0 )
   {
     PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPALIVE option failed \n" );
     return 0;
   }
 #else
-  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof ( val ) ) != 0 )
+  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPIDLE, (const void *)&sock_opt_val, sizeof ( sock_opt_val ) ) != 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with SO_KEEPALIVE option failed \n" );
-    return 0;
+    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with SO_KEEPALIVE option failed. System error code: %i \n", tcpIpSocketGetError());
+    return(0);
   }
 #endif
 
-  val = interval;
-  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof ( val ) ) != 0 )
+  sock_opt_val = interval;
+  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPINTVL, (const void *)&sock_opt_val, sizeof ( sock_opt_val ) ) != 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPINTVL option failed \n" );
-    return 0;
+    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPINTVL option failed. System error code: %i \n", tcpIpSocketGetError());
+    return(0);
   }
 
-  val = count;
-  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPCNT, &val, sizeof ( val ) ) != 0 )
+  // On Windows this option is available since Windows 10 only
+  sock_opt_val = count;
+  if ( setsockopt ( s->fd, IPPROTO_TCP, TCP_KEEPCNT, (const void *)&sock_opt_val, sizeof ( sock_opt_val ) ) != 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPCNT option failed \n" );
-    return 0;
+    PRINT_ERROR ( "tcpIpSocketSetKeepAlive() : setsockopt() with TCP_KEEPCNT option failed. System error code: %i \n", tcpIpSocketGetError());
+    return(0);
   }
 
-  return 1;
+  return(1);
 }
 
 TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, unsigned short host_port )
 {
   int connect_ret;
+  struct sockaddr_in adr;
+  int fn_error_code;
+
   PRINT_VDEBUG ( "tcpIpSocketConnect():\n" );
 
   if ( !s->open )
@@ -221,24 +243,23 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
   if( s->connected )
     return TCPIPSOCKET_DONE;
 
-  struct sockaddr_in adr;
-
   memset ( &adr, 0, sizeof ( struct sockaddr_in ) );
 
   adr.sin_family = AF_INET;
   adr.sin_port = htons ( host_port );
   if ( inet_pton ( AF_INET, host_addr, &adr.sin_addr ) <= 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketConnect() : Can't get a valid address from %s\n", host_addr );
+    PRINT_ERROR ( "tcpIpSocketConnect() : Invalid network address: %s. It cannot be converted to a binary address. System error code: %i \n", host_addr, tcpIpSocketGetError());
     s->connected = 0;
     return TCPIPSOCKET_FAILED;
   }
 
   connect_ret = connect ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) );
-  if ( connect_ret == -1 && errno != EISCONN ) // The connection is not established so far
+  fn_error_code = tcpIpSocketGetError();
+  if ( connect_ret == FN_SOCKET_ERROR && fn_error_code != FN_EISCONN ) // The connection is not established so far
   {
     if ( s->is_nonblocking &&
-       ( errno == EINPROGRESS || errno == EALREADY ) )
+       ( fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EALREADY || fn_error_code == FN_EWOULDBLOCK) )
     {
       PRINT_DEBUG ( "tcpIpSocketConnect() : Connection in progress to %s:%i through FD:%i\n", host_addr, host_port, s->fd);
       return TCPIPSOCKET_IN_PROGRESS;
@@ -246,14 +267,14 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
     else
     {
       s->connected = 0;
-      if(errno == ECONNREFUSED)
+      if(fn_error_code == FN_ECONNREFUSED)
       {
          PRINT_ERROR ( "tcpIpSocketConnect() : Connection to %s:%i through FD:%i was refused\n", host_addr, host_port, s->fd);
          return TCPIPSOCKET_REFUSED;
       }
       else
       {
-         PRINT_ERROR ( "tcpIpSocketConnect() : Connection to %s:%i through FD:%i failed due to error errno=%i\n", host_addr, host_port, s->fd, errno);
+         PRINT_ERROR ( "tcpIpSocketConnect() : Connection to %s:%i through FD:%i failed due to error code: %i\n", host_addr, host_port, s->fd, fn_error_code);
          return TCPIPSOCKET_FAILED;
       }
     }
@@ -275,9 +296,9 @@ int tcpIpSocketDisconnect ( TcpIpSocket *s )
     return 1;
 
   s->connected = 0;
-  if ( shutdown ( s->fd, SHUT_RDWR ) == -1 )
+  if ( shutdown ( s->fd, FN_SHUT_RDWR ) != 0 )
   {
-    PRINT_ERROR ( "tcpIpSocketDisconnect() : shutdown failed\n" );
+    PRINT_ERROR ( "tcpIpSocketDisconnect() : shutdown failed. System error code: %i \n", tcpIpSocketGetError());
     return 0;
   }
   return 1;
@@ -311,7 +332,7 @@ TcpIpSocketState tcpIpSocketCheckPort ( const char *host_addr, unsigned short ho
    return port_open;
 }
 
-int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port, int backlog )
+int tcpIpSocketBindListen( TcpIpSocket *s, const char *host_addr, unsigned short port, int backlog )
 {
   PRINT_VDEBUG ( "tcpIpSocketBindListen()\n" );
 
@@ -331,30 +352,30 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host, unsigned short port
     adr.sin_port = htons ( port );
     adr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if ( inet_pton ( AF_INET, host, &adr.sin_addr ) <= 0 )
+    if ( inet_pton ( AF_INET, host_addr, &adr.sin_addr ) <= 0 )
     {
-      PRINT_ERROR ( "tcpIpSocketBindListen() : Can't get a valid addres from %s\n", host );
+      PRINT_ERROR ( "tcpIpSocketBindListen() : Invalid network address: %s. It cannot be converted to a binary address. System error code: %i \n", host_addr, tcpIpSocketGetError());
       return 0;
     }
 
 
-    if ( bind ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) ) == -1 )
+    if ( bind ( s->fd, ( struct sockaddr * ) &adr, sizeof ( struct sockaddr ) ) == FN_SOCKET_ERROR )
     {
-      PRINT_ERROR ( "tcpIpSocketBindListen() : Bind failed\n" );
+      PRINT_ERROR ( "tcpIpSocketBindListen() : Socket bind failed. System error code: %i \n", tcpIpSocketGetError());
       return 0;
     }
 
-    if ( listen ( s->fd, backlog ) == -1 )
+    if ( listen ( s->fd, backlog ) == FN_SOCKET_ERROR )
     {
-      PRINT_ERROR ( "tcpIpSocketBindListen() : Listen failed\n" );
+      PRINT_ERROR ( "tcpIpSocketBindListen() : Socket listen failed. System error code: %i \n", tcpIpSocketGetError());
       return 0;
     }
 
     struct sockaddr sa;
     socklen_t sa_len = sizeof( struct sockaddr );
-    if ( getsockname(s->fd, (struct sockaddr *)&sa, &sa_len) == -1 )
+    if ( getsockname(s->fd, (struct sockaddr *)&sa, &sa_len) == FN_SOCKET_ERROR )
     {
-      PRINT_ERROR ( "tcpIpSocketBindListen() : getsockname() failed\n" );
+      PRINT_ERROR ( "tcpIpSocketBindListen() : getsockname() failed. System error code: %i \n", tcpIpSocketGetError());
       return 0;
     }
 
@@ -374,9 +395,15 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
 
   TcpIpSocketState state = TCPIPSOCKET_DONE;
 
-  if ( !s->open || !s->listening )
+  if ( !s->open )
   {
-    PRINT_ERROR ( "tcpIpSocketAccept() : Socket not opened or not listening\n" );
+    PRINT_ERROR ( "tcpIpSocketAccept() : Failed: Socket is not opened\n" );
+    return TCPIPSOCKET_FAILED;
+  }
+
+  if ( !s->listening )
+  {
+    PRINT_ERROR ( "tcpIpSocketAccept() : Failed: Socket is not listening\n" );
     return TCPIPSOCKET_FAILED;
   }
 
@@ -385,17 +412,20 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
 
   int new_fd = accept ( s->fd, ( struct sockaddr * ) &new_adr, &new_adr_len );
 
-  if ( new_fd == -1 )
+  if ( new_fd == FN_INVALID_SOCKET )
   {
+    int fn_error_code;
+
+    fn_error_code = tcpIpSocketGetError();
     if ( s->is_nonblocking &&
-       ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+       ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
     {
       PRINT_DEBUG ( "tcpIpSocketAccept() : Accept in progress from port %i, new FD:%i\n", new_adr.sin_port, new_fd);
       state = TCPIPSOCKET_IN_PROGRESS;
     }
     else
     {
-      PRINT_ERROR ( "tcpIpSocketAccept() : accept() failed, errno: %d\n", errno );
+      PRINT_ERROR ( "tcpIpSocketAccept() : accept() failed. Error code: %d\n", fn_error_code );
       return TCPIPSOCKET_FAILED;
     }
   }
@@ -430,7 +460,7 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
 {
   PRINT_VDEBUG ( "tcpIpSocketWriteBuffer()\n" );
 
-  const unsigned char *data = dynBufferGetCurrentData ( d_buf );
+  const char *data = (const char *)dynBufferGetCurrentData ( d_buf );
   int data_size = dynBufferGetRemainingDataSize ( d_buf );
 
   if ( !s->connected )
@@ -440,25 +470,27 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
   }
 
   #if CROS_DEBUG_LEVEL >= 2
-  printTransmissionBuffer((const char *)data, "tcpIpSocketWriteBuffer() : Buffer", s->fd, data_size);
+  printTransmissionBuffer(data, "tcpIpSocketWriteBuffer() : Buffer", s->fd, data_size);
   #endif
   while ( data_size > 0 )
   {
-    int n_written = send ( s->fd, ( void * ) data, data_size, 0 );
+    int n_written , fn_error_code;
 
+    n_written = send ( s->fd, data, data_size, 0 );
+    fn_error_code = tcpIpSocketGetError();
     if ( n_written > 0 )
     {
       dynBufferMovePoseIndicator ( d_buf, n_written );
-      data = dynBufferGetCurrentData ( d_buf );
+      data = (const char *)dynBufferGetCurrentData ( d_buf );
       data_size = dynBufferGetRemainingDataSize ( d_buf );
     }
     else if ( s->is_nonblocking &&
-              ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+              ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
     {
       PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : write in progress, %d remaining bytes\n", data_size );
       return TCPIPSOCKET_IN_PROGRESS;
     }
-    else if ( errno == ENOTCONN || errno == ECONNRESET )
+    else if ( fn_error_code == FN_ENOTCONN || fn_error_code == FN_ECONNRESET )
     {
       PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : socket disconnected\n" );
       s->connected = 0;
@@ -466,7 +498,7 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
     }
     else
     {
-      PRINT_ERROR ( "tcpIpSocketWriteBuffer() : Write failed. errno: %i\n" ,errno);
+      PRINT_ERROR ( "tcpIpSocketWriteBuffer() : Write failed. Error code: %i\n", fn_error_code);
       return TCPIPSOCKET_FAILED;
     }
   }
@@ -491,8 +523,10 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
   #endif
   while ( data_size > 0 )
   {
-    int n_written = send ( s->fd, ( void * ) data, data_size, 0 );
+    int n_written , fn_error_code;
 
+    n_written = send ( s->fd, data, data_size, 0 );
+    fn_error_code = tcpIpSocketGetError();
     if ( n_written > 0 )
     {
       dynStringMovePoseIndicator ( d_str, n_written );
@@ -500,12 +534,12 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
       data_size = dynStringGetRemainingDataSize ( d_str );
     }
     else if ( s->is_nonblocking &&
-              ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+              ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
     {
       PRINT_DEBUG ( "tcpIpSocketWriteString() : write in progress, %d remaining bytes\n", data_size );
       return TCPIPSOCKET_IN_PROGRESS;
     }
-    else if ( errno == ENOTCONN || errno == ECONNRESET )
+    else if ( fn_error_code == FN_ENOTCONN || fn_error_code == FN_ECONNRESET )
     {
       PRINT_DEBUG ( "tcpIpSocketWriteString() : socket disconnectd\n" );
       s->connected = 0;
@@ -513,7 +547,7 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
     }
     else
     {
-      PRINT_ERROR ( "tcpIpSocketWriteString() : Write failed\n" );
+      PRINT_ERROR ( "tcpIpSocketWriteString() : Write failed. Error code: %i\n", fn_error_code);
       return TCPIPSOCKET_FAILED;
     }
   }
@@ -529,6 +563,8 @@ TcpIpSocketState tcpIpSocketReadBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
 
 TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size_t max_size, size_t *n_reads)
 {
+  int recv_ret, fn_error_code;
+
   PRINT_VDEBUG ( "tcpIpSocketReadBufferEx()\n" );
 
   *n_reads = 0;
@@ -538,39 +574,40 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
     return TCPIPSOCKET_FAILED;
   }
 
-  unsigned char *read_buf = (unsigned char *)malloc(max_size);
-  if (!read_buf)
+  char *read_buf = (char *)malloc(max_size);
+  if (read_buf == NULL)
   {
-    PRINT_ERROR("tcpIpSocketReadBufferEx() : Out of memory while reading from socket");
+    PRINT_ERROR("tcpIpSocketReadBufferEx() : Out of memory allocating %lu bytes before reading from socket", (unsigned long)max_size);
     return TCPIPSOCKET_FAILED;
   }
 
   TcpIpSocketState state = TCPIPSOCKET_UNKNOWN;
-  int reads = recv ( s->fd, read_buf, max_size, 0);
-  if ( reads == 0 )
+  recv_ret = recv ( s->fd, read_buf, max_size, 0);
+  fn_error_code = tcpIpSocketGetError();
+  if ( recv_ret == 0 )
   {
     PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
-  else if ( reads > 0 )
+  else if ( recv_ret > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", reads );
+    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", recv_ret );
     #if CROS_DEBUG_LEVEL >= 2
-    printTransmissionBuffer((const char *)read_buf, "tcpIpSocketReadBufferEx() : Buffer", s->fd, reads);
+    printTransmissionBuffer((const char *)read_buf, "tcpIpSocketReadBufferEx() : Buffer", s->fd, recv_ret);
     #endif
 
-    dynBufferPushBackBuf ( d_buf, read_buf, reads );
+    dynBufferPushBackBuf ( d_buf, (const unsigned char *)read_buf, recv_ret );
     state = TCPIPSOCKET_DONE;
-    *n_reads = reads;
+    *n_reads = recv_ret;
   }
   else if ( s->is_nonblocking &&
-            ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+            ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
   {
     PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
-  else if ( errno == ENOTCONN || errno == ECONNRESET )
+  else if ( fn_error_code == FN_ENOTCONN || fn_error_code == FN_ECONNRESET )
   {
     PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
@@ -578,7 +615,7 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   }
   else
   {
-    PRINT_ERROR ( "tcpIpSocketReadBufferEx() : Read failed\n" );
+    PRINT_ERROR ( "tcpIpSocketReadBufferEx() : Read through socket failed. Error code: %i\n", fn_error_code);
     state = TCPIPSOCKET_FAILED;
   }
 
@@ -589,6 +626,8 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
 
 TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
 {
+  int recv_ret, fn_error_code;
+
   PRINT_VDEBUG ( "tcpIpSocketReadString()\n" );
 
   if ( !s->connected )
@@ -601,31 +640,31 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
 
   TcpIpSocketState state = TCPIPSOCKET_UNKNOWN;
 
-  int n_read = recv ( s->fd, read_buf, TCPIP_SOCKET_READ_BUFFER_SIZE , 0 );
-
-  if ( n_read == 0 )
+  recv_ret = recv ( s->fd, read_buf, TCPIP_SOCKET_READ_BUFFER_SIZE , 0 );
+  fn_error_code = tcpIpSocketGetError();
+  if ( recv_ret == 0 )
   {
     PRINT_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
-  else if ( n_read > 0 )
+  else if ( recv_ret > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : read %d bytes \n", n_read );
+    PRINT_DEBUG ( "tcpIpSocketReadString() : read %d bytes \n", recv_ret );
     #if CROS_DEBUG_LEVEL >= 2
-    printTransmissionBuffer(read_buf, "tcpIpSocketReadString() : Buffer", s->fd, n_read);
+    printTransmissionBuffer(read_buf, "tcpIpSocketReadString() : Buffer", s->fd, recv_ret);
     #endif
 
-    dynStringPushBackStrN ( d_str, read_buf, n_read );
+    dynStringPushBackStrN ( d_str, read_buf, recv_ret );
     state = TCPIPSOCKET_DONE;
   }
   else if ( s->is_nonblocking &&
-            ( errno == EWOULDBLOCK || errno == EINPROGRESS || errno == EAGAIN ) )
+            ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
   {
     PRINT_DEBUG ( "tcpIpSocketReadString() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
-  else if ( errno == ENOTCONN || errno == ECONNRESET )
+  else if ( fn_error_code == FN_ENOTCONN || fn_error_code == FN_ECONNRESET )
   {
     PRINT_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
     s->connected = 0;
@@ -633,7 +672,7 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
   }
   else
   {
-    PRINT_ERROR ( "tcpIpSocketReadString() : Read failed\n" );
+    PRINT_ERROR ( "tcpIpSocketReadString() : Read failed. Error code: %i\n", fn_error_code);
     state = TCPIPSOCKET_FAILED;
   }
 
@@ -659,7 +698,7 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
 
   nfds_set = select(nfds, readfds, writefds, exceptfds, &timeout_tv);
 
-  if(nfds_set == FN_SOCKET_ERROR) // It is not needed but it is recommended on Windows
+  if(nfds_set == FN_SOCKET_ERROR) // It is not needed, but it is recommended on Windows
     nfds_set = -1;
 
   if(nfds_set == -1)
@@ -668,7 +707,7 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
 
     socket_err_num = tcpIpSocketGetError();
 
-    if(socket_err_num == EINTR)
+    if(socket_err_num == FN_EINTR)
     {
       PRINT_DEBUG("tcpIpSocketSelect() : select() returned EINTR error code\n");
       nfds_set = 0;

@@ -4,12 +4,36 @@
 // _WIN32 is defined when compiling 32 bit and 64 bit applications, so _WIN64 does not have to be checked here
 #ifdef _WIN32
 #  include <winsock2.h>
-#  define  FN_SOCKET_ERROR SOCKET_ERROR
-#  define  FN_INVALID_SOCKET INVALID_SOCKET
+#  define FN_SOCKET_ERROR SOCKET_ERROR
+#  define FN_INVALID_SOCKET INVALID_SOCKET
+
+#  define FN_EISCONN WSAEISCONN
+#  define FN_EINPROGRESS WSAEINPROGRESS
+#  define FN_EALREADY WSAEALREADY
+#  define FN_ECONNREFUSED WSAECONNREFUSED
+#  define FN_EWOULDBLOCK WSAEWOULDBLOCK
+#  define FN_EAGAIN WSAEWOULDBLOCK // Windows does not have a different error code for EAGAIN, so we use EWOULDBLOCK
+#  define FN_ENOTCONN WSAENOTCONN
+#  define FN_ECONNRESET WSAECONNRESET
+#  define FN_EINTR WSAEINTR
+
+#  define FN_SHUT_RDWR SD_BOTH
 #else
 #  include <netinet/in.h>
-#  define  FN_SOCKET_ERROR (-1)
-#  define  FN_INVALID_SOCKET (-1)
+#  define FN_SOCKET_ERROR (-1)
+#  define FN_INVALID_SOCKET (-1)
+// connect()/accept()/send()/recv()/select() error codes:
+#  define FN_EISCONN EISCONN
+#  define FN_EINPROGRESS EINPROGRESS
+#  define FN_EALREADY EALREADY
+#  define FN_ECONNREFUSED ECONNREFUSED
+#  define FN_EWOULDBLOCK EWOULDBLOCK
+#  define FN_EAGAIN EAGAIN
+#  define FN_ENOTCONN ENOTCONN
+#  define FN_ECONNRESET ECONNRESET
+#  define FN_EINTR EINTR
+// shutdown() how mode:
+#  define FN_SHUT_RDWR SHUT_RDWR
 #endif
 
 #include "dyn_string.h"
@@ -61,8 +85,10 @@ int tcpIpSocketOpen( TcpIpSocket *s );
 /*! \brief Close a socket
  *
  *  \param s Pointer to a TcpIpSocket object
+ *
+ *  \return Returns 1 on success, 0 on failure
  */
-void tcpIpSocketClose( TcpIpSocket *s );
+int tcpIpSocketClose( TcpIpSocket *s );
 
 /*! \brief Set non-blocking operation for a TCP/IP4 socket
  *
