@@ -4,6 +4,7 @@
 
 #ifdef _WIN32
 #  define strtok_r strtok_s
+#  define strncasecmp _strnicmp // This is the POSIX verion of strnicmp
 #endif
 
 #include "xmlrpc_protocol.h"

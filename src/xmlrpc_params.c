@@ -1397,8 +1397,8 @@ int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source)
       dest->data.as_array = (XmlrpcParam *)calloc(source->array_n_elem, sizeof(XmlrpcParam));
       if (dest->data.as_array != NULL)
       {
-        int it = 0;
-        for (; it < source->array_n_elem && ret_val == 0; it++)
+        int it;
+        for (it = 0; it < source->array_n_elem && ret_val == 0; it++)
           ret_val = xmlrpcParamCopy(&dest->data.as_array[it], &source->data.as_array[it]);
       }
       else
