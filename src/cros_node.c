@@ -3058,11 +3058,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
   if (n_set == -1)
   {
-    int socket_err_num;
-
-    socket_err_num = tcpIpSocketGetError();
-
-    PRINT_ERROR("cRosNodeDoEventsLoop() : tcpIpSocketSelect() function failed. error code=%i\n", socket_err_num);
+    PRINT_ERROR("cRosNodeDoEventsLoop() : tcpIpSocketSelect() function failed.\n");
     ret_err = CROS_SELECT_FD_ERR;
   }
   else if( n_set == 0 )

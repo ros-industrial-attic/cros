@@ -86,12 +86,13 @@ int tcpIpSocketClose ( TcpIpSocket *s )
   else
   {
     PRINT_ERROR ( "tcpIpSocketClose(): Invalid file descriptor: %i\n", s->fd);
-    tcpIpSocketInit ( s );
     ret_success = 0;
   }
+  tcpIpSocketInit ( s );
 
   return(ret_success);
 }
+
 
 int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
 {
@@ -564,6 +565,7 @@ TcpIpSocketState tcpIpSocketReadBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
 TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size_t max_size, size_t *n_reads)
 {
   int recv_ret, fn_error_code;
+  char *read_buf;
 
   PRINT_VDEBUG ( "tcpIpSocketReadBufferEx()\n" );
 
@@ -574,7 +576,7 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
     return TCPIPSOCKET_FAILED;
   }
 
-  char *read_buf = (char *)malloc(max_size);
+  read_buf = (char *)malloc(max_size);
   if (read_buf == NULL)
   {
     PRINT_ERROR("tcpIpSocketReadBufferEx() : Out of memory allocating %lu bytes before reading from socket", (unsigned long)max_size);
@@ -694,11 +696,13 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
   struct timeval timeout_tv;
   int nfds_set;
 
+  PRINT_VDEBUG ( "tcpIpSocketSelect(): nfds: %i\n", nfds);
+
   timeout_tv = cRosClockGetTimeVal( time_out );
 
   nfds_set = select(nfds, readfds, writefds, exceptfds, &timeout_tv);
 
-  if(nfds_set == FN_SOCKET_ERROR) // It is not needed, but it is recommended on Windows
+  if(nfds_set == FN_SOCKET_ERROR) // Using the definition SOCKET_ERROR is not needed to check the return value, but it is recommended on Windows
     nfds_set = -1;
 
   if(nfds_set == -1)
@@ -711,6 +715,10 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
     {
       PRINT_DEBUG("tcpIpSocketSelect() : select() returned EINTR error code\n");
       nfds_set = 0;
+    }
+    else
+    {
+      PRINT_ERROR("tcpIpSocketSelect() : select() call failed. Error code: %i\n", socket_err_num);
     }
   }
 
