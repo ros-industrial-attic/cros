@@ -21,6 +21,9 @@
 
 #include "cros.h"
 
+#define ROS_MASTER_PORT 11311
+#define ROS_MASTER_ADDRESS "127.0.0.1"
+
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
 unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
 struct sigaction old_int_signal_handler, old_term_signal_handler; //! Structures codifying the original handlers of SIGINT and SIGTERM signals (e.g. used when pressing Ctrl-C for the second time);
@@ -109,8 +112,16 @@ int main(int argc, char **argv)
     node_name="/listener"; // Default node name if no command-line parameters are specified
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
+
+  err_cod = cRosWaitPortOpen(ROS_MASTER_ADDRESS, ROS_MASTER_PORT, 0);
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "Port %s:%hu cannot be opened: ROS Master does not seems to be running", ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
+    return EXIT_FAILURE;
+  }
+
   // Create a new node and tell it to connect to roscore in the usual place
-  node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path);
+  node = cRosNodeCreate(node_name, "127.0.0.1", ROS_MASTER_ADDRESS, ROS_MASTER_PORT, path);
   if( node == NULL )
   {
     printf("cRosNodeCreate() failed; is this program already being run?");

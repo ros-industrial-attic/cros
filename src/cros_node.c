@@ -2,11 +2,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <unistd.h>
 
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
 #  include <windows.h>
+#else
+#  include <unistd.h>
 #endif
 
 #include "cros_node.h"
@@ -3965,7 +3966,7 @@ XmlrpcParam * cRosNodeGetParameterValue( CrosNode *node, const char *key)
   return NULL;
 }
 
-#define MAX_PORT_OPEN_CHECK_PERIOD 1000 //! Maximum time to wait until the target port is checked again by cRosWaitPortOpen()
+#define MAX_PORT_OPEN_CHECK_PERIOD 1000 //! Maximum time to wait in ms until the target port is checked again by cRosWaitPortOpen()
 cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port, unsigned long time_out)
 {
   uint64_t start_time, elapsed_time;
@@ -3974,21 +3975,25 @@ cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port
   PRINT_VDEBUG ( "cRosWaitPortOpen ()\n" );
 
   start_time = cRosClockGetTimeMs();
-  elapsed_time = 0;
   do
   {
+    elapsed_time = cRosClockGetTimeMs()-start_time;
     socket_state = tcpIpSocketCheckPort (host_addr, host_port);
     if(socket_state == TCPIPSOCKET_REFUSED)
     {
-      useconds_t pause_ms;
+      unsigned int pause_ms;
       if(time_out == CROS_INFINITE_TIMEOUT || time_out-elapsed_time > MAX_PORT_OPEN_CHECK_PERIOD)
         pause_ms = MAX_PORT_OPEN_CHECK_PERIOD;
       else
         pause_ms = time_out-elapsed_time;
+#ifdef _WIN32
+      Sleep(pause_ms);
+#else
       usleep(pause_ms*1000);
+#endif
     }
   }
-  while(socket_state == TCPIPSOCKET_REFUSED && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=(cRosClockGetTimeMs()-start_time)) <= time_out));
+  while(socket_state == TCPIPSOCKET_REFUSED && (time_out == CROS_INFINITE_TIMEOUT || elapsed_time <= time_out));
 
   if(socket_state == TCPIPSOCKET_FAILED)
     ret_err = CROS_SOCK_OPEN_CONN_ERR;
@@ -3999,4 +4004,3 @@ cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port
 
   return ret_err;
 }
-

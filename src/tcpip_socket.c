@@ -6,6 +6,18 @@
 #  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
 #  include <windows.h>
 #  include <winsock2.h>
+
+#  define FN_EISCONN WSAEISCONN
+#  define FN_EINPROGRESS WSAEINPROGRESS
+#  define FN_EALREADY WSAEALREADY
+#  define FN_ECONNREFUSED WSAECONNREFUSED
+#  define FN_EWOULDBLOCK WSAEWOULDBLOCK
+#  define FN_EAGAIN WSAEWOULDBLOCK // Windows does not have a different error code for EAGAIN, so we use EWOULDBLOCK
+#  define FN_ENOTCONN WSAENOTCONN
+#  define FN_ECONNRESET WSAECONNRESET
+#  define FN_EINTR WSAEINTR
+
+#  define FN_SHUT_RDWR SD_BOTH
 #else
 #  include <unistd.h>
 #  include <fcntl.h>
@@ -15,6 +27,19 @@
 #  include <arpa/inet.h>
 #  include <errno.h>
 #  define closesocket close
+
+// connect()/accept()/send()/recv()/select() error codes:
+#  define FN_EISCONN EISCONN
+#  define FN_EINPROGRESS EINPROGRESS
+#  define FN_EALREADY EALREADY
+#  define FN_ECONNREFUSED ECONNREFUSED
+#  define FN_EWOULDBLOCK EWOULDBLOCK
+#  define FN_EAGAIN EAGAIN
+#  define FN_ENOTCONN ENOTCONN
+#  define FN_ECONNRESET ECONNRESET
+#  define FN_EINTR EINTR
+// shutdown() how mode:
+#  define FN_SHUT_RDWR SHUT_RDWR
 #endif
 
 #include "tcpip_socket.h"
@@ -92,7 +117,6 @@ int tcpIpSocketClose ( TcpIpSocket *s )
 
   return(ret_success);
 }
-
 
 int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
 {
