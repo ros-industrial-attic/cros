@@ -8,18 +8,16 @@
 #include "cros_node.h"
 #include "cros_clock.h"
 
-FILE **Msg_output = &stdout; //! The pointer to file stream used to print all messages (except debug messages)
+FILE *Msg_output = NULL; //! The pointer to file stream used to print all messages (except debug messages). If it is NULL (default value), stdout is used.
 
 FILE *cRosOutStreamGet(void)
 {
-  return *Msg_output;
+  return((Msg_output == NULL)?stdout:Msg_output);
 }
 
 void cRosOutStreamSet(FILE *new_stream)
 {
-  static FILE *msg_out_stream;
-  msg_out_stream = new_stream;
-  Msg_output = &msg_out_stream;
+  Msg_output = new_stream;
 }
 
 CrosLog *cRosLogNew(void)
@@ -41,7 +39,7 @@ void cRosLogFree(CrosLog *log)
   free(log->function);
   free(log->msg);
   free(log->name);
-  int i;
+  size_t i;
   for(i = 0; i < log->n_pubs; i++)
   {
     free(log->pubs[i]);
