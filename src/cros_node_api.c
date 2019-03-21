@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <errno.h>
 #ifndef __USE_POSIX
   #define __USE_POSIX
 #endif
@@ -23,6 +21,7 @@
 #include "cros_api_internal.h"
 #include "cros_defs.h"
 #include "xmlrpc_params.h"
+#include "tcpip_socket.h"
 
 int lookup_host (const char *host, char *ip_addr_buff, size_t ip_addr_buff_size)
 {
@@ -38,7 +37,7 @@ int lookup_host (const char *host, char *ip_addr_buff, size_t ip_addr_buff_size)
   errcode = getaddrinfo (host, NULL, &hints, &res);
   if (errcode != 0)
   {
-    PRINT_ERROR ("lookup_host() : getaddrinfo failed with errno: %i", errno);
+    PRINT_ERROR ("lookup_host() : getaddrinfo failed and returned the error code:: %i", errcode);
     return -1;
   }
 
@@ -70,10 +69,13 @@ int lookup_host (const char *host, char *ip_addr_buff, size_t ip_addr_buff_size)
       }
       else
       {
-        if(errno == ENOSPC)
+        int fn_error_code;
+
+        fn_error_code = tcpIpSocketGetError();
+        if(fn_error_code == FN_ERROR_INVALID_PARAMETER)
           PRINT_ERROR ("lookup_host() : buffer for host address too small");
         else
-          PRINT_ERROR ("lookup_host() : error executing inet_ntop(). errno = %i", errno);
+          PRINT_ERROR ("lookup_host() : error executing inet_ntop(). Error code = %i", fn_error_code);
         ret = -1;
       }
     }

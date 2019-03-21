@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "cros_gentools.h"
 #include "cros_message.h"
 #include "cros_message_internal.h"

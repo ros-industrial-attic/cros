@@ -1,35 +1,66 @@
-#include "cros_defs.h"
-#include "cros_clock.h"
 #include <limits.h>
 
-uint64_t cRosClockGetTimeMs()
-{
-  uint64_t ms_since_epoch;
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#  include <winsock2.h>
+#else
+#  include <sys/time.h>
+#endif
 
-  PRINT_VDEBUG ( "cRosClockGetTimeMs()\n" );
+#include "cros_defs.h"
+#include "cros_clock.h"
+
+struct timeval cRosClockGetTimeSecUsec( void )
+{
+  struct timeval time_since_epoch;
+  int ret_val;
+
+  PRINT_VDEBUG ( "cRosClockGetTimeSecUsec()\n" );
 
 #ifdef _WIN32
   const uint64_t epoch_filetime = UINT64CONST(116444736000000000); // FILETIME on Jan 1 1970 00:00:00
   FILETIME    cur_filetime;
   SYSTEMTIME  cur_system_time;
-  ULARGE_INTEGER cur_filetime_large;
 
   GetSystemTime(&cur_system_time);
-  SystemTimeToFileTime(&cur_system_time, &cur_filetime);
-  // It is recomended that the calculations are done using a ULARGE_INTEGER
-  cur_filetime_large.LowPart = cur_filetime.dwLowDateTime;
-  cur_filetime_large.HighPart = cur_filetime.dwHighDateTime;
 
-  tp->tv_sec = (long) ((cur_filetime_large.QuadPart - epoch_filetime) / 10000000L);
-  tp->tv_usec = (long) (system_time.wMilliseconds * 1000);
+  if(SystemTimeToFileTime(&cur_system_time, &cur_filetime) != 0) // If Success:
+  {
+    ULARGE_INTEGER cur_filetime_large;
 
-  ms_since_epoch = (uint64_t)(((cur_filetime_large.QuadPart - epoch_filetime) / 10000L) + system_time.wMilliseconds);
+    // It is recomended that the calculations are done using a ULARGE_INTEGER
+    cur_filetime_large.LowPart = cur_filetime.dwLowDateTime;
+    cur_filetime_large.HighPart = cur_filetime.dwHighDateTime;
+
+    time_since_epoch.tv_sec = (long) ((cur_filetime_large.QuadPart - epoch_filetime) / 10000000L);
+    time_since_epoch.tv_usec = (long) (system_time.wMilliseconds * 1000);
+    ret_val = 0;
+  }
+  else
+    ret_val = -1;
 #else
+  ret_val = gettimeofday(&time_since_epoch, NULL);
+#endif
+
+  if(ret_val == -1) // Failure obtaning the time: set default values:
+  {
+    time_since_epoch.tv_sec = 0;
+    time_since_epoch.tv_usec = 0;
+  }
+
+  return(time_since_epoch);
+}
+
+uint64_t cRosClockGetTimeMs( void )
+{
+  uint64_t ms_since_epoch;
   struct timeval tv;
 
-  gettimeofday( &tv, NULL );
+  PRINT_VDEBUG ( "cRosClockGetTimeMs()\n" );
+
+  tv = cRosClockGetTimeSecUsec();
   ms_since_epoch = (uint64_t)tv.tv_sec*1000 + (uint64_t)tv.tv_usec/1000;
-#endif
 
   return(ms_since_epoch);
 }

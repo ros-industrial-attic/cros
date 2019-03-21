@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <sys/time.h>
 
 #include "cros_log.h"
 #include "cros_defs.h"
 #include "cros_node.h"
+#include "cros_clock.h"
 
 FILE **Msg_output = &stdout; //! The pointer to file stream used to print all messages (except debug messages)
 
@@ -154,12 +154,7 @@ void cRosLogPrint(CrosNode* node,
 
   struct timeval wall_time;
 
-  if(gettimeofday(&wall_time, NULL) == -1)
-  {
-    wall_time.tv_sec = 0;
-    wall_time.tv_usec = 0;
-  }
-
+  wall_time = cRosClockGetTimeSecUsec();
 
   if(node == NULL)
   {

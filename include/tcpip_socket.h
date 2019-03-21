@@ -6,10 +6,15 @@
 #  include <winsock2.h>
 #  define FN_SOCKET_ERROR SOCKET_ERROR
 #  define FN_INVALID_SOCKET INVALID_SOCKET
+
+#  define FN_ERROR_INVALID_PARAMETER ERROR_INVALID_PARAMETER
 #else
 #  include <netinet/in.h>
+#  include <errno.h>
 #  define FN_SOCKET_ERROR (-1)
 #  define FN_INVALID_SOCKET (-1)
+
+#  define FN_ERROR_INVALID_PARAMETER ENOSPC
 #endif
 
 #include "dyn_string.h"

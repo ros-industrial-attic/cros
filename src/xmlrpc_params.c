@@ -47,7 +47,7 @@ static void intToXml ( int val, DynString *message )
 
 static void doubleToXml ( double val, DynString *message )
 {
-  setlocale ( LC_NUMERIC, "" );
+  setlocale ( LC_NUMERIC, "" ); //  Set decimal-point and thousands-separator character to the implementation-defined native environment
   dynStringPushBackStr ( message, XMLRPC_VALUE_TAG.str );
   dynStringPushBackStr ( message, XMLRPC_DOUBLE_TAG.str );
   char num_str[256];

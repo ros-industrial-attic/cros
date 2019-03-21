@@ -19,11 +19,17 @@
  *  @{
  */
 
+/*! \brief Return the current time, expressed as seconds and microseconds since the Epoch
+ *
+ *  \return The current time
+ */
+struct timeval cRosClockGetTimeSecUsec( void );
+
 /*! \brief Return the current time, expressed as milliseconds since the Epoch
  *
  *  \return The current time
  */
-uint64_t cRosClockGetTimeMs();
+uint64_t cRosClockGetTimeMs( void );
 
 /*! \brief Convert an interval expressed as milliseconds in a timeval structure,
  *         that express the same interval as seconds and microseconds
