@@ -11,6 +11,12 @@
 #include "cros_message_queue.h"
 #include "xmlrpc_process.h"
 
+#ifdef _WIN32
+#  define OS_MAX_PATH _MAX_PATH
+#else
+#  define OS_MAX_PATH PATH_MAX
+#endif
+
 static LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response);
 static GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *response);
 static GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response);
@@ -313,11 +319,11 @@ cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service
                                    ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr)
 {
   cRosErrCodePack ret_err;
-  char path[PATH_MAX];
+  char path[OS_MAX_PATH];
   ProviderContext *nodeContext = NULL;
   int svcidx;
 
-  getSrvFilePath(node, path, PATH_MAX, service_type);
+  getSrvFilePath(node, path, OS_MAX_PATH, service_type);
   ret_err = newProviderContext(path, CROS_SERVICE_CALLER, &nodeContext);
   if (ret_err == CROS_SUCCESS_ERR_PACK)
   {
@@ -353,11 +359,11 @@ cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *servi
                                    ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context, int *svcidx_ptr)
 {
   cRosErrCodePack ret_err;
-  char path[PATH_MAX];
+  char path[OS_MAX_PATH];
   ProviderContext *nodeContext = NULL;
   int svcidx;
 
-  getSrvFilePath(node, path, PATH_MAX, service_type);
+  getSrvFilePath(node, path, OS_MAX_PATH, service_type);
   ret_err = newProviderContext(path, CROS_SERVICE_PROVIDER, &nodeContext);
   if (ret_err == CROS_SUCCESS_ERR_PACK)
   {
@@ -406,11 +412,11 @@ cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name
                               SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr)
 {
   cRosErrCodePack ret_err;
-  char path[PATH_MAX];
+  char path[OS_MAX_PATH];
   ProviderContext *nodeContext = NULL;
   int subidx;
 
-  cRosGetMsgFilePath(node, path, PATH_MAX, topic_type);
+  cRosGetMsgFilePath(node, path, OS_MAX_PATH, topic_type);
   ret_err = newProviderContext(path, CROS_SUBSCRIBER, &nodeContext);
   if (ret_err == CROS_SUCCESS_ERR_PACK)
   {
@@ -461,11 +467,11 @@ cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name,
                              PublisherApiCallback callback, NodeStatusCallback status_callback, void *context, int *pubidx_ptr)
 {
   cRosErrCodePack ret_err;
-  char path[PATH_MAX];
+  char path[OS_MAX_PATH];
   ProviderContext *nodeContext = NULL;
   int pubidx;
 
-  cRosGetMsgFilePath(node, path, PATH_MAX, topic_type);
+  cRosGetMsgFilePath(node, path, OS_MAX_PATH, topic_type);
   ret_err = newProviderContext(path, CROS_PUBLISHER, &nodeContext);
   if (ret_err == CROS_SUCCESS_ERR_PACK)
   {

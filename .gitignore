@@ -20,3 +20,9 @@ gmon.out
 # Python byte-compiled code
 __pycache__/
 *.py[cod]
+
+# Microsoft Visual Studio
+.vs/
+Debug/
+x64/
+x86/
