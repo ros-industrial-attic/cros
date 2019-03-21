@@ -1924,7 +1924,7 @@ void freeLookupNodeResult(LookupNodeResult *result)
 
 void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result)
 {
-  int it;
+  size_t it;
 
   free(result->status);
   for (it = 0; it < result->topic_count; it++)
@@ -1938,7 +1938,7 @@ void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result)
 
 void freeGetTopicTypesResult(GetTopicTypesResult *result)
 {
-  int it = 0;
+  size_t it;
 
   free(result->status);
   for (it = 0; it < result->topic_count; it++)
@@ -1952,12 +1952,12 @@ void freeGetTopicTypesResult(GetTopicTypesResult *result)
 
 void freeGetSystemStateResult(GetSystemStateResult *result)
 {
-  int it1;
+  size_t it1;
 
   free(result->status);
   for (it1 = 0; it1 < result->sub_count; it1++)
   {
-    int it2;
+    size_t it2;
 
     free(result->publishers[it1].provider_name);
     for (it2 = 0; it2 < result->publishers[it1].user_count; it2++)
@@ -1968,7 +1968,7 @@ void freeGetSystemStateResult(GetSystemStateResult *result)
 
   for (it1 = 0; it1 < result->sub_count; it1++)
   {
-    int it2;
+    size_t it2;
 
     free(result->subscribers[it1].provider_name);
     for (it2 = 0; it2 < result->subscribers[it1].user_count; it2++)
@@ -1979,7 +1979,7 @@ void freeGetSystemStateResult(GetSystemStateResult *result)
 
   for (it1 = 0; it1 < result->svc_count; it1++)
   {
-    int it2;
+    size_t it2;
 
     free(result->service_providers[it1].provider_name);
     for (it2 = 0; it2 < result->service_providers[it1].user_count; it2++)
@@ -2007,7 +2007,7 @@ void freeLookupServiceResult(LookupServiceResult *result)
 
 void freeGetBusStatsResult(GetBusStatsResult *result)
 {
-  int it1;
+  size_t it1;
 
   free(result->status);
   for (it1 = 0; it1 < result->stats.pub_stats_count; it1++)
@@ -2023,7 +2023,7 @@ void freeGetBusStatsResult(GetBusStatsResult *result)
 
 void freeGetBusInfoResult(GetBusInfoResult *result)
 {
-  int it;
+  size_t it;
 
   free(result->status);
   for (it = 0; it < result->bus_infos_count; it++)
@@ -2053,7 +2053,7 @@ void freeGetPidResult(GetPidResult *result)
 
 void freeGetSubscriptionsResult(GetSubscriptionsResult *result)
 {
-  int it;
+  size_t it;
 
   free(result->status);
   for (it = 0; it < result->topic_count; it++)
@@ -2067,7 +2067,7 @@ void freeGetSubscriptionsResult(GetSubscriptionsResult *result)
 
 void freeGetPublicationsResult(GetPublicationsResult *result)
 {
-  int it;
+  size_t it;
 
   free(result->status);
   for (it = 0; it < result->topic_count; it++)
@@ -2113,7 +2113,7 @@ static void freeHasParamResult(HasParamResult *result)
 
 static void freeGetParamNamesResult(GetParamNamesResult *result)
 {
-  int it;
+  size_t it;
 
   free(result->status);
   for (it = 0; it < result->parameter_count; it++)

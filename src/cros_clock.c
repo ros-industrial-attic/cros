@@ -19,7 +19,7 @@ struct timeval cRosClockGetTimeSecUsec( void )
   PRINT_VDEBUG ( "cRosClockGetTimeSecUsec()\n" );
 
 #ifdef _WIN32
-  const uint64_t epoch_filetime = UINT64CONST(116444736000000000); // FILETIME on Jan 1 1970 00:00:00
+  const uint64_t epoch_filetime = 116444736000000000ULL; // FILETIME on Jan 1 1970 00:00:00
   FILETIME    cur_filetime;
   SYSTEMTIME  cur_system_time;
 
@@ -34,7 +34,7 @@ struct timeval cRosClockGetTimeSecUsec( void )
     cur_filetime_large.HighPart = cur_filetime.dwHighDateTime;
 
     time_since_epoch.tv_sec = (long) ((cur_filetime_large.QuadPart - epoch_filetime) / 10000000L);
-    time_since_epoch.tv_usec = (long) (system_time.wMilliseconds * 1000);
+    time_since_epoch.tv_usec = (long) (cur_system_time.wMilliseconds * 1000);
     ret_val = 0;
   }
   else
