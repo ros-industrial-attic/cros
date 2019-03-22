@@ -2261,7 +2261,7 @@ int arrayFieldValuesPushBack(cRosMessageField *field, const void* data, int elem
     }
   }
 
-  memcpy(field->data.as_array + field->array_size * element_size, data, element_size * n_new_elements);
+  memcpy((void *)((char *)field->data.as_array + field->array_size*element_size), data, element_size * n_new_elements);
   field->array_size += n_new_elements;
   return 0;
 }

@@ -970,7 +970,7 @@ cRosErrCodePack cRosMessageParseServiceResponsePacket( CrosNode *n, int client_i
   }
   else
   {
-     int n_char;
+     size_t n_char;
      PRINT_ERROR("cRosMessageParseServiceResponsePacket() : Error in service call response. 'ok' byte=%i. Error message='",client_proc->ok_byte);
      for(n_char=0;n_char<dynBufferGetSize(packet);n_char++)
      {

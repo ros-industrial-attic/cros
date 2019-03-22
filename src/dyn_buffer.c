@@ -189,7 +189,7 @@ void dynBufferMovePoseIndicator ( DynBuffer *d_buf, int offset )
   size_t curr = d_buf->pos_offset;
   if (offset > 0 && curr >= (d_buf->size - offset))
     d_buf->pos_offset = d_buf->size;
-  else if ( offset < 0 && -offset >= curr)
+  else if ( offset < 0 && (size_t)(-offset) >= curr)
     d_buf->pos_offset = 0;
   else
     d_buf->pos_offset += (size_t)offset;

@@ -6,6 +6,8 @@
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
 #  include <windows.h>
+
+#  define strcasecmp _stricmp // This is the POSIX verion of strnicmp
 #else
 #  include <unistd.h>
 #endif
@@ -1657,6 +1659,7 @@ static CallbackResponse callback_pub_log(cRosMessage *message, void* data_contex
 
   if(!cRosLogQueueIsEmpty(queue))
   {
+    size_t pub_ind;
     CrosLog* log = cRosLogQueueDequeue(queue);
 
     cRosMessageField* header_field = cRosMessageGetField(message, "header");
@@ -1691,10 +1694,10 @@ static CallbackResponse callback_pub_log(cRosMessage *message, void* data_contex
     line->data.as_uint32 = log->line;
 
     cRosMessageField* topics = cRosMessageGetField(message, "topics"); //topic names that the node publishes
-    int i;
-    for(i = 0; i < log->n_pubs; i++)
+
+    for(pub_ind = 0; pub_ind < log->n_pubs; pub_ind++)
     {
-      cRosMessageFieldArrayPushBackString(topics, log->pubs[i]);
+      cRosMessageFieldArrayPushBackString(topics, log->pubs[pub_ind]);
     }
 
     cRosLogFree(log);
@@ -3985,7 +3988,7 @@ cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port
       if(time_out == CROS_INFINITE_TIMEOUT || time_out-elapsed_time > MAX_PORT_OPEN_CHECK_PERIOD)
         pause_ms = MAX_PORT_OPEN_CHECK_PERIOD;
       else
-        pause_ms = time_out-elapsed_time;
+        pause_ms = (unsigned int)(time_out-elapsed_time);
 #ifdef _WIN32
       Sleep(pause_ms);
 #else
