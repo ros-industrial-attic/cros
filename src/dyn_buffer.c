@@ -212,7 +212,7 @@ void dynBufferRewindPoseIndicator ( DynBuffer *d_buf )
   d_buf->pos_offset = 0;
 }
 
-int dynBufferGetPoseIndicatorOffset ( DynBuffer *d_buf )
+size_t dynBufferGetPoseIndicatorOffset ( DynBuffer *d_buf )
 {
   PRINT_VDEBUG ( "dynBufferGetPoseIndicatorOffset()\n" );
 
@@ -241,7 +241,7 @@ int dynBufferGetCurrentContent ( unsigned char *cont_buf, DynBuffer *d_buf, size
    return ret_err;
 }
 
-int dynBufferGetRemainingDataSize ( DynBuffer *d_buf )
+size_t dynBufferGetRemainingDataSize ( DynBuffer *d_buf )
 {
   PRINT_VDEBUG ( "dynBufferGetRemainingDataSize()\n" );
 

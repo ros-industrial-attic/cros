@@ -6,6 +6,7 @@
 #  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
 #  include <windows.h>
 #  include <winsock2.h>
+#  include <Ws2tcpip.h> // Ws2_32.lib must be used when linking
 
 #  define FN_EISCONN WSAEISCONN
 #  define FN_EINPROGRESS WSAEINPROGRESS

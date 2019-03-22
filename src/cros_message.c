@@ -2718,7 +2718,7 @@ void *arrayFieldValueAt(cRosMessageField *field, int position, size_t size)
   if (position < 0 || position > field->array_size)
     return NULL;
 
-  return field->data.as_array + (position * size);
+  return((void *)((char *)field->data.as_array + (position * size))); // sizeof(char) is 1 (byte), so we cast to char * before calculating the array field position
 }
 
 size_t cRosMessageFieldSize(cRosMessageField* field)
@@ -2764,12 +2764,12 @@ size_t cRosMessageSize(cRosMessage* message)
 cRosErrCodePack cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
 {
   cRosErrCodePack ret_err;
-  size_t it;
+  int field_ind;
 
   ret_err = CROS_SUCCESS_ERR_PACK; // default error value: success
-  for (it = 0; it < message->n_fields && ret_err == CROS_SUCCESS_ERR_PACK; it++)
+  for (field_ind = 0; field_ind < message->n_fields && ret_err == CROS_SUCCESS_ERR_PACK; field_ind++)
   {
-    cRosMessageField *field = message->fields[it];
+    cRosMessageField *field = message->fields[field_ind];
 
     if(field->is_array && !field->is_fixed_array)
       ret_err = (dynBufferPushBackInt32(buffer, field->array_size) >= 0)?CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
@@ -2865,16 +2865,16 @@ cRosErrCodePack cRosMessageSerialize(cRosMessage *message, DynBuffer* buffer)
 // Only when receiving a variable-length array, new elements if the message field may need to be created
 cRosErrCodePack cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
 {
-  size_t it;
+  int field_ind;
   cRosErrCodePack ret_err;
 
   ret_err = CROS_SUCCESS_ERR_PACK; // default error value: no error
 
   msgFieldDef* field_def_itr =  (message->msgDef != NULL)? message->msgDef->first_field : NULL; // Keep track of the message definition (if available) corresponding to the current message field in case we need to build a msg of type custom
 
-  for (it = 0; it < message->n_fields && ret_err == CROS_SUCCESS_ERR_PACK; it++)
+  for (field_ind = 0; field_ind < message->n_fields && ret_err == CROS_SUCCESS_ERR_PACK; field_ind++)
   {
-    cRosMessageField *field = message->fields[it];
+    cRosMessageField *field = message->fields[field_ind];
 
     switch (field->type)
     {
@@ -3026,11 +3026,11 @@ cRosErrCodePack cRosMessageDeserialize(cRosMessage *message, DynBuffer* buffer)
               }
             }
 
-            while(field->array_size > received_arr_siz) // received less elements than the available messages: delete
+            while(field->array_size > (int)received_arr_siz) // received less elements than the available messages: delete
               cRosMessageFree(cRosMessageFieldArrayRemoveLastMsg(field));
           }
 
-          for(msg_ind = 0;msg_ind < field->array_size && ret_err == CROS_SUCCESS_ERR_PACK;msg_ind++)
+          for(msg_ind = 0;(int)msg_ind < field->array_size && ret_err == CROS_SUCCESS_ERR_PACK;msg_ind++)
           {
             cRosMessage *curr_msg;
             curr_msg = cRosMessageFieldArrayAtMsgGet(field, msg_ind);

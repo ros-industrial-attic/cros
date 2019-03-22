@@ -214,7 +214,7 @@ void dynBufferRewindPoseIndicator( DynBuffer *d_buf );
 
  *  \return Offset in bytes of the position indicator
  */
-int dynBufferGetPoseIndicatorOffset( DynBuffer *d_buf );
+size_t dynBufferGetPoseIndicatorOffset( DynBuffer *d_buf );
 
 /*! \brief Get a const pointer to the internal buffer data, starting from the current position indicator
  *
@@ -242,7 +242,7 @@ int dynBufferGetCurrentContent ( unsigned char *cont_buf, DynBuffer *d_buf, size
  *
  *  \return The remaining dynamic buffer size
  */
-int dynBufferGetRemainingDataSize( DynBuffer *d_buf );
+size_t dynBufferGetRemainingDataSize( DynBuffer *d_buf );
 
 /*! @}*/
 
