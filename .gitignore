@@ -23,6 +23,5 @@ __pycache__/
 
 # Microsoft Visual Studio
 .vs/
-Debug/
 x64/
-x86/
+Win32/

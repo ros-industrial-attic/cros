@@ -14,19 +14,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
-#include <errno.h>
-#include <signal.h>
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#else
+#  include <unistd.h>
+#  include <errno.h>
+#  include <signal.h>
+#endif
 
 #include "cros.h"
+
 
 #define ROS_MASTER_PORT 11311
 #define ROS_MASTER_ADDRESS "127.0.0.1"
 
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
 unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
-struct sigaction old_int_signal_handler, old_term_signal_handler; //! Structures codifying the original handlers of SIGINT and SIGTERM signals (e.g. used when pressing Ctrl-C for the second time);
 
 // This callback will be invoked when the subscriber receives a message
 static CallbackResponse callback_sub(cRosMessage *message, void* data_context)
@@ -63,7 +68,49 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
   return 0; // 0=success
 }
 
-// This callback function should be called when the main process receives a SIGINT or
+#ifdef _WIN32
+// This callback function will be called when the console process receives a CTRL_C_EVENT or
+// CTRL_CLOSE_EVENT signal.
+// Function set_signal_handler() should be called to set this function as the handler of
+// these signals
+BOOL WINAPI exit_deamon_handler(DWORD sig)
+{
+  BOOL sig_handled;
+
+  switch(sig)
+  {
+    case CTRL_C_EVENT:
+    case CTRL_CLOSE_EVENT:
+      SetConsoleCtrlHandler(exit_deamon_handler, FALSE); // Remove the handler
+      printf("Signal %u received: exiting safely.\n", sig);
+      exit_flag = 1; // Cause the exit of cRosNodeStart loop (safe exit)
+      sig_handled = TRUE; // Indicate that this signal is handled by this function
+      break;
+    default:
+      sig_handled = FALSE; // Indicate that this signal is not handled by this functions, so the next handler function of the list will be called
+      break;
+  }
+  return(sig_handled);
+}
+
+// Sets the signal handler functions of CTRL_C_EVENT and CTRL_CLOSE_EVENT: exit_deamon_handler
+DWORD set_signal_handler(void)
+  {
+   DWORD ret;
+
+   if(SetConsoleCtrlHandler(exit_deamon_handler, TRUE))
+      ret=0; // Success setting the control handler
+   else
+     {
+      ret=GetLastError();
+      printf("Error setting termination signal handler. Error code=%u\n",ret);
+     }
+   return(ret);
+  }
+#else
+struct sigaction old_int_signal_handler, old_term_signal_handler; //! Structures codifying the original handlers of SIGINT and SIGTERM signals (e.g. used when pressing Ctrl-C for the second time);
+
+// This callback function will be called when the main process receives a SIGINT or
 // SIGTERM signal.
 // Function set_signal_handler() should be called to set this function as the handler of
 // these signals
@@ -93,10 +140,11 @@ int set_signal_handler(void)
    else
      {
       ret=errno;
-      printf("Error setting termination signal handler. errno=%d\n",errno);
+      printf("Error setting termination signal handler. errno=%d\n",ret);
      }
    return(ret);
   }
+#endif
 
 int main(int argc, char **argv)
 {
