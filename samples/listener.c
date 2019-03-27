@@ -19,14 +19,17 @@
 #  define WIN32_LEAN_AND_MEAN
 #  include <windows.h>
 #  include <direct.h>
+
+#  define DIR_SEPARATOR_STR "\\"
 #else
 #  include <unistd.h>
 #  include <errno.h>
 #  include <signal.h>
+
+#  define DIR_SEPARATOR_STR "/"
 #endif
 
 #include "cros.h"
-
 
 #define ROS_MASTER_PORT 11311
 #define ROS_MASTER_ADDRESS "127.0.0.1"
@@ -160,7 +163,7 @@ int main(int argc, char **argv)
   else
     node_name="/listener"; // Default node name if no command-line parameters are specified
   getcwd(path, sizeof(path));
-  strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
+  strncat(path, DIR_SEPARATOR_STR"rosdb", sizeof(path) - strlen(path) - 1);
   /*
   err_cod = cRosWaitPortOpen(ROS_MASTER_ADDRESS, ROS_MASTER_PORT, 0);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
@@ -169,6 +172,7 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
   */
+  printf("PATH ROSDB: %s\n", path);
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", ROS_MASTER_ADDRESS, ROS_MASTER_PORT, path);
   if( node == NULL )

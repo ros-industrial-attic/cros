@@ -17,10 +17,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/time.h>
+
+#ifdef _WIN32
+//#  define WIN32_LEAN_AND_MEAN
+//#  include <windows.h>
+#  include <direct.h>
+
+#  define DIR_SEPARATOR_STR "\\"
+#else
+#  include <unistd.h>
+
+#  define DIR_SEPARATOR_STR "/"
+#endif
 
 #include "cros.h"
+#include "cros_clock.h"
 
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
 unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
@@ -112,17 +123,16 @@ int main(int argc, char **argv)
   printf("Node TCPROS port: %i\n", node->tcpros_port);
 
   // Run the main loop
-  struct timeval start_time, end_time;
-  float elapsed_time;
+  uint64_t start_time, end_time;
+  unsigned long elapsed_time;
 
-  gettimeofday(&start_time, NULL);
+  start_time = cRosClockGetTimeMs();
   err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
-  gettimeofday(&end_time, NULL);
+  end_time = cRosClockGetTimeMs();
 
-  elapsed_time = (end_time.tv_sec - start_time.tv_sec) * 1000.0;    // sec to ms
-  elapsed_time += (end_time.tv_usec - start_time.tv_usec) / 1000.0; // us to ms
+  elapsed_time = (unsigned long)(end_time - start_time);  
 
-  printf("Elapsed time: %.1fms\n", elapsed_time);
+  printf("Elapsed time: %lums\n", elapsed_time);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
     cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
 
