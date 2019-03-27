@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cros_library", "cros_library.vcxproj", "{57EB7322-CD61-4FD1-B595-C511C4648A37}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sample_listener", "sample_listener\sample_listener.vcxproj", "{A5BAFDD4-D98D-4922-9F36-928F7C6C738A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{57EB7322-CD61-4FD1-B595-C511C4648A37} = {57EB7322-CD61-4FD1-B595-C511C4648A37}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

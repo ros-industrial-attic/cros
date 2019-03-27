@@ -3800,6 +3800,7 @@ void initServiceCallerNode(ServiceCallerNode *node)
   node->service_host = NULL;
   node->service_port = -1;
   node->md5sum = NULL;
+  node->message_definition = NULL;
   node->client_rpcros_id = -1;
   node->callback = NULL;
   node->status_callback = NULL;

@@ -763,10 +763,10 @@ int tcpIpSocketStartUp( void )
     WSADATA ws_ver_obtained;
 
     ws_ver_requested = MAKEWORD(REQUESTED_WS_HIGH_VER, REQUESTED_WS_LOW_VER); // Codify the requested version of Winsock
-    ret_val = WSAStartup(ws_ver_requested, &ws_ver_obtained);
-    if(ret_val != 0)
+    ret_val = WSAStartup(ws_ver_requested, &ws_ver_obtained); // It returns 0 on success, the same as tcpIpSocketStartUp()
+    if(ret_val == 0) // If success, check the obtained version
     {
-      // Ckeck that WinSock supports the requeste version
+      // Ckeck that WinSock supports the requested version
       if(LOBYTE(ws_ver_obtained.wVersion) != REQUESTED_WS_HIGH_VER || HIBYTE(ws_ver_obtained.wVersion) != REQUESTED_WS_LOW_VER)
         PRINT_ERROR("tcpIpSocketStartUp(): Could not find the required version of Winsock: %i.%i.\n", REQUESTED_WS_HIGH_VER, REQUESTED_WS_LOW_VER);
     }

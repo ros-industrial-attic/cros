@@ -18,6 +18,7 @@
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN
 #  include <windows.h>
+#  include <direct.h>
 #else
 #  include <unistd.h>
 #  include <errno.h>
@@ -149,7 +150,7 @@ int set_signal_handler(void)
 int main(int argc, char **argv)
 {
   // We need to tell our node where to find the .msg files that we'll be using
-  char path[1024];
+  char path[4097];
   const char *node_name;
   int subidx; // Index (identifier) of the created subscriber
   cRosErrCodePack err_cod;
@@ -160,14 +161,14 @@ int main(int argc, char **argv)
     node_name="/listener"; // Default node name if no command-line parameters are specified
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
-
+  /*
   err_cod = cRosWaitPortOpen(ROS_MASTER_ADDRESS, ROS_MASTER_PORT, 0);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "Port %s:%hu cannot be opened: ROS Master does not seems to be running", ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
     return EXIT_FAILURE;
   }
-
+  */
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", ROS_MASTER_ADDRESS, ROS_MASTER_PORT, path);
   if( node == NULL )
