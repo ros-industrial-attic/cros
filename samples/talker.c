@@ -1,6 +1,6 @@
 /*! \file talker.c
  *  \brief This file is an example of cROS usage implementing a publisher and a service caller, which
- *         Can be used together with listener to prove the operation of message transmissions and service
+ *         can be used together with listener to prove the operation of message transmissions and service
  *         calls between two nodes.
  *
  *  It creates a publisher to the topic /chatter. Each 100ms the callback function callback_pub() is
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
   err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
   end_time = cRosClockGetTimeMs();
 
-  elapsed_time = (unsigned long)(end_time - start_time);  
+  elapsed_time = (unsigned long)(end_time - start_time);
 
   printf("Elapsed time: %lums\n", elapsed_time);
   if(err_cod != CROS_SUCCESS_ERR_PACK)

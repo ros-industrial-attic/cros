@@ -85,6 +85,7 @@ int tcpIpSocketOpen ( TcpIpSocket *s )
   }
   else
   {
+    PRINT_DEBUG ( "tcpIpSocketOpen(): Created socket FD: %i\n", s->fd);
     s->open = 1;
     ret_success = 1;
   }
@@ -101,11 +102,11 @@ int tcpIpSocketClose ( TcpIpSocket *s )
   if ( !s->open )
     return(1);
 
-  PRINT_DEBUG ( "tcpIpSocketClose(): Closing socket FD: %i\n", s->fd);
   if ( s->fd != FN_INVALID_SOCKET )
   {
     int close_ret_val;
 
+    PRINT_DEBUG ( "tcpIpSocketClose(): Closing socket FD: %i\n", s->fd);
     close_ret_val = closesocket( s->fd );
     ret_success = (close_ret_val != FN_SOCKET_ERROR);
   }
@@ -305,7 +306,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
       }
     }
   }
-  PRINT_DEBUG ( "tcpIpSocketConnect() : connection done to %s:%i through FD:%i\n", host_addr, host_port, s->fd);
+  PRINT_DEBUG ( "tcpIpSocketConnect() : connection established to %s:%i through FD:%i\n", host_addr, host_port, s->fd);
 
   s->port = host_port;
   s->adr = adr;
@@ -455,6 +456,8 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
       return TCPIPSOCKET_FAILED;
     }
   }
+  else
+    PRINT_DEBUG ( "tcpIpSocketAccept() : Accepted connecion from port %i, new FD:%i\n", new_adr.sin_port, new_fd);
 
   if( new_s->open )
     tcpIpSocketClose ( new_s );
@@ -721,16 +724,13 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
   struct timeval timeout_tv;
   int nfds_set;
 
-  PRINT_VDEBUG ( "tcpIpSocketSelect(): nfds: %i\n", nfds);
+  PRINT_VDEBUG( "tcpIpSocketSelect(): nfds: %i\n", nfds);
 
   timeout_tv = cRosClockGetTimeVal( time_out );
 
   nfds_set = select(nfds, readfds, writefds, exceptfds, &timeout_tv);
 
-  if(nfds_set == FN_SOCKET_ERROR) // Using the definition SOCKET_ERROR is not needed to check the return value, but it is recommended on Windows
-    nfds_set = -1;
-
-  if(nfds_set == -1)
+  if(nfds_set == FN_SOCKET_ERROR)// Using the definition SOCKET_ERROR is not needed to check the return value, but it is recommended on Windows
   {
     int socket_err_num;
 
@@ -744,6 +744,7 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
     else
     {
       PRINT_ERROR("tcpIpSocketSelect() : select() call failed. Error code: %i\n", socket_err_num);
+	  nfds_set = -1;
     }
   }
 

@@ -675,7 +675,7 @@ static cRosErrCodePack tcprosClientConnect( CrosNode *n, int client_idx)
     }
     case TCPIPSOCKET_REFUSED:
     {
-      PRINT_ERROR("xmlrpcClientConnect() : Connection of TCPROS client number %i was refused (is the target port not open?)\n", client_idx);
+      PRINT_ERROR("tcprosClientConnect() : Connection of TCPROS client number %i was refused (is the target port not open?)\n", client_idx);
       handleTcprosClientError( n, client_idx);
       ret_err = CROS_TCPROS_CLI_REFUS_ERR;
       break;
@@ -2725,6 +2725,7 @@ void printNodeProcState( CrosNode *n )
 cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 {
   cRosErrCodePack ret_err;
+  uint64_t tmp_timeout, cur_time;
   int nfds = -1;
   fd_set r_fds, w_fds, err_fds;
   int i = 0;
@@ -2931,7 +2932,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     }
   }
 
-  uint64_t tmp_timeout, cur_time = cRosClockGetTimeMs();
+  cur_time = cRosClockGetTimeMs();
 
   if( n->xmlrpc_client_proc[0].wake_up_time_ms > cur_time )
     tmp_timeout = n->xmlrpc_client_proc[0].wake_up_time_ms - cur_time;
@@ -3059,7 +3060,8 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   }
 
   int n_set = tcpIpSocketSelect(nfds + 1, &r_fds, &w_fds, &err_fds, timeout);
-
+  
+  cur_time = cRosClockGetTimeMs(); // Update current time after select()
   if (n_set == -1)
   {
     PRINT_ERROR("cRosNodeDoEventsLoop() : tcpIpSocketSelect() function failed.\n");
@@ -3069,15 +3071,13 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   {
     PRINT_DEBUG ("cRosNodeDoEventsLoop() : tcpIpSocketSelect() timeout: %llu ms or function call has been interrupted\n", (long long unsigned)timeout);
 
-    uint64_t cur_time = cRosClockGetTimeMs();
-
     XmlrpcProcess *rosproc = &n->xmlrpc_client_proc[0];
     if(rosproc->wake_up_time_ms <= cur_time ) // It's time to wakeup, ping master, and maybe look up in master for pending services
     {
       if(rosproc->state == XMLRPC_PROCESS_STATE_IDLE)
       {
         /* Prepare to ping roscore ... */
-        PRINT_DEBUG("cRosNodeDoEventsLoop() : ping roscore\n");
+        PRINT_DEBUG("cRosNodeDoEventsLoop() : Sending ping to ROS Master\n");
 
         RosApiCall *call = newRosApiCall();
         if (call != NULL)
@@ -3121,8 +3121,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       else
         rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD/50; // The process is busy, so try to wake up again soon (CN_PING_LOOP_PERIOD/100 milliseconds later) to do what is pending
     }
-    if( rosproc->state != XMLRPC_PROCESS_STATE_IDLE &&
-             cur_time - rosproc->last_change_time > CN_IO_TIMEOUT ) // last_change_time is updated when changing process state
+    if( rosproc->state != XMLRPC_PROCESS_STATE_IDLE && cRosClockGetTimeMs() - rosproc->last_change_time > CN_IO_TIMEOUT ) // last_change_time is updated when changing process state
     {
       /* Timeout between I/O operations... close the socket and re-advertise */
       PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC client I/O timeout\n");
@@ -3285,8 +3284,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
             tcpIpSocketSetKeepAlive( &(n->tcpros_server_proc[next_tcpros_server_i].socket ), 60, 10, 9 ) )
         {
           tcprosProcessChangeState( &(n->tcpros_server_proc[next_tcpros_server_i]), TCPROS_PROCESS_STATE_READING_HEADER ); // A TCPROS process has been activated to attend the connection
-          uint64_t cur_time = cRosClockGetTimeMs();
-          n->tcpros_server_proc[next_tcpros_server_i].wake_up_time_ms = cur_time;
+          n->tcpros_server_proc[next_tcpros_server_i].wake_up_time_ms = cRosClockGetTimeMs();
         }
       }
     }

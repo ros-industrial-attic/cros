@@ -1,12 +1,12 @@
 /*! \file listener.c
  *  \brief The file is an example of cROS usage implementing a subscriber and service provider, which
- *         Can be used together with talker to prove the operation of message transmissions and service
+ *         can be used together with talker to prove the operation of message transmissions and service
  *         calls between two nodes.
  *
  *  It creates a subscriber to the topic /chatter. Each time a message of this topic is
- *  published a string is received and the callback function  callback_sub() is executed.
+ *  published a string is received and the callback function callback_sub() is executed.
  *  This node also implements a provider of the service /sum. Each time a the service is called
- *  two 64bit integers are received, the callback function callback_srv_add_two_ints is executed,
+ *  two 64bit integers are received, the callback function callback_srv_add_two_ints() is executed,
  *  this function computes the sum of them and this result is sent back to service caller.
  *  To exit safely press Ctrl-C or 'kill' the process once. If this actions are repeated, the process
  *  will be finished immediately.
@@ -75,7 +75,7 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
 #ifdef _WIN32
 // This callback function will be called when the console process receives a CTRL_C_EVENT or
 // CTRL_CLOSE_EVENT signal.
-// Function set_signal_handler() should be called to set this function as the handler of
+// Function set_signal_handler() should be called to set function exit_deamon_handler() as the handler of
 // these signals
 BOOL WINAPI exit_deamon_handler(DWORD sig)
 {
@@ -152,8 +152,7 @@ int set_signal_handler(void)
 
 int main(int argc, char **argv)
 {
-  // We need to tell our node where to find the .msg files that we'll be using
-  char path[4097];
+  char path[4097]; // We need to tell our node where to find the .msg files that we'll be using
   const char *node_name;
   int subidx; // Index (identifier) of the created subscriber
   cRosErrCodePack err_cod;

@@ -41,7 +41,7 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
 
   if ( d_buf->data == NULL )
   {
-    PRINT_DEBUG ( "dynBufferPushBackBuf() : allocate memory for the first time\n" );
+    PRINT_VDEBUG ( "dynBufferPushBackBuf() : allocate memory for the first time\n" );
     d_buf->data = ( unsigned char * ) malloc ( DYNBUFFER_INIT_SIZE * sizeof ( unsigned char ) );
 
     if ( d_buf->data == NULL )
@@ -56,7 +56,7 @@ int dynBufferPushBackBuf ( DynBuffer *d_buf, const unsigned char *new_buf, size_
 
   while ( d_buf->size + n > d_buf->max )
   {
-    PRINT_DEBUG ( "dynBufferPushBackBuf() : reallocate memory\n" );
+    PRINT_VDEBUG ( "dynBufferPushBackBuf() : reallocate memory\n" );
     unsigned char *new_d_buf = ( unsigned char * ) realloc ( d_buf->data, ( DYNBUFFER_GROW_RATE * d_buf->max ) *
                                                                              sizeof ( unsigned char ) );
     if ( new_d_buf == NULL )

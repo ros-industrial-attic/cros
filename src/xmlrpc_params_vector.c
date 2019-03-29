@@ -104,7 +104,7 @@ int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 
   if ( p_vec->data == NULL )
   {
-    PRINT_DEBUG ( "xmlrpcParamVectorPushBack() : allocate memory for the first time\n" );
+    PRINT_VDEBUG ( "xmlrpcParamVectorPushBack() : allocate memory for the first time\n" );
     p_vec->data = ( XmlrpcParam * ) malloc ( XMLRPC_VECTOR_INIT_SIZE * sizeof ( XmlrpcParam ) );
 
     if ( p_vec->data == NULL )
@@ -119,7 +119,7 @@ int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 
   while ( p_vec->size == p_vec->max )
   {
-    PRINT_DEBUG ( "xmlrpcParamVectorPushBack() : reallocate memory\n" );
+    PRINT_VDEBUG ( "xmlrpcParamVectorPushBack() : reallocate memory\n" );
     XmlrpcParam *new_p_vec = ( XmlrpcParam * ) realloc ( p_vec->data,
                              ( XMLRPC_VECTOR_GROW_RATE* p_vec->max ) * sizeof ( XmlrpcParam ) );
     if ( new_p_vec == NULL )

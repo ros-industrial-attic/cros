@@ -13,7 +13,7 @@
 #define LITTLE_ENDIAN_ARC 1
 
 #ifndef CROS_DEBUG_LEVEL
-#define CROS_DEBUG_LEVEL 1
+#define CROS_DEBUG_LEVEL 2
 #endif
 
 #if CROS_DEBUG_LEVEL >= 1

@@ -72,7 +72,7 @@
 #define CN_PING_LOOP_PERIOD 1000
 
 /*! Maximum I/O operations timeout (in msec) */
-#define CN_IO_TIMEOUT 2000
+#define CN_IO_TIMEOUT 300000
 
 /*! Maximum time that the node will wait for unregistering all publishers, subscribers, servicer providers... in the ROS master (in msec) */
 #define CN_UNREGISTRATION_TIMEOUT 3000

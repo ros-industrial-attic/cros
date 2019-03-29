@@ -155,13 +155,13 @@ int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType co
     else if (container == PARAM_CONTAINER_ARRAY && len - i >= XMLRPC_DATA_ETAG.dim
              && strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
     {
-      PRINT_DEBUG ( "paramFromXml() : reach end of array\n" );
+      PRINT_VDEBUG ( "paramFromXml() : reach end of array\n" );
       return -1;
     }
     else if (container == PARAM_CONTAINER_STRUCT && len - i >= XMLRPC_STRUCT_ETAG.dim
              && strncmp ( c, XMLRPC_STRUCT_ETAG.str, XMLRPC_STRUCT_ETAG.dim ) == 0 )
     {
-      PRINT_DEBUG ( "paramFromXml() : reach end of struct\n" );
+      PRINT_VDEBUG ( "paramFromXml() : reach end of struct\n" );
       return -1;
     }
   }
@@ -441,7 +441,7 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
     }
   }
 
-  PRINT_DEBUG("paramFromXml() : Param type %d \n", p_type );
+  PRINT_VDEBUG("paramFromXml() : Param type %d \n", p_type );
 
   // Update pose indicator (useful in case it is an array parameter)
   dynStringSetPoseIndicator ( message, i );
@@ -791,7 +791,7 @@ XmlrpcParam * arrayAddElem ( XmlrpcParam *param )
 
   if ( param->array_n_elem == param->array_max_elem )
   {
-    PRINT_DEBUG ( "arrayAddElem() : reallocate memory\n" );
+    PRINT_VDEBUG ( "arrayAddElem() : reallocate memory\n" );
     XmlrpcParam *new_param = ( XmlrpcParam * ) realloc ( param->data.as_array,
                              ( XMLRPC_ARRAY_GROW_RATE * param->array_max_elem ) * sizeof ( XmlrpcParam ) );
     if ( new_param == NULL )
@@ -1203,7 +1203,7 @@ void xmlrpcParamRelease ( XmlrpcParam *param )
   case XMLRPC_PARAM_UNKNOWN:
     break;
   default:
-    PRINT_DEBUG ( "xmlrpcParamReleaseData() : Unknown parameter \n" );
+    PRINT_VDEBUG ( "xmlrpcParamReleaseData() : Unknown parameter \n" );
     break;
   }
 }
