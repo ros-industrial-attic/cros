@@ -15,6 +15,7 @@ void tcprosProcessInit( TcprosProcess *p )
   dynStringInit( &(p->md5sum) );
   dynBufferInit( &(p->packet) );
   p->latching = p->tcp_nodelay = p->persistent = 0;
+  p->probe = 0;
   p->last_change_time = 0;
   p->wake_up_time_ms = 0;
   p->topic_idx = -1;
@@ -58,10 +59,10 @@ void tcprosProcessClear( TcprosProcess *p , int fullreset)
     dynStringClear( &(p->md5sum) );
     p->latching = 0;
     p->tcp_nodelay = 0;
+    p->persistent = 0;
     p->probe = 0;
     p->last_change_time = 0;
     p->wake_up_time_ms = 0;
-    p->persistent = 0;
     p->topic_idx = -1;
     p->service_idx = -1;
     p->ok_byte = 0;

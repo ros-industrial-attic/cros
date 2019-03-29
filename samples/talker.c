@@ -101,7 +101,7 @@ int main(int argc, char **argv)
   strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path);
-
+  
   // Create a publisher to topic /chatter of type "std_msgs/String" and request that the associated callback be invoked every 100ms (10Hz)
   err_cod = cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 100, callback_pub, NULL, NULL, &pubidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
     cRosNodeDestroy( node );
     return EXIT_FAILURE;
   }
-
+  
   // Create a service caller named /sum of type "roscpp_tutorials/TwoInts" and request that the associated callback be invoked every 200ms (5Hz)
   err_cod = cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", 200, callback_srv_add_two_ints, NULL, NULL, 1, 1, &svcidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)

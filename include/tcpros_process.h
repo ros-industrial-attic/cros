@@ -26,7 +26,7 @@ typedef enum
 
 /*! \brief The TcprosProcess object represents a client or server connection used to manage
  *         peer to peer TCPROS connections between nodes. It is internally used to emulate the
- *         "precess descriptor" in a multi-task system (here used in a mono task system), including
+ *         "process descriptor" in a multi-task system (here used in a mono task system), including
  *         the process file descriptors (i.e., a socket), process memory and the state.
  *         NOTE: this is a cROS internal object, usually you don't need to use it.
  */
