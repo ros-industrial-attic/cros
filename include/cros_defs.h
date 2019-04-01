@@ -13,31 +13,31 @@
 #define LITTLE_ENDIAN_ARC 1
 
 #ifndef CROS_DEBUG_LEVEL
-#define CROS_DEBUG_LEVEL 1
+#  define CROS_DEBUG_LEVEL 1
 #endif
 
 #if CROS_DEBUG_LEVEL >= 1
-#define PRINT_INFO(...) fprintf(cRosOutStreamGet(),__VA_ARGS__)
+#  define PRINT_INFO(...) fprintf(cRosOutStreamGet(),__VA_ARGS__)
 #else
-#define PRINT_INFO(...)
+#  define PRINT_INFO(...)
 #endif
 
 #if CROS_DEBUG_LEVEL >= 2
-#define PRINT_DEBUG(...) printf(__VA_ARGS__)
+#  define PRINT_DEBUG(...) printf(__VA_ARGS__)
 #else
-#define PRINT_DEBUG(...)
+#  define PRINT_DEBUG(...)
 #endif
 
 #if CROS_DEBUG_LEVEL >= 3
-#define PRINT_VDEBUG(...) printf(__VA_ARGS__)
+#  define PRINT_VDEBUG(...) printf(__VA_ARGS__)
 #else
-#define PRINT_VDEBUG(...)
+#  define PRINT_VDEBUG(...)
 #endif
 
 #define PRINT_ERROR(...) fprintf(cRosOutStreamGet(), __VA_ARGS__)
 
 #if LITTLE_ENDIAN_ARC
-#define HOST_TO_ROS_UINT32( val, converted_val ) converted_val = (val)
+#  define HOST_TO_ROS_UINT32( val, converted_val ) converted_val = (val)
 #else
 #define HOST_TO_ROS_UINT32( val, converted_val )\
 {\

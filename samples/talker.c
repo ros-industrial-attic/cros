@@ -33,6 +33,9 @@
 #include "cros.h"
 #include "cros_clock.h"
 
+#define ROS_MASTER_PORT 11311
+#define ROS_MASTER_ADDRESS "127.0.0.1"
+
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
 unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
 
@@ -88,7 +91,7 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
 int main(int argc, char **argv)
 {
   // We need to tell our node where to find the .msg files that we'll be using
-  char path[1024];
+  char path[4097];
   const char *node_name;
   cRosErrCodePack err_cod;
   int pubidx, svcidx;
@@ -100,8 +103,8 @@ int main(int argc, char **argv)
   getcwd(path, sizeof(path));
   strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
   // Create a new node and tell it to connect to roscore in the usual place
-  node = cRosNodeCreate(node_name, "127.0.0.1", "127.0.0.1", 11311, path);
-  
+  node = cRosNodeCreate(node_name, "127.0.0.1", ROS_MASTER_ADDRESS, ROS_MASTER_PORT, path);
+
   // Create a publisher to topic /chatter of type "std_msgs/String" and request that the associated callback be invoked every 100ms (10Hz)
   err_cod = cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 100, callback_pub, NULL, NULL, &pubidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
