@@ -29,6 +29,8 @@ static XmlrpcTagStrDim XMLRPC_PARAMS_TAG = { "<params>", 8 };
 static XmlrpcTagStrDim XMLRPC_PARAMS_ETAG = { "</params>", 9 };
 static XmlrpcTagStrDim XMLRPC_PARAM_TAG = { "<param>", 7 };
 static XmlrpcTagStrDim XMLRPC_PARAM_ETAG = { "</param>", 8 };
+static XmlrpcTagStrDim XMLRPC_FAULT_TAG = { "<fault>", 7 };
+static XmlrpcTagStrDim XMLRPC_FAULT_ETAG = { "</fault>", 8 };
 
 static XmlrpcTagStrDim XMLRPC_VALUE_TAG = { "<value>", 7 };
 static XmlrpcTagStrDim XMLRPC_VALUE_ETAG = { "</value>", 8 };
@@ -54,6 +56,7 @@ static XmlrpcTagStrDim XMLRPC_DATA_ETAG = { "</data>", 7 }; // end-tag
 static XmlrpcTagStrDim XMLRPC_DATA_NTAG = { "<data/>", 7 }; // empty-element tag (no content)
 static XmlrpcTagStrDim XMLRPC_STRUCT_TAG = { "<struct>", 8 };
 static XmlrpcTagStrDim XMLRPC_STRUCT_ETAG = { "</struct>", 9 };
+static XmlrpcTagStrDim XMLRPC_STRUCT_NTAG = { "<struct/>", 9 };
 static XmlrpcTagStrDim XMLRPC_MEMBER_TAG = { "<member>", 8 };
 static XmlrpcTagStrDim XMLRPC_MEMBER_ETAG = { "</member>", 9 };
 static XmlrpcTagStrDim XMLRPC_NAME_TAG = { "<name>", 6 };

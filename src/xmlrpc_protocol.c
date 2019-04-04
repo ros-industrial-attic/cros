@@ -20,6 +20,7 @@ static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int
   int i = 0;
   const char *c = params_body;
   int found_params = 0;
+  int found_fault = 0;
 
   for ( ; i < params_body_len; i++, c++ )
   {
@@ -31,67 +32,113 @@ static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int
       found_params = 1;
       break;
     }
+    else
+    if ( params_body_len - i >= XMLRPC_FAULT_TAG.dim &&
+         strncmp ( c, XMLRPC_FAULT_TAG.str, XMLRPC_FAULT_TAG.dim ) == 0 )
+    {
+      c += XMLRPC_FAULT_TAG.dim;
+      i += XMLRPC_FAULT_TAG.dim;
+      found_fault = 1;
+      break;
+    }
   }
 
-  if ( !found_params )
+  if ( !found_params && !found_fault)
   {
-    PRINT_ERROR ( "parseXmlrpcMessageParams() : params not found\n" );
+    PRINT_ERROR ( "parseXmlrpcMessageParams() : neither <params> tag nor <fault> tag have been found in the ROS master XML response.\n" );
     return XMLRPC_PARSER_ERROR;
   }
 
-  DynString param_str;
-  dynStringInit ( &param_str );
-  int param_str_len = 0;
-  const char *param_init = NULL;
-
-  for ( ; i < params_body_len; i++, c++ )
+  if ( found_params )
   {
-    if ( params_body_len - i >= XMLRPC_PARAMS_ETAG.dim &&
-         strncmp ( c, XMLRPC_PARAMS_ETAG.str, XMLRPC_PARAMS_ETAG.dim ) == 0 )
-    {
-      c += XMLRPC_PARAMS_ETAG.dim;
-      i += XMLRPC_PARAMS_ETAG.dim;
-      break;
-    }
+    DynString param_str;
+    dynStringInit ( &param_str );
+    int param_str_len = 0;
+    const char *param_init = NULL;
 
-    if ( param_init == NULL )
+    for ( ; i < params_body_len; i++, c++ )
     {
-      if ( params_body_len - i >= XMLRPC_PARAM_TAG.dim &&
-           strncmp ( c, XMLRPC_PARAM_TAG.str, XMLRPC_PARAM_TAG.dim ) == 0 )
+      if ( params_body_len - i >= XMLRPC_PARAMS_ETAG.dim &&
+           strncmp ( c, XMLRPC_PARAMS_ETAG.str, XMLRPC_PARAMS_ETAG.dim ) == 0 )
       {
-        c += XMLRPC_PARAM_TAG.dim - 1;
-        i += XMLRPC_PARAM_TAG.dim - 1;
-        param_init = c + 1;
-        param_str_len = 0;
+        c += XMLRPC_PARAMS_ETAG.dim;
+        i += XMLRPC_PARAMS_ETAG.dim;
+        break;
+      }
+
+      if ( param_init == NULL )
+      {
+        if ( params_body_len - i >= XMLRPC_PARAM_TAG.dim &&
+             strncmp ( c, XMLRPC_PARAM_TAG.str, XMLRPC_PARAM_TAG.dim ) == 0 )
+        {
+          c += XMLRPC_PARAM_TAG.dim - 1;
+          i += XMLRPC_PARAM_TAG.dim - 1;
+          param_init = c + 1;
+          param_str_len = 0;
+        }
+      }
+      else
+      {
+        if ( params_body_len - i >= XMLRPC_PARAM_ETAG.dim &&
+             strncmp ( c, XMLRPC_PARAM_ETAG.str, XMLRPC_PARAM_ETAG.dim ) == 0 )
+        {
+          if ( param_str_len )
+          {
+            dynStringReplaceWithStrN ( &param_str, param_init, param_str_len );
+
+            XmlrpcParam param;
+            xmlrpcParamInit(&param);
+
+            if ( xmlrpcParamFromXml ( &param_str, &param ) == -1 ||
+                 xmlrpcParamVectorPushBack ( params, &param ) < 0 )
+              return XMLRPC_PARSER_ERROR;
+          }
+
+          c += XMLRPC_PARAM_ETAG.dim - 1;
+          i += XMLRPC_PARAM_ETAG.dim - 1;
+          param_init = NULL;
+          param_str_len = 0;
+        }
+        else
+          param_str_len++;
       }
     }
-    else
+    dynStringRelease ( &param_str );
+  }
+  else // Found <fault> tag
+  {
+    DynString fault_str;
+    dynStringInit ( &fault_str );
+    int fault_str_len = 0;
+    const char *fault_init = c;
+
+    for ( ; i < params_body_len; i++, c++ )
     {
-      if ( params_body_len - i >= XMLRPC_PARAM_ETAG.dim &&
-           strncmp ( c, XMLRPC_PARAM_ETAG.str, XMLRPC_PARAM_ETAG.dim ) == 0 )
+      if ( params_body_len - i >= XMLRPC_FAULT_ETAG.dim &&
+           strncmp ( c, XMLRPC_FAULT_ETAG.str, XMLRPC_FAULT_ETAG.dim ) == 0 )
       {
-        if ( param_str_len )
+        if ( fault_str_len )
         {
-          dynStringReplaceWithStrN ( &param_str, param_init, param_str_len );
+          dynStringReplaceWithStrN ( &fault_str, fault_init, fault_str_len );
 
           XmlrpcParam param;
           xmlrpcParamInit(&param);
 
-          if ( xmlrpcParamFromXml ( &param_str, &param ) == -1 ||
+          if ( xmlrpcParamFromXml ( &fault_str, &param ) == -1 ||
                xmlrpcParamVectorPushBack ( params, &param ) < 0 )
             return XMLRPC_PARSER_ERROR;
         }
 
-        c += XMLRPC_PARAM_ETAG.dim - 1;
-        i += XMLRPC_PARAM_ETAG.dim - 1;
-        param_init = NULL;
-        param_str_len = 0;
+        c += XMLRPC_FAULT_ETAG.dim - 1;
+        i += XMLRPC_FAULT_ETAG.dim - 1;
+        fault_init = NULL;
+        fault_str_len = 0;
       }
       else
-        param_str_len++;
+        fault_str_len++;
     }
+    dynStringRelease ( &fault_str );
   }
-  dynStringRelease ( &param_str );
 
   return XMLRPC_PARSER_DONE;
 }

@@ -457,7 +457,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     }
   }
   else
-    PRINT_DEBUG ( "tcpIpSocketAccept() : Accepted connecion from port %i, new FD:%i\n", new_adr.sin_port, new_fd);
+    PRINT_DEBUG ( "tcpIpSocketAccept() : Accepted connecion at port %i from port %i, new FD:%i\n", s->port, new_adr.sin_port, new_fd);
 
   if( new_s->open )
     tcpIpSocketClose ( new_s );

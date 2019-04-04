@@ -25,6 +25,7 @@ static int structFromXml ( DynString *message, XmlrpcParam *param);
 static XmlrpcParam * arrayAddElem ( XmlrpcParam *param );
 static int paramSetMemberName ( XmlrpcParam *param, const char *name );
 
+
 static void boolToXml ( unsigned char val, DynString *message )
 {
   dynStringPushBackStr ( message, XMLRPC_VALUE_TAG.str );
@@ -123,7 +124,7 @@ static void binaryToXml ( void *val, DynString *message )
   PRINT_ERROR ( "binaryToXml() : ERROR: Not yet implemented!\n" );
 }
 
-int paramFromXml (DynString *message, XmlrpcParam *param,  ParamContainerType container)
+int paramFromXml (DynString *message, XmlrpcParam *param, ParamContainerType container)
 {
   PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", (container == PARAM_CONTAINER_ARRAY)?"TRUE":"FALSE" );
 
@@ -432,6 +433,16 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
       p_type = XMLRPC_PARAM_STRUCT;
       break;
     }
+    else if ( len - i >= XMLRPC_STRUCT_NTAG.dim &&
+              strncmp ( c, XMLRPC_STRUCT_NTAG.str, XMLRPC_STRUCT_NTAG.dim ) == 0 ) // Empty-structure tag
+    {
+      c += XMLRPC_STRUCT_NTAG.dim;
+      i += XMLRPC_STRUCT_NTAG.dim;
+      type_init = c;
+      type_end = c; // Indicate that the struct end has been found, so it is an empty structure
+      p_type = XMLRPC_PARAM_STRUCT;
+      break;
+    }
     else if ( len - i >= XMLRPC_VALUE_ETAG.dim &&
          strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
     {
@@ -548,9 +559,12 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
       if (param == NULL)
         return -1;
 
-      int rc = structFromXml(message, param);
-      if (rc < 0)
-        return rc;
+      if(type_end == NULL) // If it is not an empty structure, so parse the xml text
+      {
+        int rc = structFromXml(message, param);
+        if (rc < 0)
+          return rc;
+      }
 
       break;
     }
@@ -564,7 +578,7 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
   c = dynStringGetCurrentData ( message );
   i = dynStringGetPoseIndicatorOffset ( message );
-  for ( ; i < len; i++, c++ )
+  for ( ; i < len && type_end == NULL; c++ )
   {
     if ( p_type == XMLRPC_PARAM_BOOL && len - i >= XMLRPC_BOOLEAN_ETAG.dim &&
          strncmp ( c, XMLRPC_BOOLEAN_ETAG.str, XMLRPC_BOOLEAN_ETAG.dim ) == 0 )
@@ -573,7 +587,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_BOOLEAN_ETAG.dim;
       i += XMLRPC_BOOLEAN_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_INT && len - i >= XMLRPC_I4_ETAG.dim &&
          strncmp ( c, XMLRPC_I4_ETAG.str, XMLRPC_I4_ETAG.dim ) == 0 )
@@ -582,7 +595,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_I4_ETAG.dim;
       i += XMLRPC_I4_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_INT && len - i >= XMLRPC_INT_ETAG.dim &&
          strncmp ( c, XMLRPC_INT_ETAG.str, XMLRPC_INT_ETAG.dim ) == 0 )
@@ -591,7 +603,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_INT_ETAG.dim;
       i += XMLRPC_INT_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_STRING && len - i >= XMLRPC_STRING_ETAG.dim &&
          strncmp ( c, XMLRPC_STRING_ETAG.str, XMLRPC_STRING_ETAG.dim ) == 0 )
@@ -600,7 +611,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_STRING_ETAG.dim;
       i += XMLRPC_STRING_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_ARRAY && len - i >= XMLRPC_ARRAY_ETAG.dim &&
          strncmp ( c, XMLRPC_ARRAY_ETAG.str, XMLRPC_ARRAY_ETAG.dim ) == 0 )
@@ -609,7 +619,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_ARRAY_ETAG.dim;
       i += XMLRPC_ARRAY_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_STRUCT && len - i >= XMLRPC_STRUCT_ETAG.dim &&
          strncmp ( c, XMLRPC_STRUCT_ETAG.str, XMLRPC_STRUCT_ETAG.dim ) == 0 )
@@ -618,7 +627,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_STRUCT_ETAG.dim;
       i += XMLRPC_STRUCT_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_DATETIME && len - i >= XMLRPC_DATETIME_ETAG.dim &&
          strncmp ( c, XMLRPC_DATETIME_ETAG.str, XMLRPC_DATETIME_ETAG.dim ) == 0 )
@@ -627,7 +635,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_DATETIME_ETAG.dim;
       i += XMLRPC_DATETIME_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_BINARY && len - i >= XMLRPC_BASE64_ETAG.dim &&
          strncmp ( c, XMLRPC_BASE64_ETAG.str, XMLRPC_BASE64_ETAG.dim ) == 0 )
@@ -636,7 +643,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_BASE64_ETAG.dim;
       i += XMLRPC_BASE64_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_STRUCT && len - i >= XMLRPC_STRUCT_ETAG.dim &&
          strncmp ( c, XMLRPC_STRUCT_ETAG.str, XMLRPC_STRUCT_ETAG.dim ) == 0 )
@@ -645,7 +651,6 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
 
       c += XMLRPC_STRUCT_ETAG.dim;
       i += XMLRPC_STRUCT_ETAG.dim;
-      break;
     }
     else if ( p_type == XMLRPC_PARAM_UNKNOWN && len - i >= XMLRPC_VALUE_ETAG.dim &&
          strncmp ( c, XMLRPC_VALUE_ETAG.str, XMLRPC_VALUE_ETAG.dim ) == 0 )
@@ -653,10 +658,12 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
       type_end = c;
 
       // End value tag is feeded outside
-      break;
     }
     else
+    {
       str_len++;
+      i++; // Only increase the string index if an end tag has not been found
+    }
   }
 
   // Update pose indicator (useful in case it is an array parameter)
