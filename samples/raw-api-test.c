@@ -1,19 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
+#include <stdint.h>
 #include <time.h>
-#include <unistd.h>
 
-#include <cros_defs.h>
-#include <cros_node.h>
-#include <cros_api.h>
-#include <cros_api_internal.h>
-#include <cros_clock.h>
-#include <cros_gentools.h>
-#include <cros_node_api.h>
-#include <cros_message.h>
-#include <cros_service.h>
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#  include <direct.h>
+#  define DIR_SEPARATOR_STR "\\"
+#else
+#  include <unistd.h>
+#  include <limits.h>
+#  define DIR_SEPARATOR_STR "/"
+#endif
+
+#include "cros_defs.h"
+#include "cros_node.h"
+#include "cros_api.h"
+#include "cros_api_internal.h"
+#include "cros_clock.h"
+#include "cros_gentools.h"
+#include "cros_node_api.h"
+#include "cros_message.h"
+#include "cros_service.h"
 
 // TODO Signal handler
 
@@ -72,7 +82,7 @@ static cRosErrCodePack gripperstatus_callback(DynBuffer *buffer, void* data_cont
          ClampStatus[2], ClampStatus[3]);
   printf("AlarmCodes: [");
   int first = 1;
-  int it = 0;
+  uint32_t it = 0;
   for (; it < NAlarmCodes; it++)
   {
     if (first)
@@ -402,7 +412,7 @@ static cRosErrCodePack doublevector_subscription_callback(DynBuffer *buffer, voi
   memcpy(vector, data+sizeof(uint32_t), count);
   printf("Vector: [");
   int first = 1;
-  int it = 0;
+  uint32_t it = 0;
   for (; it < count; it++)
   {
     if (first)
@@ -616,7 +626,7 @@ int main(int argc, char **argv)
     return EXIT_SUCCESS;
   }
 
-  srand (time(NULL));
+  srand((unsigned int)time(NULL));
 
   int i = 1;
   for( ; i < argc - 1; i+=2)
@@ -649,9 +659,9 @@ int main(int argc, char **argv)
   printf("To set a different node/host/port, take a look at the options: ");
   printf("%s -h\n", argv[0]);
 
-  char path[1024];
+  char path[4097];
   getcwd(path, sizeof(path));
-  strncat(path, "/rosdb", sizeof(path) - strlen(path) - 1);
+  strncat(path, DIR_SEPARATOR_STR"rosdb", sizeof(path) - strlen(path) - 1);
   node = cRosNodeCreate( node_name, node_host, roscore_host, roscore_port, path);
 
   int rc;

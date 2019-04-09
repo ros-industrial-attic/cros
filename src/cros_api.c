@@ -1352,6 +1352,7 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
+  xmlrpcParamVectorPrint(response);
   XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
   XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
   ret->code  = code->data.as_int;

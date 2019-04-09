@@ -1,7 +1,8 @@
 /*! \file parameters-test.c
  *  \brief The file is an example of cROS usage implementing a parameter subscriber. This sample
  *         can be used together with rosparam or MATLAB to prove the operation of parameter sharing
- *         between two nodes.
+ *         between two nodes. If MATLAB is used, it must not be used as ROS master node since it seems that
+ *         it does not notify parameter updates.
  *
  *  It creates a parameter subscriber to the key /testparam. Each time this parameter is updated by
  *  other node the master node informs about it and the callback function getNodeStatusCallback() is executed.

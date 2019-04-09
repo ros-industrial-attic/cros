@@ -270,6 +270,11 @@ XmlrpcParam * xmlrpcParamClone( XmlrpcParam *param );
 
 int xmlrpcParamCopy(XmlrpcParam *dest, XmlrpcParam *source);
 
+// Functions for internal library use
+static void paramPrint( XmlrpcParam *param, char *head, int is_struct_member);
+
+static void paramArrayPrint( XmlrpcParam *param, char *head, int is_struct_member);
+
 /*! @}*/
 
 #endif

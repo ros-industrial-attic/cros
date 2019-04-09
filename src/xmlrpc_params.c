@@ -1282,57 +1282,70 @@ int xmlrpcParamFromXml ( DynString *message, XmlrpcParam *param )
   return ret;
 }
 
-static void paramPrint( XmlrpcParam *param, char *head )
+static void paramArrayPrint( XmlrpcParam *param, char *head, int is_struct_member)
 {
-  int i;
+  int elem_ind;
+
+  if ( param->data.as_array != NULL)
+  {
+    for ( elem_ind = 0; elem_ind < param->array_n_elem; elem_ind++ )
+    {
+      char elem_head[20];
+      snprintf(elem_head, 20, "Elem [%d]",elem_ind);
+      paramPrint( & ( param->data.as_array[elem_ind] ), elem_head , is_struct_member);
+    }
+  }
+  else
+    fprintf(cRosOutStreamGet(),"Empty array/struct\n");
+}
+
+static void paramPrint( XmlrpcParam *param, char *head, int is_struct_member)
+{
+  fprintf(cRosOutStreamGet(),"%s ", head);
+
+  if(is_struct_member)
+    fprintf(cRosOutStreamGet(),"member name: [%s] ", (param->member_name != NULL)? param->member_name:"none");
+
   switch ( param->type )
   {
   case XMLRPC_PARAM_BOOL:
-    fprintf(cRosOutStreamGet(),"%s type : boolean Value : [%s]\n", head, param->data.as_bool?"TRUE":"FALSE" );
+    fprintf(cRosOutStreamGet(),"type : boolean Value : [%s]\n", param->data.as_bool?"TRUE":"FALSE" );
     break;
   case XMLRPC_PARAM_INT:
-    fprintf(cRosOutStreamGet(),"%s type : integer Value : [%d]\n", head, param->data.as_int );
+    fprintf(cRosOutStreamGet(),"type : integer Value : [%d]\n", param->data.as_int );
     break;
   case XMLRPC_PARAM_DOUBLE:
-    fprintf(cRosOutStreamGet(),"%s type : double Value : [%f]\n", head, param->data.as_double );
+    fprintf(cRosOutStreamGet(),"type : double Value : [%f]\n", param->data.as_double );
     break;
   case XMLRPC_PARAM_STRING:
-    fprintf(cRosOutStreamGet(),"%s type : string Value : [%s]\n", head,
-           (param->data.as_string != NULL)?param->data.as_string:"NULL" );
+    fprintf(cRosOutStreamGet(),"type : string Value : [%s]\n", (param->data.as_string != NULL)?param->data.as_string:"NULL" );
     break;
-
   case XMLRPC_PARAM_ARRAY:
-    fprintf(cRosOutStreamGet(),"%s type : array\n\n========Start array========\n", head);
-    if ( param->data.as_array != NULL && param->array_n_elem )
-    {
-      for ( i = 0; i< param->array_n_elem; i++ )
-      {
-        char elem_head[20];
-        snprintf(elem_head, 20, "Elem [%d]",i);
-        paramPrint( & ( param->data.as_array[i] ), elem_head );
-      }
-    }
-    else
-      fprintf(cRosOutStreamGet(),"Empty array\n");
-
-    fprintf(cRosOutStreamGet(),"=========End array=========\n\n");
+    fprintf(cRosOutStreamGet(),"type : array\n======== Array start ========\n");
+    paramArrayPrint( param, head, 0);
+    fprintf(cRosOutStreamGet(),"========= Array end =========\n\n");
+    break;
+  case XMLRPC_PARAM_STRUCT:
+    fprintf(cRosOutStreamGet(),"type : struct\n======== Struct start ========\n");
+    paramArrayPrint( param, head, 1);
+    fprintf(cRosOutStreamGet(),"========= Struct end =========\n\n");
     break;
 
   case XMLRPC_PARAM_DATETIME: /* WARNING: Currently unsupported */
-  case XMLRPC_PARAM_BINARY: /* WARNING: Currently unsupported */
-  case XMLRPC_PARAM_STRUCT: /* WARNING: Currently unsupported */
-    PRINT_ERROR ( "xmlrpcParamPrint() : Parameter type not yet supported\n" );
+    PRINT_ERROR ( "\nxmlrpcParamPrint() : Printing of parameter type datetime is not supported yet\n" );
     break;
-
+  case XMLRPC_PARAM_BINARY: /* WARNING: Currently unsupported */
+    PRINT_ERROR ( "\nxmlrpcParamPrint() : Printing of parameter type binary is not supported.\n" );
+    break;
   default:
-    PRINT_ERROR ( "xmlrpcParamPrint() : Unknown parameter \n" );
+    PRINT_ERROR ( "\nxmlrpcParamPrint() : Unknown parameter type\n" );
     break;
   }
 }
 
 void xmlrpcParamPrint( XmlrpcParam *param )
 {
-  paramPrint( param, "XMLRPC parameter" );
+  paramPrint( param, "XMLRPC parameter", 0 );
 }
 
 XmlrpcParam * xmlrpcParamNew(void)
