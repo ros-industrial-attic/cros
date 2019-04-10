@@ -159,8 +159,13 @@ XmlrpcParam *xmlrpcParamVectorAt ( XmlrpcParamVector *p_vec, int pos )
 
 void xmlrpcParamVectorPrint( XmlrpcParamVector *p_vec )
 {
-  PRINT_DEBUG ( "XMLRPC parameters vector size : %d\n", p_vec->size);
-  int i = 0;
-  for( ; i < p_vec->size; i++)
-    xmlrpcParamPrint( xmlrpcParamVectorAt( p_vec, i ) );
+  int elem_ind;
+
+  PRINT_DEBUG ( "XMLRPC parameter vector (size : %d):\n", p_vec->size);
+
+  for(elem_ind = 0 ; elem_ind < p_vec->size; elem_ind++)
+  {
+    PRINT_DEBUG ( "Vec. elem [%i]: ", elem_ind );
+    xmlrpcParamPrint( xmlrpcParamVectorAt( p_vec, elem_ind ) );
+  }
 }

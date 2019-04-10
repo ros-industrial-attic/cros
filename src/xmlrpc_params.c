@@ -921,10 +921,21 @@ int xmlrpcParamArrayGetSize( XmlrpcParam *param )
 
 XmlrpcParam *xmlrpcParamArrayGetParamAt( XmlrpcParam *param, int idx )
 {
-  if( param->type == XMLRPC_PARAM_ARRAY && idx < param->array_n_elem )
-    return &(param->data.as_array[idx]);
+  if( param->type == XMLRPC_PARAM_ARRAY || param->type == XMLRPC_PARAM_STRUCT )
+  {
+    if( idx >= 0 && idx < param->array_n_elem )
+      return &(param->data.as_array[idx]);
+    else
+    {
+      PRINT_ERROR ( "xmlrpcParamArrayGetParamAt() : The index to access the array (or structure) element must be between 0 and the number of elements-1.\n" );
+      return NULL;
+    }
+  }
   else
+  {
+    PRINT_ERROR ( "xmlrpcParamArrayGetParamAt() : Only elements of a structure or an array can be accessed through index.\n" );
     return NULL;
+  }
 }
 
 int xmlrpcParamSetArray ( XmlrpcParam *param )
@@ -1304,29 +1315,29 @@ static void paramPrint( XmlrpcParam *param, char *head, int is_struct_member)
   fprintf(cRosOutStreamGet(),"%s ", head);
 
   if(is_struct_member)
-    fprintf(cRosOutStreamGet(),"member name: [%s] ", (param->member_name != NULL)? param->member_name:"none");
+    fprintf(cRosOutStreamGet(),"Member name: [%s] ", (param->member_name != NULL)? param->member_name:"NULL");
 
   switch ( param->type )
   {
   case XMLRPC_PARAM_BOOL:
-    fprintf(cRosOutStreamGet(),"type : boolean Value : [%s]\n", param->data.as_bool?"TRUE":"FALSE" );
+    fprintf(cRosOutStreamGet(),"Type : boolean Value : [%s]\n", param->data.as_bool?"TRUE":"FALSE" );
     break;
   case XMLRPC_PARAM_INT:
-    fprintf(cRosOutStreamGet(),"type : integer Value : [%d]\n", param->data.as_int );
+    fprintf(cRosOutStreamGet(),"Type : integer Value : [%d]\n", param->data.as_int );
     break;
   case XMLRPC_PARAM_DOUBLE:
-    fprintf(cRosOutStreamGet(),"type : double Value : [%f]\n", param->data.as_double );
+    fprintf(cRosOutStreamGet(),"Type : double Value : [%f]\n", param->data.as_double );
     break;
   case XMLRPC_PARAM_STRING:
-    fprintf(cRosOutStreamGet(),"type : string Value : [%s]\n", (param->data.as_string != NULL)?param->data.as_string:"NULL" );
+    fprintf(cRosOutStreamGet(),"Type : string Value : [%s]\n", (param->data.as_string != NULL)?param->data.as_string:"NULL" );
     break;
   case XMLRPC_PARAM_ARRAY:
-    fprintf(cRosOutStreamGet(),"type : array\n======== Array start ========\n");
+    fprintf(cRosOutStreamGet(),"Type : array\n======== Array start ========\n");
     paramArrayPrint( param, head, 0);
     fprintf(cRosOutStreamGet(),"========= Array end =========\n\n");
     break;
   case XMLRPC_PARAM_STRUCT:
-    fprintf(cRosOutStreamGet(),"type : struct\n======== Struct start ========\n");
+    fprintf(cRosOutStreamGet(),"Type : struct\n======== Struct start ========\n");
     paramArrayPrint( param, head, 1);
     fprintf(cRosOutStreamGet(),"========= Struct end =========\n\n");
     break;
@@ -1345,7 +1356,7 @@ static void paramPrint( XmlrpcParam *param, char *head, int is_struct_member)
 
 void xmlrpcParamPrint( XmlrpcParam *param )
 {
-  paramPrint( param, "XMLRPC parameter", 0 );
+  paramPrint( param, "XMLRPC parameter.", 0 ); // last parameter = 0 means that this parameter is not the member of a structure
 }
 
 XmlrpcParam * xmlrpcParamNew(void)

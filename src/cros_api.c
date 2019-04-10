@@ -1031,6 +1031,51 @@ cRosErrCodePack cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callb
   return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
+XmlrpcParam *GetMethodResponseStatus(XmlrpcParamVector *response, int *status_code, char **status_msg)
+{
+  XmlrpcParam *resp_param;
+
+  resp_param = xmlrpcParamVectorAt(response, 0);
+  if (resp_param != NULL)
+  {
+    XmlrpcParam *status_code_param;
+    status_code_param = xmlrpcParamArrayGetParamAt(resp_param, 0); // resp_param must be a vector or structure in order to be accessed by index
+    if (status_code_param != NULL)
+    {
+      if( status_code_param->type == XMLRPC_PARAM_INT )
+      {
+        XmlrpcParam *status_msg_param;
+
+        *status_code = status_code_param->data.as_int;
+        status_msg_param = xmlrpcParamArrayGetParamAt(resp_param, 1);
+        if (status_msg_param != NULL)
+        {
+          if( status_msg_param->type == XMLRPC_PARAM_STRING )
+            *status_msg = strdup(status_msg_param->data.as_string);
+          else
+            *status_msg = NULL; // status_msg = NULL: No human-readable string describing the returned status has been found
+        }
+        else
+          *status_msg = NULL; // The array or structure returned in the ROS master response does not contain a second element (the human-readable string describing the status)
+      }
+      else
+      {
+        PRINT_ERROR ( "GetMethodResponseStatus() : The status code integer cannot be found in the responsed returned by the ROS master.\n");
+        resp_param = NULL;
+      }
+    }
+    else
+    {
+      PRINT_ERROR ( "GetMethodResponseStatus() : The responsed returned by the ROS master does not contain a non-empty array or structure.\n");
+      resp_param = NULL;
+    }
+  }
+  else
+    PRINT_ERROR ( "GetMethodResponseStatus() : The ROS master returned an XML response with an unexpected format.\n");
+
+  return(resp_param);
+}
+
 LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)
 {
   LookupNodeResult *ret = (LookupNodeResult *)calloc(1, sizeof(LookupNodeResult));
@@ -1047,7 +1092,7 @@ LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)
   strcpy(ret->status, status->data.as_string);
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->uri = (char *)malloc(strlen(status->data.as_string) + 1);
+  ret->uri = (char *)malloc(strlen(uri->data.as_string) + 1);
   if (ret == NULL)
     goto clean;
   strcpy(ret->uri, uri->data.as_string);
@@ -1304,7 +1349,7 @@ GetUriResult * fetchGetUriResult(XmlrpcParamVector *response)
   strcpy(ret->status, status->data.as_string);
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->master_uri = (char *)malloc(strlen(status->data.as_string) + 1);
+  ret->master_uri = (char *)malloc(strlen(uri->data.as_string) + 1);
   if (ret == NULL)
     goto clean;
   strcpy(ret->master_uri, uri->data.as_string);
@@ -1332,7 +1377,7 @@ LookupServiceResult * fetchLookupServiceResult(XmlrpcParamVector *response)
   strcpy(ret->status, status->data.as_string);
 
   XmlrpcParam* service = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->service_result = (char *)malloc(strlen(status->data.as_string) + 1);
+  ret->service_result = (char *)malloc(strlen(service->data.as_string) + 1);
   if (ret == NULL)
     goto clean;
   strcpy(ret->service_result, service->data.as_string);
@@ -1352,7 +1397,6 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  xmlrpcParamVectorPrint(response);
   XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
   XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
   ret->code  = code->data.as_int;
@@ -1559,7 +1603,7 @@ GetMasterUriResult * fetchGetMasterUriResult(XmlrpcParamVector *response)
   strcpy(ret->status, status->data.as_string);
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->master_uri = (char *)malloc(strlen(status->data.as_string) + 1);
+  ret->master_uri = (char *)malloc(strlen(uri->data.as_string) + 1);
   if (ret == NULL)
     goto clean;
   strcpy(ret->master_uri, uri->data.as_string);

@@ -39,7 +39,7 @@ struct XmlrpcParam
     int32_t as_int;
     double as_double;
     char *as_string;
-    XmlrpcParam *as_array;
+    XmlrpcParam *as_array; // or struct
     void* as_time; /* WARNING: Currently unsupported */
     void* as_binary; /* WARNING: Currently unsupported */
   } data; //! Param data

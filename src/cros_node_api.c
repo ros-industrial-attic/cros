@@ -181,6 +181,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       PRINT_ERROR ( "cRosApiParseResponse() : Not a response message \n" );
       return ret;
     }
+    xmlrpcParamVectorPrint(&client_proc->response); ////
 
     switch (call->method)
     {
@@ -204,7 +205,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       case CROS_API_REGISTER_SUBSCRIBER:
       {
         PRINT_DEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
-        //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         //Get the next subscriber without a topic host
         if(call->provider_idx == -1)
@@ -263,7 +263,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       case CROS_API_LOOKUP_SERVICE:
       {
         PRINT_DEBUG ( "cRosApiParseResponse() : Lookup Service response\n" );
-        //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         //Get the next service caller without a topic host
         if(call->provider_idx == -1)
@@ -380,7 +379,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       case CROS_API_GET_PID:
       {
         PRINT_DEBUG ( "cRosApiParseResponse() : get PID response \n" );
-        //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         if( checkResponseValue( &client_proc->response ) )
         {
@@ -409,7 +407,6 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       case CROS_API_UNREGISTER_SERVICE:
       {
         PRINT_DEBUG ( "cRosApiParseResponse() : unregister service response \n" );
-        //xmlrpcParamVectorPrint( &(client_proc->params) );
 
         if( checkResponseValue( &client_proc->response ) )
         {
@@ -495,6 +492,8 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       case CROS_API_GET_PARAM_NAMES:
       {
         ret = 0;
+
+        xmlrpcParamVectorPrint(&client_proc->response); ////
 
         ResultCallback callback = call->result_callback;
         if (callback != NULL)
