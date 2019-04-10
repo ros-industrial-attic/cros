@@ -1082,26 +1082,29 @@ LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchLookupNodeResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeLookupNodeResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->uri = (char *)malloc(strlen(uri->data.as_string) + 1);
-  if (ret == NULL)
-    goto clean;
-  strcpy(ret->uri, uri->data.as_string);
+  ret->uri = strdup(uri->data.as_string);
+  if (ret->uri == NULL)
+  {
+    freeLookupNodeResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeLookupNodeResult(ret);
-  return NULL;
 }
 
 GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *response)
@@ -1112,14 +1115,19 @@ GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *resp
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetPublishedTopicsResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetPublishedTopicsResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
   ret->topics = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
@@ -1159,14 +1167,19 @@ GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetTopicTypesResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetTopicTypesResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
   ret->topics = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
@@ -1206,14 +1219,19 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetSystemStateResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetSystemStateResult(ret);
+    return NULL;
+  }
 
   if (array->array_n_elem < 3)
     return ret;
@@ -1339,26 +1357,29 @@ GetUriResult * fetchGetUriResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetUriResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetUriResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->master_uri = (char *)malloc(strlen(uri->data.as_string) + 1);
+  ret->master_uri = strdup(uri->data.as_string);
   if (ret == NULL)
-    goto clean;
-  strcpy(ret->master_uri, uri->data.as_string);
+  {
+    freeGetUriResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeGetUriResult(ret);
-  return NULL;
 }
 
 LookupServiceResult * fetchLookupServiceResult(XmlrpcParamVector *response)
@@ -1367,26 +1388,29 @@ LookupServiceResult * fetchLookupServiceResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchLookupServiceResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeLookupServiceResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* service = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->service_result = (char *)malloc(strlen(service->data.as_string) + 1);
+  ret->service_result = strdup(service->data.as_string);
   if (ret == NULL)
-    goto clean;
-  strcpy(ret->service_result, service->data.as_string);
+  {
+    freeLookupServiceResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeLookupServiceResult(ret);
-  return NULL;
 }
 
 GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
@@ -1397,14 +1421,19 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetBusStatsResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetBusStatsResult(ret);
+    return NULL;
+  }
 
   if (array->array_n_elem < 3)
     return ret;
@@ -1526,14 +1555,19 @@ GetBusInfoResult * fetchGetBusInfoResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetBusInfoResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetBusInfoResult(ret);
+    return NULL;
+  }
 
   if (array->array_n_elem < 3)
     return ret;
@@ -1593,26 +1627,29 @@ GetMasterUriResult * fetchGetMasterUriResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return ret;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetMasterUriResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetMasterUriResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->master_uri = (char *)malloc(strlen(uri->data.as_string) + 1);
-  if (ret == NULL)
-    goto clean;
-  strcpy(ret->master_uri, uri->data.as_string);
+  ret->master_uri = strdup(uri->data.as_string);
+  if (ret->master_uri == NULL)
+  {
+    freeGetMasterUriResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeGetMasterUriResult(ret);
-  return NULL;
 }
 
 ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response)
@@ -1621,23 +1658,31 @@ ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchShutdownResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeShutdownResult(ret);
+    return NULL;
+  }
 
-  XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->ignore = ignore->data.as_bool;
+  XmlrpcParam *ignore = xmlrpcParamArrayGetParamAt(array, 2);
+  if(ignore != NULL)
+    ret->ignore = ignore->data.as_bool;
+  else
+  {
+    PRINT_ERROR ( "fetchShutdownResult() : The ROS master response does not contain the 'ignore' parameter.\n" );
+    freeShutdownResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeShutdownResult(ret);
-  return NULL;
 }
 
 GetPidResult * fetchGetPidResult(XmlrpcParamVector *response)
@@ -1646,22 +1691,31 @@ GetPidResult * fetchGetPidResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetPidResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetPidResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* roscore_pid_param = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->server_process_pid = roscore_pid_param->data.as_int;
-  return ret;
+  if(roscore_pid_param != NULL)
+    ret->server_process_pid = roscore_pid_param->data.as_int;
+  else
+  {
+    PRINT_ERROR ( "fetchGetPidResult() : The ROS master response does not contain the requested PID.\n" );
+    freeGetPidResult(ret);
+    return NULL;
+  }
 
-clean:
-  freeGetPidResult(ret);
-  return NULL;
+  return ret;
 }
 
 GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response)
@@ -1672,14 +1726,19 @@ GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetSubscriptionsResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetSubscriptionsResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
   ret->topic_list = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
@@ -1719,14 +1778,19 @@ GetPublicationsResult * fetchGetPublicationsResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetPublicationsResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetPublicationsResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
   ret->topic_list = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
@@ -1764,22 +1828,31 @@ static DeleteParamResult * fetchDeleteParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchDeleteParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeDeleteParamResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->ignore = ignore->data.as_bool;
+  if(ignore != NULL)
+    ret->ignore = ignore->data.as_bool;
+  else
+  {
+    PRINT_ERROR ( "fetchDeleteParamResult() : The ROS master response does not contain the 'ignore' parameter.\n" );
+    freeDeleteParamResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeDeleteParamResult(ret);
-  return NULL;
 }
 
 static SetParamResult * fetchSetParamResult(XmlrpcParamVector *response)
@@ -1788,22 +1861,31 @@ static SetParamResult * fetchSetParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchSetParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeSetParamResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->ignore = ignore->data.as_bool;
+  if(ignore != NULL)
+    ret->ignore = ignore->data.as_bool;
+  else
+  {
+    PRINT_ERROR ( "fetchSetParamResult() : The ROS master response does not contain the 'ignore' parameter.\n" );
+    freeSetParamResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeSetParamResult(ret);
-  return NULL;
 }
 
 static GetParamResult * fetchGetParamResult(XmlrpcParamVector *response)
@@ -1812,24 +1894,34 @@ static GetParamResult * fetchGetParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetParamResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* value = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->value = xmlrpcParamClone(value);
-  if (ret->status == NULL)
-    goto clean;
+  if( value != NULL )
+    ret->value = xmlrpcParamClone(value);
+  else
+  {
+    if(ret->code != 1) // Only if ret->code is not 1, parameterValue can be ignored.
+    {
+      PRINT_ERROR ( "fetchGetParamResult() : The ROS master response does not contain the 'parameterValue' parameter.\n" );
+      freeGetParamResult(ret);
+      return NULL;
+    }
+  }
 
   return ret;
-
-clean:
-  freeGetParamResult(ret);
-  return NULL;
 }
 
 static SearchParamResult * fetchSearchParamResult(XmlrpcParamVector *response)
@@ -1838,25 +1930,39 @@ static SearchParamResult * fetchSearchParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchSearchParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeSearchParamResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* found_key = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->found_key = (char *)malloc(strlen(found_key->data.as_string) + 1);
-  if (ret->found_key == NULL)
-    goto clean;
-  strcpy(ret->found_key, found_key->data.as_string);
+  if(found_key != NULL)
+  {
+    ret->found_key = strdup(found_key->data.as_string);
+    if(ret->found_key == NULL)
+    {
+      PRINT_ERROR ( "fetchSearchParamResult() : Error allocating memory for the 'foundKey' parameter.\n" );
+      freeSearchParamResult(ret);
+      return NULL;
+    }
+  }
+  else
+  {
+    PRINT_ERROR ( "fetchSearchParamResult() : The ROS master response does not contain the 'foundKey' parameter.\n" );
+    freeSearchParamResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeSearchParamResult(ret);
-  return NULL;
 }
 
 static HasParamResult * fetchHasParamResult(XmlrpcParamVector *response)
@@ -1865,22 +1971,31 @@ static HasParamResult * fetchHasParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
-  XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->has_param = ignore->data.as_bool;
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchHasParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeHasParamResult(ret);
+    return NULL;
+  }
+
+  XmlrpcParam* has_param = xmlrpcParamArrayGetParamAt(array, 2);
+  if(has_param != NULL)
+    ret->has_param = has_param->data.as_bool;
+  else
+  {
+    PRINT_ERROR ( "fetchHasParamResult() : The ROS master response does not contain the 'has_param' parameter.\n" );
+    freeHasParamResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeHasParamResult(ret);
-  return NULL;
 }
 
 static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *response)
@@ -1891,14 +2006,20 @@ static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *respons
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetParamNamesResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetParamNamesResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* param_names = xmlrpcParamArrayGetParamAt(array, 2);
   ret->parameter_names = (char **)calloc(param_names->array_n_elem, sizeof(char *));
   if (ret->parameter_names== NULL)

@@ -181,7 +181,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       PRINT_ERROR ( "cRosApiParseResponse() : Not a response message \n" );
       return ret;
     }
-    xmlrpcParamVectorPrint(&client_proc->response); ////
+    // xmlrpcParamVectorPrint(&client_proc->response); ////
 
     switch (call->method)
     {
@@ -493,7 +493,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       {
         ret = 0;
 
-        xmlrpcParamVectorPrint(&client_proc->response); ////
+        // xmlrpcParamVectorPrint(&client_proc->response); ////
 
         ResultCallback callback = call->result_callback;
         if (callback != NULL)
