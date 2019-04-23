@@ -45,7 +45,7 @@
 #include "cros_clock.h"
 
 CrosNode *node;
-uint64_t start_timer = 0;
+
 int paramx_updated = 0;
 int paramy_updated = 0;
 int paramz_updated = 0;
