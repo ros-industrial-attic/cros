@@ -469,7 +469,7 @@ void getPidCallback(int callid, GetPidResult *result, void *context)
 {
   printf("Pid: %d\n", result->server_process_pid);
   fflush(stdout);
-  cRosApiGetBusStats(node, xmlrpc_host, xmlrpc_port, getBusStatsCallback, NULL, NULL);
+//  cRosApiGetBusStats(node, xmlrpc_host, xmlrpc_port, getBusStatsCallback, NULL, NULL); // getBusStats method is not supported by MATLAB ROS master
 }
 
 static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
@@ -944,7 +944,7 @@ int main(int argc, char **argv)
   if(err_cod != CROS_SUCCESS_ERR_PACK)
     cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
 
-  // All done: free memory and unregister from ROS master
+  // All done: free memory and unregister from ROS master. The next code is normally not reached.
   err_cod=cRosNodeDestroy( node );
   if(err_cod != CROS_SUCCESS_ERR_PACK)
     cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unregistering from ROS master");

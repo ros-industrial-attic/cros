@@ -20,6 +20,7 @@
  *  To exit safely press Ctrl-C or 'kill' the process once. If this actions are repeated, the process
  *  will be finished immediately.
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,14 +49,14 @@ uint64_t start_timer = 0;
 int paramx_updated = 0;
 int paramy_updated = 0;
 int paramz_updated = 0;
-unsigned char exit_flag = 0; //! ROS-node loop exit flag. When it is set to 1 the cRosNodeStart() function exits
+static unsigned char exit_flag = 0; //! ROS-node loop exit flag. When it is set to 1 the cRosNodeStart() function exits
 
-void getParamNamesCallback(int callid, GetParamNamesResult *result, void *context)
+static void getParamNamesCallback(int callid, GetParamNamesResult *result, void *context)
 {
   // OK
 }
 
-void setParamCallback(int callid, SetParamResult *result, void *context)
+static void setParamCallback(int callid, SetParamResult *result, void *context)
 {
   // OK
 }
@@ -122,7 +123,7 @@ static void getNodeStatusCallback(CrosNodeStatusUsr *status, void* context)
 // CTRL_CLOSE_EVENT signal.
 // Function set_signal_handler() should be called to set function exit_deamon_handler() as the handler of
 // these signals
-BOOL WINAPI exit_deamon_handler(DWORD sig)
+static BOOL WINAPI exit_deamon_handler(DWORD sig)
 {
   BOOL sig_handled;
 
@@ -143,7 +144,7 @@ BOOL WINAPI exit_deamon_handler(DWORD sig)
 }
 
 // Sets the signal handler functions of CTRL_C_EVENT and CTRL_CLOSE_EVENT: exit_deamon_handler
-DWORD set_signal_handler(void)
+static DWORD set_signal_handler(void)
 {
   DWORD ret;
 
@@ -172,7 +173,7 @@ static void exit_deamon_handler(int sig)
 }
 
 // Sets the signal handler functions of SIGINT and SIGTERM: exit_deamon_handler
-int set_signal_handler(void)
+static int set_signal_handler(void)
 {
   int ret;
   struct sigaction act;

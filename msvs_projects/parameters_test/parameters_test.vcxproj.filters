@@ -18,8 +18,5 @@
     <ClCompile Include="..\..\samples\parameters-test.c">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\samples\raw-api-test.c">
-      <Filter>Archivos de origen</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>

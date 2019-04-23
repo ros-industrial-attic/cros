@@ -35,7 +35,7 @@
 #define ROS_MASTER_ADDRESS "127.0.0.1"
 
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS node state variables
-unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
+static unsigned char exit_flag = 0; //! ROS node loop exit flag. When set to 1 the cRosNodeStart() function exits
 
 // This callback will be invoked when the subscriber receives a message
 static CallbackResponse callback_sub(cRosMessage *message, void* data_context)
@@ -72,12 +72,15 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
   return 0; // 0=success
 }
 
+// Ctrl-C-and-'kill' event/signal handler: (this code is no strictly necessary for a simple example and can be removed)
 #ifdef _WIN32
 // This callback function will be called when the console process receives a CTRL_C_EVENT or
 // CTRL_CLOSE_EVENT signal.
-// Function set_signal_handler() should be called to set function exit_deamon_handler() as the handler of
-// these signals
-BOOL WINAPI exit_deamon_handler(DWORD sig)
+// Function set_signal_handler() should be called before calling cRosNodeStart() to set function
+// exit_deamon_handler() as the handler of these signals.
+// These functions are declared as 'static' to allow the declaration of other (independent) functions with
+// the same name in this project.
+static BOOL WINAPI exit_deamon_handler(DWORD sig)
 {
   BOOL sig_handled;
 
@@ -98,7 +101,7 @@ BOOL WINAPI exit_deamon_handler(DWORD sig)
 }
 
 // Sets the signal handler functions of CTRL_C_EVENT and CTRL_CLOSE_EVENT: exit_deamon_handler
-DWORD set_signal_handler(void)
+static DWORD set_signal_handler(void)
   {
    DWORD ret;
 
@@ -127,7 +130,7 @@ static void exit_deamon_handler(int sig)
 }
 
 // Sets the signal handler functions of SIGINT and SIGTERM: exit_deamon_handler
-int set_signal_handler(void)
+static int set_signal_handler(void)
   {
    int ret;
    struct sigaction act;
@@ -163,14 +166,7 @@ int main(int argc, char **argv)
     node_name="/listener"; // Default node name if no command-line parameters are specified
   getcwd(path, sizeof(path));
   strncat(path, DIR_SEPARATOR_STR"rosdb", sizeof(path) - strlen(path) - 1);
-  /*
-  err_cod = cRosWaitPortOpen(ROS_MASTER_ADDRESS, ROS_MASTER_PORT, 0);
-  if(err_cod != CROS_SUCCESS_ERR_PACK)
-  {
-    cRosPrintErrCodePack(err_cod, "Port %s:%hu cannot be opened: ROS Master does not seems to be running", ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
-    return EXIT_FAILURE;
-  }
-  */
+
   printf("PATH ROSDB: %s\n", path);
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", ROS_MASTER_ADDRESS, ROS_MASTER_PORT, path);
@@ -179,7 +175,14 @@ int main(int argc, char **argv)
     printf("cRosNodeCreate() failed; is this program already being run?");
     return EXIT_FAILURE;
   }
-
+  /*
+  err_cod = cRosWaitPortOpen(ROS_MASTER_ADDRESS, ROS_MASTER_PORT, 0);
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "Port %s:%hu cannot be opened: ROS Master does not seems to be running", ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
+    return EXIT_FAILURE;
+  }
+  */
   // Create a subscriber to topic /chatter of type "std_msgs/String" and supply a callback for received messages (callback_sub)
   err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, &subidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
