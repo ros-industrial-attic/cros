@@ -3987,6 +3987,7 @@ cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port
   {
     elapsed_time = cRosClockGetTimeMs()-start_time;
     socket_state = tcpIpSocketCheckPort (host_addr, host_port);
+    // socket_state can be TCPIPSOCKET_FAILED, TCPIPSOCKET_DONE, TCPIPSOCKET_IN_PROGRESS or TCPIPSOCKET_REFUSED
     if(socket_state == TCPIPSOCKET_REFUSED)
     {
       unsigned int pause_ms;
@@ -4002,12 +4003,12 @@ cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port
     }
   }
   while(socket_state == TCPIPSOCKET_REFUSED && (time_out == CROS_INFINITE_TIMEOUT || elapsed_time <= time_out));
-
+  // We contnue iterating if the connection is refused and the time is not out
   if(socket_state == TCPIPSOCKET_FAILED)
     ret_err = CROS_SOCK_OPEN_CONN_ERR;
-  else if(time_out != CROS_INFINITE_TIMEOUT && elapsed_time > time_out)
+  else if(socket_state == TCPIPSOCKET_REFUSED)
     ret_err = CROS_SOCK_OPEN_TIMEOUT_ERR;
-  else // socket_state == TCPIPSOCKET_REFUSED
+  else // socket_state == TCPIPSOCKET_DONE or TCPIPSOCKET_IN_PROGRESS
     ret_err = CROS_SUCCESS_ERR_PACK; // Port is ready
 
   return ret_err;
