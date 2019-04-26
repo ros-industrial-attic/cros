@@ -49,6 +49,7 @@ from defusedxml.xmlrpc import monkey_patch
 monkey_patch()
 del monkey_patch
 
+import errno
 import socket
 
 _proxies = {} #cache ServerProxys
@@ -69,10 +70,17 @@ def xmlrpcapi(uri):
 
 
 def close_half_closed_sockets():
+    if not hasattr(socket, 'TCP_INFO'):
+        return
     for proxy in _proxies.values():
         transport = proxy("transport")
         if transport._connection and transport._connection[1] is not None and transport._connection[1].sock is not None:
-            state = transport._connection[1].sock.getsockopt(socket.SOL_TCP, socket.TCP_INFO)
+            try:
+                state = transport._connection[1].sock.getsockopt(socket.SOL_TCP, socket.TCP_INFO)
+            except socket.error as e: # catch [Errno 92] Protocol not available
+                if e.args[0] is errno.ENOPROTOOPT:
+                    return
+                raise
             if state == 8:  # CLOSE_WAIT
                 transport.close()
 

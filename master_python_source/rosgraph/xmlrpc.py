@@ -42,6 +42,7 @@ calculation based on ROS environment variables.
 The common entry point for most libraries is the L{XmlRpcNode} class.
 """
 
+import errno
 import logging
 import select
 import socket
@@ -76,21 +77,27 @@ def isstring(s):
         return isinstance(s, str)
 
 class SilenceableXMLRPCRequestHandler(SimpleXMLRPCRequestHandler):
+
+    protocol_version = 'HTTP/1.1'
+
     def log_message(self, format, *args):
         if 0:
             SimpleXMLRPCRequestHandler.log_message(self, format, *args)
-
+    
 class ThreadingXMLRPCServer(socketserver.ThreadingMixIn, SimpleXMLRPCServer):
     """
     Adds ThreadingMixin to SimpleXMLRPCServer to support multiple concurrent
     requests via threading. Also makes logging toggleable.
     """
+
+    daemon_threads = True
+
     def __init__(self, addr, log_requests=1):
         """
         Overrides SimpleXMLRPCServer to set option to allow_reuse_address.
         """
-        # allow_reuse_address defaults to False in Python 2.4.  We set it
-        # to True to allow quick restart on the same port.  This is equivalent
+        # allow_reuse_address defaults to False in Python 2.4.  We set it 
+        # to True to allow quick restart on the same port.  This is equivalent 
         # to calling setsockopt(SOL_SOCKET,SO_REUSEADDR,1)
         self.allow_reuse_address = True
         # Increase request_queue_size to handle issues with many simultaneous
@@ -101,7 +108,7 @@ class ThreadingXMLRPCServer(socketserver.ThreadingMixIn, SimpleXMLRPCServer):
             # The XMLRPC library does not support IPv6 out of the box
             # We have to monipulate private members and duplicate
             # code from the constructor.
-            # TODO IPV6: Get this into SimpleXMLRPCServer
+            # TODO IPV6: Get this into SimpleXMLRPCServer 
             SimpleXMLRPCServer.__init__(self, addr, SilenceableXMLRPCRequestHandler, log_requests,  bind_and_activate=False)
             self.address_family = socket.AF_INET6
             self.socket = socket.socket(self.address_family, self.socket_type)
@@ -122,19 +129,19 @@ class ThreadingXMLRPCServer(socketserver.ThreadingMixIn, SimpleXMLRPCServer):
             logger = logging.getLogger('xmlrpc')
             if logger:
                 logger.error(traceback.format_exc())
-
-class ForkingXMLRPCServer(socketserver.ForkingMixIn, SimpleXMLRPCServer):
-    """
-    Adds ThreadingMixin to SimpleXMLRPCServer to support multiple concurrent
-    requests via forking. Also makes logging toggleable.
-    """
-    def __init__(self, addr, request_handler=SilenceableXMLRPCRequestHandler, log_requests=1):
-        SimpleXMLRPCServer.__init__(self, addr, request_handler, log_requests)
-
+    
+#class ForkingXMLRPCServer(socketserver.ForkingMixIn, SimpleXMLRPCServer):
+#    """
+#    Adds ThreadingMixin to SimpleXMLRPCServer to support multiple concurrent
+#    requests via forking. Also makes logging toggleable.      
+#    """
+#    def __init__(self, addr, request_handler=SilenceableXMLRPCRequestHandler, log_requests=1):
+#        SimpleXMLRPCServer.__init__(self, addr, request_handler, log_requests)
+    
 
 class XmlRpcHandler(object):
     """
-    Base handler API for handlers used with XmlRpcNode. Public methods will be
+    Base handler API for handlers used with XmlRpcNode. Public methods will be 
     exported as XML RPC methods.
     """
 
@@ -143,7 +150,7 @@ class XmlRpcHandler(object):
         callback into handler to inform it of XML-RPC URI
         """
         pass
-
+    
     def _shutdown(self, reason):
         """
         callback into handler to inform it of shutdown
@@ -153,7 +160,7 @@ class XmlRpcHandler(object):
 class XmlRpcNode(object):
     """
     Generic XML-RPC node. Handles the additional complexity of binding
-    an XML-RPC server to an arbitrary port.
+    an XML-RPC server to an arbitrary port. 
     XmlRpcNode is initialized when the uri field has a value.
     """
 
@@ -192,10 +199,9 @@ class XmlRpcNode(object):
             if handler:
                 handler._shutdown(reason)
             if server:
-                server.shutdown() # Added to prevent SimpleXMLRPCServer from hanging when closing
-                server.server_close()
                 server.socket.close()
-
+                server.server_close()
+                
     def start(self):
         """
         Initiate a thread to run the XML RPC server. Uses thread.start_new_thread.
@@ -210,7 +216,7 @@ class XmlRpcNode(object):
         :param uri: XMLRPC URI, ``str``
         """
         self.uri = uri
-
+        
     def run(self):
         try:
             self._run()
@@ -224,14 +230,14 @@ class XmlRpcNode(object):
 
     # separated out for easier testing
     def _run_init(self):
-        logger = logging.getLogger('xmlrpc')
+        logger = logging.getLogger('xmlrpc')            
         try:
             log_requests = 0
             port = self.port or 0 #0 = any
 
             bind_address = rosgraph.network.get_bind_address()
             logger.info("XML-RPC server binding to %s:%d" % (bind_address, port))
-
+            
             self.server = ThreadingXMLRPCServer((bind_address, port), log_requests)
             self.port = self.server.server_address[1] #set the port to whatever server bound to
             if not self.port:
@@ -257,14 +263,14 @@ class XmlRpcNode(object):
             if not uri:
                 uri = 'http://%s:%s/'%(rosgraph.network.get_local_address(), self.port)
             self.set_uri(uri)
-
+            
             logger.info("Started XML-RPC server [%s]", self.uri)
 
             self.server.register_multicall_functions()
             self.server.register_instance(self.handler)
 
         except socket.error as e:
-            if e.errno == 98:
+            if e.errno == errno.EADDRINUSE:
                 msg = "ERROR: Unable to start XML-RPC server, port %s is already in use"%self.port
             else:
                 msg = "ERROR: Unable to start XML-RPC server: %s" % e.strerror
@@ -275,12 +281,12 @@ class XmlRpcNode(object):
         if self.handler is not None:
             self.handler._ready(self.uri)
         logger.info("xml rpc node: starting XML-RPC server")
-
+        
     def _run(self):
         """
         Main processing thread body.
         :raises: :exc:`socket.error` If server cannot bind
-
+        
         """
         self._run_init()
         while not self.is_shutdown:
@@ -292,7 +298,7 @@ class XmlRpcNode(object):
                 # exceptions break _run.
                 if self.is_shutdown:
                     pass
-                elif e.errno != 4:
+                elif e.errno != errno.EINTR:
                     self.is_shutdown = True
                     logging.getLogger('xmlrpc').error("serve forever IOError: %s, %s"%(e.errno, e.strerror))
-
+                    
