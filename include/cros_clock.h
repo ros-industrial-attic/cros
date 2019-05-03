@@ -38,6 +38,22 @@ uint64_t cRosClockGetTimeMs( void );
  */
 struct timeval cRosClockGetTimeVal( uint64_t msec );
 
+/*! \brief Get a high-precision real-time time stamp from the system.
+ *         Time stamps can be substracted to obtain time-stamp differences, which
+ *         can be converted to us using cRosClockGetTimeStamp()
+ *
+ *  \return The time interval expressed in arbitrary units
+ */
+int64_t cRosClockGetTimeStamp(void);
+
+/*! \brief Convert a time stamp in arbitrary units to us.
+ *         These time stamps can be obtained by using the cRosClockGetTimeStamp() function.
+ *         Time differences obtained substracting these time stamps can be also converted.
+ *
+ *  \return The time stamp (or difference) in microseconds.
+ */
+double cRosClockTimeStampToUSec(int64_t time_stamp);
+
 /*! @}*/
 
 #endif

@@ -5,6 +5,7 @@
 #  include <windows.h>
 #  include <winsock2.h>
 #else
+#  include <time.h>
 #  include <sys/time.h>
 #endif
 
@@ -82,4 +83,40 @@ struct timeval cRosClockGetTimeVal( uint64_t msec )
   }
 
   return tv;
+}
+
+int64_t cRosClockGetTimeStamp(void)
+{
+  int64_t time_stamp_ret;
+#ifdef _WIN32
+  LARGE_INTEGER time_stamp_init;
+  QueryPerformanceCounter(&time_stamp_init);
+  time_stamp_ret = time_stamp_init.QuadPart;
+#else
+  struct timespec time_stamp_init;
+  int fn_ret_val;
+  fn_ret_val = clock_gettime(CLOCK_MONOTONIC, &time_stamp_init);
+  if (fn_ret_val == 0) // clock_gettime success
+    time_stamp_ret = time_stamp_init.tv_sec * 1000000000L + time_stamp_init.tv_nsec;
+  else
+    time_stamp_ret = 0;
+#endif
+  return(time_stamp_ret);
+}
+
+double cRosClockTimeStampToUSec(int64_t time_stamp)
+{
+  double time_sec;
+#ifdef _WIN32
+  LARGE_INTEGER counter_freq;
+  BOOL fn_ret_val;
+  fn_ret_val = QueryPerformanceFrequency(&counter_freq);
+  if (fn_ret_val) // QueryPerformanceFrequency success
+    time_sec = (time_stamp * 1.0e6L) / counter_freq.QuadPart;
+  else
+    time_sec = 0;
+#else
+  time_sec = time_stamp / 1.0e3;
+#endif
+  return(time_sec);
 }

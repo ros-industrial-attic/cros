@@ -18,6 +18,7 @@ extern "C"
 
 #include "cros_api.h"
 #include "cros_log.h"
+#include "cros_clock.h"
 
 #endif /* INCLUDE_CROS_H_ */
 

@@ -175,14 +175,14 @@ int main(int argc, char **argv)
     printf("cRosNodeCreate() failed; is this program already being run?");
     return EXIT_FAILURE;
   }
-  
+
   err_cod = cRosWaitPortOpen(ROS_MASTER_ADDRESS, ROS_MASTER_PORT, 0);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "Port %s:%hu cannot be opened: ROS Master does not seems to be running", ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
     return EXIT_FAILURE;
   }
-  
+
   // Create a subscriber to topic /chatter of type "std_msgs/String" and supply a callback for received messages (callback_sub)
   err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, &subidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
