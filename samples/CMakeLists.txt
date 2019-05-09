@@ -17,3 +17,6 @@ target_link_libraries(talker cros)
 
 add_executable(listener listener.c)
 target_link_libraries(listener cros)
+
+add_executable(performance-test performance-test.c)
+target_link_libraries(performance-test cros)

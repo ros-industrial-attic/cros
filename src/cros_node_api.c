@@ -65,7 +65,7 @@ int lookup_host (const char *host, char *ip_addr_buff, size_t ip_addr_buff_size)
     {
       if(inet_ntop (res_it->ai_family, src_addr, ip_addr_buff, ip_addr_buff_size) != NULL)
       {
-        PRINT_VDEBUG ("IPv%d address: %s (%s)\n", res_it->ai_family == PF_INET6 ? 6 : 4,
+        PRINT_VVDEBUG ("IPv%d address: %s (%s)\n", res_it->ai_family == PF_INET6 ? 6 : 4,
                       ip_addr_buff, res_it->ai_canonname);
         res_it = res_it->ai_next;
       }
@@ -123,7 +123,7 @@ static int checkResponseValue( XmlrpcParamVector *params )
 
 void cRosApiPrepareRequest( CrosNode *n, int client_idx )
 {
-  PRINT_VDEBUG ( "cRosApiPrepareRequest()\n" );
+  PRINT_VVDEBUG ( "cRosApiPrepareRequest()\n" );
 
   XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc[client_idx]);
 
@@ -163,7 +163,7 @@ void cRosApiPrepareRequest( CrosNode *n, int client_idx )
  */
 int cRosApiParseResponse( CrosNode *n, int client_idx )
 {
-  PRINT_VDEBUG ( "cRosApiParseResponse()\n" );
+  PRINT_VVDEBUG ( "cRosApiParseResponse()\n" );
   XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc[client_idx]);
   int ret = -1;
 
@@ -187,7 +187,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
     {
       case CROS_API_REGISTER_PUBLISHER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : registerPublisher response \n" );
+        PRINT_VDEBUG ( "cRosApiParseResponse() : registerPublisher response \n" );
         if( checkResponseValue( &client_proc->response ) )
           ret = 0;
 
@@ -195,7 +195,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_REGISTER_SERVICE:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : registerService response \n" );
+        PRINT_VDEBUG ( "cRosApiParseResponse() : registerService response \n" );
 
         if( checkResponseValue( &client_proc->response ) )
           ret = 0;
@@ -204,7 +204,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_REGISTER_SUBSCRIBER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
+        PRINT_VDEBUG ( "cRosApiParseResponse() : registerSubscriber response \n" );
 
         //Get the next subscriber without a topic host
         if(call->provider_idx == -1)
@@ -262,7 +262,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_LOOKUP_SERVICE:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : Lookup Service response\n" );
+        PRINT_VDEBUG ( "cRosApiParseResponse() : Lookup Service response\n" );
 
         //Get the next service caller without a topic host
         if(call->provider_idx == -1)
@@ -313,7 +313,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
                       tcpIpSocketOpen(&(rpcros_proc->socket));
                     }
 
-                    PRINT_DEBUG( "cRosApiParseResponse() : Lookup Service response [tcp port: %d]\n", requesting_service_caller->service_port);
+                    PRINT_VDEBUG( "cRosApiParseResponse() : Lookup Service response [tcp port: %d]\n", requesting_service_caller->service_port);
 
                     //set the process to open the socket with the desired host
                     tcprosProcessChangeState(rpcros_proc, TCPROS_PROCESS_STATE_CONNECTING);
@@ -378,7 +378,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_GET_PID:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : get PID response \n" );
+        PRINT_VDEBUG ( "cRosApiParseResponse() : get PID response \n" );
 
         if( checkResponseValue( &client_proc->response ) )
         {
@@ -406,7 +406,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_SERVICE:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : unregister service response \n" );
+        PRINT_VDEBUG ( "cRosApiParseResponse() : unregister service response \n" );
 
         if( checkResponseValue( &client_proc->response ) )
         {
@@ -421,7 +421,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_PUBLISHER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : unregister publisher response \n" );
+        PRINT_VDEBUG ( "cRosApiParseResponse() : unregister publisher response \n" );
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
@@ -435,7 +435,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
       }
       case CROS_API_UNREGISTER_SUBSCRIBER:
       {
-        PRINT_DEBUG ( "cRosApiParseResponse() : unregister subscriber response \n" );
+        PRINT_VDEBUG ( "cRosApiParseResponse() : unregister subscriber response \n" );
         if( checkResponseValue( &client_proc->response ) )
         {
           ret = 0;
@@ -525,7 +525,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           int tcp_port_print = tcp_port->data.as_int;
           SubscriberNode* sub = &n->subs[sub_ind];
 
-          PRINT_DEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
+          PRINT_VDEBUG( "cRosApiParseResponse() : requestTopic response [tcp port: %d]\n", tcp_port_print);
           xmlrpcProcessChangeState(client_proc,XMLRPC_PROCESS_STATE_IDLE);
 
           int rc = lookup_host(tcp_host->data.as_string, tcpros_host, sizeof(tcpros_host));
@@ -589,7 +589,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
   int ret;
-  PRINT_DEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
+  PRINT_VDEBUG ( "cRosApiParseRequestPrepareResponse()\n" );
 
   XmlrpcProcess *server_proc = &(n->xmlrpc_server_proc[server_idx]);
 
@@ -615,11 +615,11 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_PUBLISHER_UPDATE:
     {
-      PRINT_DEBUG("publisherUpdate()\n");
+      PRINT_VDEBUG("publisherUpdate()\n");
       // TODO Store the subscribed node name
       XmlrpcParam *caller_id_param, *topic_param, *publishers_param;
 
-#if CROS_DEBUG_LEVEL >= 2
+#if CROS_DEBUG_LEVEL >= 3
       xmlrpcParamVectorPrint( &server_proc->params );
 #endif
 

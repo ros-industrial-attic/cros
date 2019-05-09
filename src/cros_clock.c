@@ -17,7 +17,7 @@ struct timeval cRosClockGetTimeSecUsec( void )
   struct timeval time_since_epoch;
   int ret_val;
 
-  PRINT_VDEBUG ( "cRosClockGetTimeSecUsec()\n" );
+  PRINT_VVDEBUG ( "cRosClockGetTimeSecUsec()\n" );
 
 #ifdef _WIN32
   const uint64_t epoch_filetime = 116444736000000000ULL; // FILETIME on Jan 1 1970 00:00:00
@@ -58,7 +58,7 @@ uint64_t cRosClockGetTimeMs( void )
   uint64_t ms_since_epoch;
   struct timeval tv;
 
-  PRINT_VDEBUG ( "cRosClockGetTimeMs()\n" );
+  PRINT_VVDEBUG ( "cRosClockGetTimeMs()\n" );
 
   tv = cRosClockGetTimeSecUsec();
   ms_since_epoch = (uint64_t)tv.tv_sec*1000 + (uint64_t)tv.tv_usec/1000;
@@ -68,7 +68,7 @@ uint64_t cRosClockGetTimeMs( void )
 
 struct timeval cRosClockGetTimeVal( uint64_t msec )
 {
-  PRINT_VDEBUG ( "cRosClockGetTimeVal() msec: %lu\n", msec );
+  PRINT_VVDEBUG ( "cRosClockGetTimeVal() msec: %lu\n", msec );
   struct timeval tv;
   if (msec > ( LONG_MAX * 1000ULL ))
   {

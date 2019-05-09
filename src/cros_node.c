@@ -104,7 +104,7 @@ static int openXmlrpcListnerSocket( CrosNode *n )
   else
   {
     n->xmlrpc_port = tcpIpSocketGetPort( &(n->xmlrpc_listner_proc.socket) );
-    PRINT_DEBUG ( "openXmlrpcListnerSocket () : Accepting xmlrpc connections at port %d\n", n->xmlrpc_port );
+    PRINT_VDEBUG ( "openXmlrpcListnerSocket () : Accepting xmlrpc connections at port %d\n", n->xmlrpc_port );
     ret=0; // success
   }
   return(ret);
@@ -124,7 +124,7 @@ static int openRpcrosListnerSocket( CrosNode *n )
   else
   {
     n->rpcros_port = tcpIpSocketGetPort( &(n->rpcros_listner_proc.socket) );
-    PRINT_DEBUG ( "openRpcrosListnerSocket() : Accepting rcpros connections at port %d\n", n->rpcros_port );
+    PRINT_VDEBUG ( "openRpcrosListnerSocket() : Accepting rcpros connections at port %d\n", n->rpcros_port );
     ret=0; // success
   }
   return(ret);
@@ -144,7 +144,7 @@ static int openTcprosListnerSocket( CrosNode *n )
   else
   {
     n->tcpros_port = tcpIpSocketGetPort( &(n->tcpros_listner_proc.socket) );
-    PRINT_DEBUG ( "openTcprosListnerSocket() : Accepting tcpros connections at port %d\n", n->tcpros_port );
+    PRINT_VDEBUG ( "openTcprosListnerSocket() : Accepting tcpros connections at port %d\n", n->tcpros_port );
     ret=0; // success
   }
   return(ret);
@@ -346,12 +346,12 @@ static void handleRpcrosServerError(CrosNode *n, int i)
 static cRosErrCodePack xmlrpcClientConnect(CrosNode *n, int i)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "xmlrpcClientConnect()\n" );
+  PRINT_VVDEBUG ( "xmlrpcClientConnect()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   XmlrpcProcess *client_proc = &(n->xmlrpc_client_proc[i]);
 
-  PRINT_DEBUG ( "xmlrpcClientConnect() : Connecting\n" );
+  PRINT_VDEBUG ( "xmlrpcClientConnect() : Connecting\n" );
 
   if( !client_proc->socket.connected )
   {
@@ -385,7 +385,7 @@ static cRosErrCodePack xmlrpcClientConnect(CrosNode *n, int i)
     }
     else if( conn_state == TCPIPSOCKET_IN_PROGRESS )
     {
-      PRINT_DEBUG ( "xmlrpcClientConnect() : Wait: connection is established asynchronously\n" ); // Not connected yet
+      PRINT_VDEBUG ( "xmlrpcClientConnect() : Wait: connection is established asynchronously\n" ); // Not connected yet
     }
     else if( conn_state == TCPIPSOCKET_REFUSED )
     {
@@ -410,7 +410,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
 {
   cRosErrCodePack ret_err;
   XmlrpcProcess *client_proc;
-  PRINT_VDEBUG ( "doWithXmlrpcClientSocket()\n" );
+  PRINT_VVDEBUG ( "doWithXmlrpcClientSocket()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   client_proc = &(n->xmlrpc_client_proc[i]);
@@ -424,7 +424,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
     }
     case XMLRPC_PROCESS_STATE_WRITING:
     {
-      PRINT_DEBUG ( "doWithXmlrpcClientSocket() : writing. Xmlrpc client index: %d\n", i);
+      PRINT_VDEBUG ( "doWithXmlrpcClientSocket() : writing. Xmlrpc client index: %d\n", i);
 
       cRosApiPrepareRequest( n, i );
 
@@ -442,7 +442,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
 
         case TCPIPSOCKET_IN_PROGRESS:
       {
-          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Write in progress...\n" );
+          PRINT_VDEBUG ( "doWithXmlrpcClientSocket() : Write in progress...\n" );
           break;
           }
 
@@ -460,7 +460,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
     }
     case XMLRPC_PROCESS_STATE_READING:
     {
-      PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Reading. Xmlrpc client index: %d\n", i);
+      PRINT_VDEBUG ( "doWithXmlrpcClientSocket() : Reading. Xmlrpc client index: %d\n", i);
       TcpIpSocketState sock_state = tcpIpSocketReadString( &client_proc->socket,
                                                            &client_proc->message );
       XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
@@ -508,7 +508,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
       {
         case XMLRPC_PARSER_DONE:
           {
-          PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
+          PRINT_VDEBUG ( "doWithXmlrpcClientSocket() : Done with no error\n" );
 
           int rc = cRosApiParseResponse( n, i );
           handleApiCallAttempt(n, client_proc->current_call);
@@ -542,7 +542,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
     }
     default:
     {
-      PRINT_DEBUG ( "doWithXmlrpcClientSocket() : Invalid XMLRPC process state\n" );
+      PRINT_VDEBUG ( "doWithXmlrpcClientSocket() : Invalid XMLRPC process state\n" );
     }
   }
   return ret_err;
@@ -551,14 +551,14 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
 static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "doWithXmlrpcServerSocket()\n" );
+  PRINT_VVDEBUG ( "doWithXmlrpcServerSocket()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   XmlrpcProcess *server_proc = &(n->xmlrpc_server_proc[i]);
 
   if( server_proc->state == XMLRPC_PROCESS_STATE_READING )
   {
-    PRINT_DEBUG ( "doWithXmlrpcServerSocket() : Reading. Xmlrpc server index: %d\n", i );
+    PRINT_VDEBUG ( "doWithXmlrpcServerSocket() : Reading. Xmlrpc server index: %d\n", i );
     TcpIpSocketState sock_state = tcpIpSocketReadString( &(server_proc->socket),
                                                          &(server_proc->message) );
     XmlrpcParserState parser_state = XMLRPC_PARSER_INCOMPLETE;
@@ -594,7 +594,7 @@ static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
       case XMLRPC_PARSER_DONE:
         {
 
-        PRINT_DEBUG ( "doWithXmlrpcServerSocket() : Done reading and parsing with no error\n" );
+        PRINT_VDEBUG ( "doWithXmlrpcServerSocket() : Done reading and parsing with no error\n" );
         int rc = cRosApiParseRequestPrepareResponse( n, i );
         if (rc == -1)
         {
@@ -617,7 +617,7 @@ static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
   }
   else if( server_proc->state == XMLRPC_PROCESS_STATE_WRITING )
   {
-    PRINT_DEBUG ( "doWithXmlrpcServerSocket() : writing. Xmlrpc server index %d \n", i );
+    PRINT_VDEBUG ( "doWithXmlrpcServerSocket() : writing. Xmlrpc server index %d \n", i );
     TcpIpSocketState sock_state =  tcpIpSocketWriteString( &(server_proc->socket),
                                                            &(server_proc->message) );
     switch ( sock_state )
@@ -649,7 +649,7 @@ static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
 static cRosErrCodePack tcprosClientConnect( CrosNode *n, int client_idx)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "tcprosClientConnect()\n" );
+  PRINT_VVDEBUG ( "tcprosClientConnect()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
@@ -669,7 +669,7 @@ static cRosErrCodePack tcprosClientConnect( CrosNode *n, int client_idx)
     }
     case TCPIPSOCKET_IN_PROGRESS:
     {
-      PRINT_DEBUG ( "tcprosClientConnect() : Wait: connection is established asynchronously\n" );
+      PRINT_VDEBUG ( "tcprosClientConnect() : Wait: connection is established asynchronously\n" );
       // Wait: connection is established asynchronously
       break;
     }
@@ -700,7 +700,7 @@ static cRosErrCodePack tcprosClientConnect( CrosNode *n, int client_idx)
 static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "doWithTcprosClientSocket()\n" );
+  PRINT_VVDEBUG ( "doWithTcprosClientSocket()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
@@ -900,14 +900,14 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
 static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "doWithTcprosServerSocket()\n" );
+  PRINT_VVDEBUG ( "doWithTcprosServerSocket()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   TcprosProcess *server_proc = &(n->tcpros_server_proc[i]);
 
   if( server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER)
   {
-    PRINT_DEBUG ( "doWithTcprosServerSocket() : Reading header. Tcpros server index %d \n", i );
+    PRINT_VDEBUG ( "doWithTcprosServerSocket() : Reading header. Tcpros server index %d \n", i );
     tcprosProcessClear( server_proc, 0);
     TcpIpSocketState sock_state = tcpIpSocketReadBuffer( &(server_proc->socket),
                                                          &(server_proc->packet) );
@@ -935,7 +935,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
     {
       case TCPROS_PARSER_DONE:
 
-        PRINT_DEBUG ( "doWithTcprosServerSocket() : Done reading and parsing with no error\n" );
+        PRINT_VDEBUG ( "doWithTcprosServerSocket() : Done reading and parsing with no error\n" );
         tcprosProcessClear( server_proc, 0);
         cRosMessagePreparePublicationHeader( n, i );
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
@@ -953,7 +953,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
   else if( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING ||
            server_proc->state == TCPROS_PROCESS_STATE_WRITING )
   {
-    PRINT_DEBUG ( "doWithTcprosServerSocket() : writing. Tcpros server index: %d \n", i );
+    PRINT_VDEBUG ( "doWithTcprosServerSocket() : writing. Tcpros server index: %d \n", i );
     if( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING )
     {
       tcprosProcessClear( server_proc, 0 );
@@ -966,7 +966,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
-        PRINT_DEBUG ( "doWithTcprosServerSocket() : Done writing with no error\n" );
+        PRINT_VDEBUG ( "doWithTcprosServerSocket() : Done writing with no error\n" );
         tcprosProcessClear( server_proc, 0);
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WAIT_FOR_WRITING );
         break;
@@ -988,7 +988,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
 static cRosErrCodePack rpcrosClientConnect(CrosNode *n, int client_idx)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "rpcrosClientConnect()\n" );
+  PRINT_VVDEBUG ( "rpcrosClientConnect()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   TcprosProcess *client_proc = &(n->rpcros_client_proc[client_idx]);
@@ -1008,7 +1008,7 @@ static cRosErrCodePack rpcrosClientConnect(CrosNode *n, int client_idx)
     }
     case TCPIPSOCKET_IN_PROGRESS:
     {
-      PRINT_DEBUG ( "rpcrosClientConnect() : Wait: connection is established asynchronously\n" );
+      PRINT_VDEBUG ( "rpcrosClientConnect() : Wait: connection is established asynchronously\n" );
       // Wait: connection is established asynchronously
       break;
     }
@@ -1039,7 +1039,7 @@ static cRosErrCodePack rpcrosClientConnect(CrosNode *n, int client_idx)
 static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "doWithRpcrosClientSocket()\n" );
+  PRINT_VVDEBUG ( "doWithRpcrosClientSocket()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   TcprosProcess *client_proc = &(n->rpcros_client_proc[client_idx]);
@@ -1178,14 +1178,14 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
 
     case TCPROS_PROCESS_STATE_WRITING:
     {
-      PRINT_DEBUG ( "doWithRpcrosClientSocket() : writing. Rpcros client index: %d \n", client_idx );
+      PRINT_VDEBUG ( "doWithRpcrosClientSocket() : writing. Rpcros client index: %d \n", client_idx );
       TcpIpSocketState sock_state =  tcpIpSocketWriteBuffer( &(client_proc->socket),
                                                                &(client_proc->packet) );
 
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          PRINT_DEBUG ( "doWithRpcrosClientSocket() : Done writing with no error\n" );
+          PRINT_VDEBUG ( "doWithRpcrosClientSocket() : Done writing with no error\n" );
           tcprosProcessClear( client_proc, 0); // Clears only packet and left_to_recv vars
           client_proc->left_to_recv = sizeof(uint32_t) + sizeof(uint8_t);
           tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_SIZE );
@@ -1302,7 +1302,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
 static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
 {
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "doWithRpcrosServerSocket()\n" );
+  PRINT_VVDEBUG ( "doWithRpcrosServerSocket()\n" );
 
   ret_err = CROS_SUCCESS_ERR_PACK;
   TcprosProcess *server_proc = &(n->rpcros_server_proc[i]);
@@ -1385,7 +1385,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
         case TCPROS_PARSER_DONE:
           tcprosProcessClear( server_proc, 0);
           tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
-          PRINT_DEBUG("doWithRpcrosServerSocket() : Header parsed. Probing session: %d. Rpcros server index: %d \n", server_proc->probe, i);
+          PRINT_VDEBUG("doWithRpcrosServerSocket() : Header parsed. Probing session: %d. Rpcros server index: %d \n", server_proc->probe, i);
           break;
         case TCPROS_PARSER_HEADER_INCOMPLETE:
           break;
@@ -1399,7 +1399,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
     }
     case TCPROS_PROCESS_STATE_WRITING_HEADER:
     {
-      PRINT_DEBUG ( "doWithRpcrosServerSocket() : Writing header. RpcrosServer index: %d \n", i );
+      PRINT_VDEBUG ( "doWithRpcrosServerSocket() : Writing header. RpcrosServer index: %d \n", i );
 
       cRosMessagePrepareServiceProviderHeader( n, i );
 
@@ -1409,7 +1409,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done write header with no error. RpcrosServer index: %d \n", i);
+          PRINT_VDEBUG ( "doWithRpcrosServerSocket() : Done write header with no error. RpcrosServer index: %d \n", i);
           if(server_proc->probe)
           {
             tcprosProcessClear( server_proc, 1 );
@@ -1461,7 +1461,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
             tcprosProcessClear( server_proc, 0);
             if (msg_size == 0)
             {
-              PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done reading size with no error\n" );
+              PRINT_VDEBUG ( "doWithRpcrosServerSocket() : Done reading size with no error\n" );
               ret_err = cRosMessagePrepareServiceResponsePacket(n, i);
               tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING);
               goto write_msg;
@@ -1487,7 +1487,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
     read_msg:
     case TCPROS_PROCESS_STATE_READING:
     {
-      PRINT_DEBUG ( "doWithRpcrosServerSocket() : reading. RpcrosServer index: %d\n", i );
+      PRINT_VDEBUG ( "doWithRpcrosServerSocket() : reading. RpcrosServer index: %d\n", i );
 
       size_t n_reads;
       TcpIpSocketState sock_state = tcpIpSocketReadBufferEx( &(server_proc->socket),
@@ -1501,7 +1501,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
           server_proc->left_to_recv -= n_reads;
           if (server_proc->left_to_recv == 0)
           {
-              PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done reading with no error\n" );
+              PRINT_VDEBUG ( "doWithRpcrosServerSocket() : Done reading with no error\n" );
               ret_err = cRosMessagePrepareServiceResponsePacket(n, i);
               tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
           }
@@ -1524,7 +1524,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
     write_msg:
     case TCPROS_PROCESS_STATE_WRITING:
     {
-      PRINT_DEBUG ( "doWithRpcrosServerSocket() : writing. Rpcros server index %d \n", i );
+      PRINT_VDEBUG ( "doWithRpcrosServerSocket() : writing. Rpcros server index %d \n", i );
 
       TcpIpSocketState sock_state;
 
@@ -1540,7 +1540,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          PRINT_DEBUG ( "doWithRpcrosServerSocket() : Done writing with no error\n" );
+          PRINT_VDEBUG ( "doWithRpcrosServerSocket() : Done writing with no error\n" );
           if(server_proc->persistent)
           {
             server_proc->left_to_recv = sizeof(uint32_t);
@@ -1837,11 +1837,37 @@ char* cRosNamespaceBuild(CrosNode* node, const char* resource_name)
   return resolved_name;
 }
 
+int cRosInitializeLibrary(void)
+{
+  int ret;
+  ret = tcpIpSocketStartUp(); // Initialize the socket library (it's mandatory on Windows)
+  // Enable escape character processing for console messages so that debug messages can use colors
+  // This processing is supported on Windows 10 build 16257 and later (and on Linux).
+#ifdef _WIN32
+  HANDLE stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+  if (stdout_handle != INVALID_HANDLE_VALUE)
+  {
+    DWORD console_mode = 0;
+    if (GetConsoleMode(stdout_handle, &console_mode))
+    {
+      // Set the console output mode to process virtual-terminal sequences
+      if (!SetConsoleMode(stdout_handle, console_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+        PRINT_ERROR("cRosInitializeLibrary() : Can't set console-output mode (Error code: %lu).\n", GetLastError());
+    }
+    else
+      PRINT_ERROR("cRosInitializeLibrary() : Can't obatin console-output mode (Error code: %lu).\n", GetLastError());
+  }
+  else
+    PRINT_ERROR("cRosInitializeLibrary() : Can't obatin console handle to configure output mode (Error code: %lu).\n", GetLastError());
+#endif
+  return(ret);
+}
+
 CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const char *roscore_host, unsigned short roscore_port,
                           const char *message_root_path)
 {
   CrosNode *new_n; // Value to be returned by this function. NULL on failure
-  PRINT_VDEBUG ( "cRosNodeCreate()\n" );
+  PRINT_VVDEBUG ( "cRosNodeCreate()\n" );
 
   if(node_name == NULL || node_host == NULL || roscore_host == NULL )
   {
@@ -1849,8 +1875,8 @@ CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const ch
     return NULL;
   }
 
-  if(tcpIpSocketStartUp() != 0)
-    return NULL; // Initialization of the socket library failed: exit
+  if(cRosInitializeLibrary() != 0)
+    return NULL; // Initialization of the library failed: exit
 
   new_n = ( CrosNode * ) malloc ( sizeof ( CrosNode ) );
 
@@ -2088,7 +2114,7 @@ cRosErrCodePack cRosNodeDestroy ( CrosNode *n )
 {
   cRosErrCodePack ret_err;
 
-  PRINT_VDEBUG ( "cRosNodeDestroy()\n" );
+  PRINT_VVDEBUG ( "cRosNodeDestroy()\n" );
 
   if ( n == NULL )
     return CROS_BAD_PARAM_ERR;
@@ -2152,7 +2178,7 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum, int loop_period,
                                PublisherCallback callback, NodeStatusCallback status_callback, void *data_context)
 {
-  PRINT_VDEBUG ( "cRosNodeRegisterPublisher()\n" );
+  PRINT_VVDEBUG ( "cRosNodeRegisterPublisher()\n" );
 
   if ( node->n_pubs >= CN_MAX_PUBLISHED_TOPICS )
   {
@@ -2216,7 +2242,7 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
                                     ServiceProviderCallback callback, NodeStatusCallback status_callback,
                                     void *data_context)
 {
-  PRINT_VDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
+  PRINT_VVDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
 
   if (node->n_service_providers >= CN_MAX_SERVICE_PROVIDERS)
   {
@@ -2326,7 +2352,7 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
                                const char *topic_name, const char *topic_type, const char *md5sum,
                                SubscriberCallback callback, NodeStatusCallback status_callback, void *data_context, int tcp_nodelay)
 {
-  PRINT_VDEBUG ( "cRosNodeRegisterSubscriber()\n" );
+  PRINT_VVDEBUG ( "cRosNodeRegisterSubscriber()\n" );
 
   if (node->n_subs >= CN_MAX_SUBSCRIBED_TOPICS)
   {
@@ -2390,7 +2416,7 @@ int cRosNodeRegisterServiceCaller(CrosNode *node, const char *message_definition
                                     ServiceCallerCallback callback, NodeStatusCallback status_callback,
                                     void *data_context, int persistent, int tcp_nodelay)
 {
-  PRINT_VDEBUG ( "cRosNodeRegisterServiceCaller()\n" );
+  PRINT_VVDEBUG ( "cRosNodeRegisterServiceCaller()\n" );
 
   if (node->n_service_callers >= CN_MAX_SERVICE_CALLERS)
   {
@@ -2615,7 +2641,7 @@ int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx)
 
 cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context, int *paramsubidx_ptr)
 {
-  PRINT_VDEBUG ( "cRosApiSubscribeParam()\n" );
+  PRINT_VVDEBUG ( "cRosApiSubscribeParam()\n" );
   PRINT_INFO ( "Subscribing to parameter %s\n", key);
 
   if (node->n_paramsubs >= CN_MAX_PARAMETER_SUBSCRIPTIONS)
@@ -2690,9 +2716,11 @@ cRosErrCodePack cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx)
   return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
+#define NODE_STATUS_STR_MAX_LEN (CN_MAX_XMLRPC_CLIENT_CONNECTIONS+CN_MAX_XMLRPC_SERVER_CONNECTIONS+CN_MAX_TCPROS_CLIENT_CONNECTIONS+CN_MAX_TCPROS_SERVER_CONNECTIONS+CN_MAX_RPCROS_CLIENT_CONNECTIONS+CN_MAX_RPCROS_SERVER_CONNECTIONS+6*3+3*4+2)
 void printNodeProcState( CrosNode *n )
 {
-  char stat_str[CN_MAX_XMLRPC_CLIENT_CONNECTIONS+CN_MAX_XMLRPC_SERVER_CONNECTIONS+CN_MAX_TCPROS_CLIENT_CONNECTIONS+CN_MAX_TCPROS_SERVER_CONNECTIONS+CN_MAX_RPCROS_CLIENT_CONNECTIONS+CN_MAX_RPCROS_SERVER_CONNECTIONS+6*3+3*4+2];
+  static char prev_stat_str[NODE_STATUS_STR_MAX_LEN]="\0";
+  char stat_str[NODE_STATUS_STR_MAX_LEN];
   int i;
 
   sprintf(stat_str, "XL%X XC",n->xmlrpc_listner_proc.state);
@@ -2719,8 +2747,12 @@ void printNodeProcState( CrosNode *n )
   for( i = 0; i < CN_MAX_RPCROS_SERVER_CONNECTIONS; i++ )
     sprintf(stat_str+strlen(stat_str), "%X",n->rpcros_server_proc[i].state);
 
-  // Print a compact string indicating the state of all the node processed for debug purposes
-  PRINT_DEBUG("%s\n",stat_str);
+  if (strcmp(prev_stat_str, stat_str) != 0) // If the node status has changed:
+  {
+    // Print a compact string indicating the state of all the node processed for debug purposes
+    PRINT_DEBUG("Node status: %s\n", stat_str);
+    strcpy(prev_stat_str, stat_str);
+  }
 }
 
 cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
@@ -2731,7 +2763,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   fd_set r_fds, w_fds, err_fds;
   int i = 0;
 
-  PRINT_VDEBUG ( "cRosNodeDoEventsLoop ()\n" );
+  PRINT_VVDEBUG ( "cRosNodeDoEventsLoop ()\n" );
 
   if(n == NULL)
     return CROS_BAD_PARAM_ERR;
@@ -3062,7 +3094,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   
   if (nfds + 1 == 0)
   {
-    PRINT_DEBUG("cRosNodeDoEventsLoop() : Warning: tcpIpSocketSelect() is being called with no file descriptors to monitor.\n");
+    PRINT_VDEBUG("cRosNodeDoEventsLoop() : Warning: tcpIpSocketSelect() is being called with no file descriptors to monitor.\n");
   }
 
   int n_set = tcpIpSocketSelect(nfds + 1, &r_fds, &w_fds, &err_fds, timeout);
@@ -3075,7 +3107,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   }
   else if( n_set == 0 )
   {
-    PRINT_DEBUG ("cRosNodeDoEventsLoop() : tcpIpSocketSelect() finished due to timeout (parameter: %llu ms) or it was interrupted\n", (long long unsigned)timeout);
+    PRINT_VDEBUG ("cRosNodeDoEventsLoop() : tcpIpSocketSelect() finished due to timeout (parameter: %llu ms) or it was interrupted\n", (long long unsigned)timeout);
 
     XmlrpcProcess *rosproc = &n->xmlrpc_client_proc[0];
     if(rosproc->wake_up_time_ms <= cur_time ) // It's time to wakeup, ping master, and maybe look up in master for pending services
@@ -3083,7 +3115,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       if(rosproc->state == XMLRPC_PROCESS_STATE_IDLE)
       {
         /* Prepare to ping roscore ... */
-        PRINT_DEBUG("cRosNodeDoEventsLoop() : Sending ping to ROS Master\n");
+        PRINT_VDEBUG("cRosNodeDoEventsLoop() : Sending ping to ROS Master\n");
 
         RosApiCall *call = newRosApiCall();
         if (call != NULL)
@@ -3130,7 +3162,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     if( rosproc->state != XMLRPC_PROCESS_STATE_IDLE && cRosClockGetTimeMs() - rosproc->last_change_time > CN_IO_TIMEOUT ) // last_change_time is updated when changing process state
     {
       /* Timeout between I/O operations... close the socket and re-advertise */
-      PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC client I/O timeout\n");
+      PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : XMLRPC client I/O timeout\n");
       handleXmlrpcClientError( n, 0 );
     }
 
@@ -3154,7 +3186,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
                cur_time - n->tcpros_server_proc[i].last_change_time > CN_IO_TIMEOUT )
       {
         /* Timeout between I/O operations */
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS server I/O timeout\n");
+        PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : TCPROS server I/O timeout\n");
         handleTcprosServerError( n, i );
       }
     }
@@ -3179,14 +3211,14 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
                cur_time - n->rpcros_client_proc[i].last_change_time > CN_IO_TIMEOUT )
       {
         /* Timeout between I/O operations */
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS server I/O timeout\n");
+        PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : TCPROS server I/O timeout\n");
         handleTcprosServerError( n, i );
       }
     }
   }
   else
   {
-    PRINT_DEBUG ( "cRosNodeDoEventsLoop() : tcpIpSocketSelect() finished with num. fd set: %i (timeout parameter was: %llu ms)\n", n_set, (long long unsigned)timeout);
+    PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : tcpIpSocketSelect() finished with num. fd set: %i (timeout parameter was: %llu ms)\n", n_set, (long long unsigned)timeout);
     for(i = 0; i < CN_MAX_XMLRPC_CLIENT_CONNECTIONS; i++ )
     {
       XmlrpcProcess *client_proc;
@@ -3218,7 +3250,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       }
       else if( FD_ISSET( xmlrpc_listner_fd, &r_fds) )
       {
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : XMLRPC server listener-socket ready\n" );
+        PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : XMLRPC server listener-socket ready\n" );
         if( tcpIpSocketAccept( &(n->xmlrpc_listner_proc.socket),
             &(n->xmlrpc_server_proc[next_xmlrpc_server_i].socket) ) == TCPIPSOCKET_DONE &&
             tcpIpSocketSetReuse( &(n->xmlrpc_server_proc[next_xmlrpc_server_i].socket) ) &&
@@ -3282,7 +3314,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       }
       else if( FD_ISSET( tcpros_listner_fd, &r_fds) )
       {
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
+        PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : TCPROS listner ready\n" );
         if( tcpIpSocketAccept( &(n->tcpros_listner_proc.socket),
             &(n->tcpros_server_proc[next_tcpros_server_i].socket) ) == TCPIPSOCKET_DONE &&
             tcpIpSocketSetReuse( &(n->tcpros_server_proc[next_tcpros_server_i].socket) ) &&
@@ -3352,7 +3384,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       }
       else if( next_rpcros_server_i >= 0 && FD_ISSET( rpcros_listner_fd, &r_fds) )
       {
-        PRINT_DEBUG ( "cRosNodeDoEventsLoop() : TCPROS listener ready\n" );
+        PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : TCPROS listener ready\n" );
         if( tcpIpSocketAccept( &(n->rpcros_listner_proc.socket),
             &(n->rpcros_server_proc[next_rpcros_server_i].socket) ) == TCPIPSOCKET_DONE &&
             tcpIpSocketSetReuse( &(n->rpcros_server_proc[next_rpcros_server_i].socket) ) &&
@@ -3395,7 +3427,7 @@ cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned cha
 {
   uint64_t start_time, elapsed_time;
   cRosErrCodePack ret_err;
-  PRINT_VDEBUG ( "cRosNodeStart ()\n" );
+  PRINT_VVDEBUG ( "cRosNodeStart ()\n" );
 
   start_time = cRosClockGetTimeMs();
   ret_err = CROS_SUCCESS_ERR_PACK;
@@ -3410,7 +3442,7 @@ cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage
   cRosErrCodePack ret_err;
   SubscriberNode *subs_node;
   uint64_t start_time, elapsed_time = 0; // Initialized just to avoid a compiler warning
-  PRINT_VDEBUG ( "cRosNodeReceiveTopicMsg ()\n" );
+  PRINT_VVDEBUG ( "cRosNodeReceiveTopicMsg ()\n" );
 
   if(subidx < 0 || subidx >= CN_MAX_SUBSCRIBED_TOPICS)
     return CROS_BAD_PARAM_ERR;
@@ -3445,7 +3477,7 @@ cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *m
   cRosErrCodePack ret_err;
   PublisherNode *pub_node;
   uint64_t start_time, elapsed_time = 0; // Initialized just to avoid a compiler warning
-  PRINT_VDEBUG ( "cRosNodeSendTopicMsg ()\n" );
+  PRINT_VVDEBUG ( "cRosNodeSendTopicMsg ()\n" );
 
   if(pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
     return CROS_BAD_PARAM_ERR;
@@ -3496,7 +3528,7 @@ cRosErrCodePack cRosNodeServiceCall( CrosNode *node, int svcidx, cRosMessage *re
   ServiceCallerNode *caller_node;
   TcprosProcess *svc_client_proc;
   uint64_t start_time, elapsed_time = 0; // Initialized just to avoid a compiler warning
-  PRINT_VDEBUG ( "cRosNodeServiceCall ()\n" );
+  PRINT_VVDEBUG ( "cRosNodeServiceCall ()\n" );
 
   if(svcidx < 0 || svcidx >= CN_MAX_SERVICE_CALLERS)
     return CROS_BAD_PARAM_ERR;
@@ -3980,7 +4012,7 @@ cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port
   uint64_t start_time, elapsed_time;
   cRosErrCodePack ret_err;
   TcpIpSocketState socket_state;
-  PRINT_VDEBUG ( "cRosWaitPortOpen ()\n" );
+  PRINT_VVDEBUG ( "cRosWaitPortOpen ()\n" );
 
   start_time = cRosClockGetTimeMs();
   do

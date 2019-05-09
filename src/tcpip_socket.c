@@ -7,7 +7,8 @@
 #  include <windows.h>
 #  include <winsock2.h>
 #  include <Ws2tcpip.h> // Ws2_32.lib must be used when linking
-
+// We redefine the socket function codes using constants (FN_...) that will have the same name on Windows and Linux,
+// so, in the functions below we do not have to implement different source code for each operating system.
 #  define FN_EISCONN WSAEISCONN
 #  define FN_EINPROGRESS WSAEINPROGRESS
 #  define FN_EALREADY WSAEALREADY
@@ -49,7 +50,11 @@
 #include "cros_clock.h"
 
 #define TCPIP_SOCKET_READ_BUFFER_SIZE 2048
-// Definitions for debug messages only. Console terminal color sequence:
+// Definitions for debug messages only.
+// Console virtual-terminal color sequences (supported on Linux and on Windows 10 build 16257 and later):
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
 #define ANSI_COLOR_CYAN    "\x1b[36m"
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
@@ -59,7 +64,7 @@ int socket_lib_initialized = 0; // Default value: 0 = library not initialized
 
 void tcpIpSocketInit ( TcpIpSocket *s )
 {
-  PRINT_VDEBUG ( "tcpIpSocketInit()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketInit()\n" );
   s->fd = FN_INVALID_SOCKET;
   s->port = 0;
   memset ( & ( s->adr ), 0, sizeof ( struct sockaddr_in ) );
@@ -73,7 +78,7 @@ int tcpIpSocketOpen ( TcpIpSocket *s )
 {
   int ret_success;
 
-  PRINT_VDEBUG ( "tcpIpSocketOpen()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketOpen()\n" );
   if ( s->open )
     return(1);
 
@@ -85,7 +90,7 @@ int tcpIpSocketOpen ( TcpIpSocket *s )
   }
   else
   {
-    PRINT_DEBUG ( "tcpIpSocketOpen(): Created socket FD: %i\n", s->fd);
+    PRINT_VDEBUG ( "tcpIpSocketOpen(): Created socket FD: %i\n", s->fd);
     s->open = 1;
     ret_success = 1;
   }
@@ -97,7 +102,7 @@ int tcpIpSocketClose ( TcpIpSocket *s )
 {
   int ret_success;
 
-  PRINT_VDEBUG ( "tcpIpSocketClose()\n");
+  PRINT_VVDEBUG ( "tcpIpSocketClose()\n");
 
   if ( !s->open )
     return(1);
@@ -106,7 +111,7 @@ int tcpIpSocketClose ( TcpIpSocket *s )
   {
     int close_ret_val;
 
-    PRINT_DEBUG ( "tcpIpSocketClose(): Closing socket FD: %i\n", s->fd);
+    PRINT_VDEBUG ( "tcpIpSocketClose(): Closing socket FD: %i\n", s->fd);
     close_ret_val = closesocket( s->fd );
     ret_success = (close_ret_val != FN_SOCKET_ERROR);
   }
@@ -124,7 +129,7 @@ int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
 {
   int ret_fn_ctl;
 
-  PRINT_VDEBUG ( "tcpIpSocketSetNonBlocking()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketSetNonBlocking()\n" );
 
   if ( !s->open )
   {
@@ -160,7 +165,7 @@ int tcpIpSocketSetNonBlocking ( TcpIpSocket *s )
 
 int tcpIpSocketSetNoDelay ( TcpIpSocket *s )
 {
-  PRINT_VDEBUG ( "tcpIpSocketSetNoDelay()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketSetNoDelay()\n" );
 
   if ( !s->open )
   {
@@ -184,7 +189,7 @@ int tcpIpSocketSetNoDelay ( TcpIpSocket *s )
 
 int tcpIpSocketSetReuse ( TcpIpSocket *s )
 {
-  PRINT_VDEBUG ( "tcpIpSocketSetReuse()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketSetReuse()\n" );
 
   if ( !s->open )
   {
@@ -203,7 +208,7 @@ int tcpIpSocketSetReuse ( TcpIpSocket *s )
 
 int tcpIpSocketSetKeepAlive ( TcpIpSocket *s, unsigned int idle, unsigned int interval, unsigned int count )
 {
-  PRINT_VDEBUG ( "tcpIpSocketSetKeepAlive()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketSetKeepAlive()\n" );
 
   if ( !s->open )
   {
@@ -259,7 +264,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
   struct sockaddr_in adr;
   int fn_error_code;
 
-  PRINT_VDEBUG ( "tcpIpSocketConnect():\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketConnect():\n" );
 
   if ( !s->open )
   {
@@ -288,7 +293,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
     if ( s->is_nonblocking &&
        ( fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EALREADY || fn_error_code == FN_EWOULDBLOCK) )
     {
-      PRINT_DEBUG ( "tcpIpSocketConnect() : Connection in progress to %s:%i through FD:%i\n", host_addr, host_port, s->fd);
+      PRINT_VDEBUG ( "tcpIpSocketConnect() : Connection in progress to %s:%i through FD:%i\n", host_addr, host_port, s->fd);
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else
@@ -306,7 +311,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
       }
     }
   }
-  PRINT_DEBUG ( "tcpIpSocketConnect() : connection established to %s:%i through FD:%i\n", host_addr, host_port, s->fd);
+  PRINT_DEBUG (ANSI_COLOR_YELLOW"tcpIpSocketConnect() : connection established to %s:%i through FD:%i\n"ANSI_COLOR_RESET, host_addr, host_port, s->fd);
 
   s->port = host_port;
   s->adr = adr;
@@ -317,7 +322,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
 
 int tcpIpSocketDisconnect ( TcpIpSocket *s )
 {
-  PRINT_VDEBUG ( "tcpIpSocketDisconnect()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketDisconnect()\n" );
 
   if ( !s->connected )
     return 1;
@@ -361,7 +366,7 @@ TcpIpSocketState tcpIpSocketCheckPort ( const char *host_addr, unsigned short ho
 
 int tcpIpSocketBindListen( TcpIpSocket *s, const char *host_addr, unsigned short port, int backlog )
 {
-  PRINT_VDEBUG ( "tcpIpSocketBindListen()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketBindListen()\n" );
 
   if ( !s->open )
   {
@@ -418,7 +423,7 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host_addr, unsigned short
 
 TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
 {
-  PRINT_VDEBUG ( "tcpIpSocketAccept()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketAccept()\n" );
 
   TcpIpSocketState state = TCPIPSOCKET_DONE;
 
@@ -447,7 +452,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     if ( s->is_nonblocking &&
        ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketAccept() : Accept in progress from port %i, new FD:%i\n", new_adr.sin_port, new_fd);
+      PRINT_VDEBUG ( "tcpIpSocketAccept() : Accept in progress from port %i, new FD:%i\n", new_adr.sin_port, new_fd);
       state = TCPIPSOCKET_IN_PROGRESS;
     }
     else
@@ -457,7 +462,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     }
   }
   else
-    PRINT_DEBUG ( "tcpIpSocketAccept() : Accepted connecion at port %i from port %i, new FD:%i\n", s->port, new_adr.sin_port, new_fd);
+    PRINT_DEBUG (ANSI_COLOR_YELLOW"tcpIpSocketAccept() : Accepted connecion at port %i from port %i, new FD:%i\n"ANSI_COLOR_RESET, s->port, new_adr.sin_port, new_fd);
 
   if( new_s->open )
     tcpIpSocketClose ( new_s );
@@ -471,10 +476,11 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
   return state;
 }
 
-void printTransmissionBuffer(const char *buffer, const char *msg_info, int msg_fd, int buf_len)
+void printTransmissionBuffer(const char *buffer, const char *msg_info, char *msg_color_seq, int msg_fd, int buf_len)
 {
   int i;
-  PRINT_DEBUG(ANSI_COLOR_CYAN"\n%s (%i bytes fd: %i) ["ANSI_COLOR_RESET, msg_info, buf_len, msg_fd);
+  PRINT_DEBUG("%s", msg_color_seq);
+  PRINT_DEBUG("%s (%i bytes FD: %i) ["ANSI_COLOR_RESET, msg_info, buf_len, msg_fd);
   for(i=0;i<buf_len;i++)
   {
     char ch=buffer[i];
@@ -482,12 +488,13 @@ void printTransmissionBuffer(const char *buffer, const char *msg_info, int msg_f
       ch='.';
     PRINT_DEBUG("%c",ch);
   }
-  PRINT_DEBUG(ANSI_COLOR_CYAN"]\n"ANSI_COLOR_RESET);
+  PRINT_DEBUG("%s", msg_color_seq);
+  PRINT_DEBUG("]\n"ANSI_COLOR_RESET);
 }
 
 TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
 {
-  PRINT_VDEBUG ( "tcpIpSocketWriteBuffer()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketWriteBuffer()\n" );
 
   const char *data = (const char *)dynBufferGetCurrentData ( d_buf );
   int data_size = dynBufferGetRemainingDataSize ( d_buf );
@@ -499,7 +506,7 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
   }
 
   #if CROS_DEBUG_LEVEL >= 2
-  printTransmissionBuffer(data, "tcpIpSocketWriteBuffer() : Buffer", s->fd, data_size);
+  printTransmissionBuffer(data, "tcpIpSocketWriteBuffer() : Buffer", ANSI_COLOR_MAGENTA, s->fd, data_size);
   #endif
   while ( data_size > 0 )
   {
@@ -516,12 +523,12 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
     else if ( s->is_nonblocking &&
               ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : write in progress, %d remaining bytes\n", data_size );
+      PRINT_VDEBUG ( "tcpIpSocketWriteBuffer() : write in progress, %d remaining bytes\n", data_size );
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else if ( fn_error_code == FN_ENOTCONN || fn_error_code == FN_ECONNRESET )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteBuffer() : socket disconnected\n" );
+      PRINT_VDEBUG ( "tcpIpSocketWriteBuffer() : socket disconnected\n" );
       s->connected = 0;
       return  TCPIPSOCKET_DISCONNECTED;
     }
@@ -537,7 +544,7 @@ TcpIpSocketState tcpIpSocketWriteBuffer ( TcpIpSocket *s, DynBuffer *d_buf )
 
 TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
 {
-  PRINT_VDEBUG ( "tcpIpSocketWriteString()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketWriteString()\n" );
 
   const char *data = dynStringGetCurrentData ( d_str );
   int data_size = dynStringGetRemainingDataSize ( d_str );
@@ -548,7 +555,7 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
     return TCPIPSOCKET_FAILED;
   }
   #if CROS_DEBUG_LEVEL >= 2
-  printTransmissionBuffer(data, "tcpIpSocketWriteString() : Buffer", s->fd, data_size);
+  printTransmissionBuffer(data, "tcpIpSocketWriteString() : Buffer", ANSI_COLOR_MAGENTA, s->fd, data_size);
   #endif
   while ( data_size > 0 )
   {
@@ -565,12 +572,12 @@ TcpIpSocketState tcpIpSocketWriteString ( TcpIpSocket *s, DynString *d_str )
     else if ( s->is_nonblocking &&
               ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteString() : write in progress, %d remaining bytes\n", data_size );
+      PRINT_VDEBUG ( "tcpIpSocketWriteString() : write in progress, %d remaining bytes\n", data_size );
       return TCPIPSOCKET_IN_PROGRESS;
     }
     else if ( fn_error_code == FN_ENOTCONN || fn_error_code == FN_ECONNRESET )
     {
-      PRINT_DEBUG ( "tcpIpSocketWriteString() : socket disconnectd\n" );
+      PRINT_VDEBUG ( "tcpIpSocketWriteString() : socket disconnectd\n" );
       s->connected = 0;
       return  TCPIPSOCKET_DISCONNECTED;
     }
@@ -595,7 +602,7 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   int recv_ret, fn_error_code;
   char *read_buf;
 
-  PRINT_VDEBUG ( "tcpIpSocketReadBufferEx()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketReadBufferEx()\n" );
 
   *n_reads = 0;
   if ( !s->connected )
@@ -616,15 +623,15 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   fn_error_code = tcpIpSocketGetError();
   if ( recv_ret == 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
+    PRINT_VDEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
   else if ( recv_ret > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", recv_ret );
+    PRINT_VDEBUG ( "tcpIpSocketReadBufferEx() : read %d bytes \n", recv_ret );
     #if CROS_DEBUG_LEVEL >= 2
-    printTransmissionBuffer((const char *)read_buf, "tcpIpSocketReadBufferEx() : Buffer", s->fd, recv_ret);
+    printTransmissionBuffer((const char *)read_buf, "tcpIpSocketReadBufferEx() : Buffer", ANSI_COLOR_CYAN, s->fd, recv_ret);
     #endif
 
     dynBufferPushBackBuf ( d_buf, (const unsigned char *)read_buf, recv_ret );
@@ -634,12 +641,12 @@ TcpIpSocketState tcpIpSocketReadBufferEx( TcpIpSocket *s, DynBuffer *d_buf, size
   else if ( s->is_nonblocking &&
             ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : read in progress\n" );
+    PRINT_VDEBUG ( "tcpIpSocketReadBufferEx() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
   else if ( fn_error_code == FN_ENOTCONN || fn_error_code == FN_ECONNRESET )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
+    PRINT_VDEBUG ( "tcpIpSocketReadBufferEx() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
@@ -658,7 +665,7 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
 {
   int recv_ret, fn_error_code;
 
-  PRINT_VDEBUG ( "tcpIpSocketReadString()\n" );
+  PRINT_VVDEBUG ( "tcpIpSocketReadString()\n" );
 
   if ( !s->connected )
   {
@@ -674,15 +681,15 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
   fn_error_code = tcpIpSocketGetError();
   if ( recv_ret == 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
+    PRINT_VDEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
   else if ( recv_ret > 0 )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : read %d bytes \n", recv_ret );
+    PRINT_VDEBUG ( "tcpIpSocketReadString() : read %d bytes \n", recv_ret );
     #if CROS_DEBUG_LEVEL >= 2
-    printTransmissionBuffer(read_buf, "tcpIpSocketReadString() : Buffer", s->fd, recv_ret);
+    printTransmissionBuffer(read_buf, "tcpIpSocketReadString() : Buffer", ANSI_COLOR_CYAN, s->fd, recv_ret);
     #endif
 
     dynStringPushBackStrN ( d_str, read_buf, recv_ret );
@@ -691,12 +698,12 @@ TcpIpSocketState tcpIpSocketReadString ( TcpIpSocket *s, DynString *d_str )
   else if ( s->is_nonblocking &&
             ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : read in progress\n" );
+    PRINT_VDEBUG ( "tcpIpSocketReadString() : read in progress\n" );
     state = TCPIPSOCKET_IN_PROGRESS;
   }
   else if ( fn_error_code == FN_ENOTCONN || fn_error_code == FN_ECONNRESET )
   {
-    PRINT_DEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
+    PRINT_VDEBUG ( "tcpIpSocketReadString() : socket disconnectd\n" );
     s->connected = 0;
     state = TCPIPSOCKET_DISCONNECTED;
   }
@@ -724,7 +731,7 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
   struct timeval timeout_tv;
   int nfds_set;
 
-  PRINT_VDEBUG( "tcpIpSocketSelect(): nfds: %i\n", nfds);
+  PRINT_VVDEBUG( "tcpIpSocketSelect(): nfds: %i\n", nfds);
 
   timeout_tv = cRosClockGetTimeVal( time_out );
 
@@ -738,7 +745,7 @@ int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exce
 
     if(socket_err_num == FN_EINTR)
     {
-      PRINT_DEBUG("tcpIpSocketSelect() : select() returned EINTR error code\n");
+      PRINT_VDEBUG("tcpIpSocketSelect() : select() returned EINTR error code\n");
       nfds_set = 0;
     }
     else

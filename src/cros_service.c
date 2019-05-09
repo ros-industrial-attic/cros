@@ -430,7 +430,7 @@ static uint32_t pushBackField( DynBuffer *pkt, TcprosTagStrDim *tag, const char 
 {
   size_t val_len = strlen( val );
   uint32_t out_len, field_len = tag->dim + val_len;
-  //PRINT_DEBUG("pushBackField() : filed : %s field_len ; %d\n", tag->str, field_len);
+  //PRINT_VDEBUG("pushBackField() : filed : %s field_len ; %d\n", tag->str, field_len);
   HOST_TO_ROS_UINT32( field_len, out_len );
   dynBufferPushBackUInt32( pkt, out_len );
   dynBufferPushBackBuf( pkt, (const unsigned char*)tag->str, tag->dim );

@@ -34,6 +34,12 @@
 #  define PRINT_VDEBUG(...)
 #endif
 
+#if CROS_DEBUG_LEVEL >= 4
+#  define PRINT_VVDEBUG(...) printf(__VA_ARGS__)
+#else
+#  define PRINT_VVDEBUG(...)
+#endif
+
 #define PRINT_ERROR(...) fprintf(cRosOutStreamGet(), __VA_ARGS__)
 
 #if LITTLE_ENDIAN_ARC

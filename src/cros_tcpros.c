@@ -25,7 +25,7 @@ static uint32_t pushBackField( DynBuffer *pkt, TcprosTagStrDim *tag, const char 
 {
   size_t val_len = strlen( val );
   uint32_t out_len, field_len = tag->dim + val_len;
-  //PRINT_DEBUG("pushBackField() : filed : %s field_len ; %d\n", tag->str, field_len);
+  //PRINT_VDEBUG("pushBackField() : filed : %s field_len ; %d\n", tag->str, field_len);
   HOST_TO_ROS_UINT32( field_len, out_len );
   dynBufferPushBackUInt32( pkt, out_len );
   dynBufferPushBackBuf( pkt, (const unsigned char*)tag->str, tag->dim );
@@ -81,7 +81,7 @@ static void printPacket( DynBuffer *pkt, int print_data )
 
 static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flags )
 {
-  PRINT_VDEBUG("readSubcriptioHeader()\n");
+  PRINT_VVDEBUG("readSubcriptioHeader()\n");
   DynBuffer *packet = &(p->packet);
   uint32_t bytes_to_read = getLen( packet );
   size_t packet_len = dynBufferGetSize( packet );
@@ -91,13 +91,13 @@ static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flag
 
   *flags = 0x0;
 
-  PRINT_DEBUG("readSubcriptioHeader() : Header len=%d\n",bytes_to_read);
+  PRINT_VDEBUG("readSubcriptioHeader() : Header len=%d\n",bytes_to_read);
 
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( packet );
 
-    PRINT_DEBUG("readSubcriptioHeader() : Field len=%d\n",field_len);
+    PRINT_VDEBUG("readSubcriptioHeader() : Field len=%d\n",field_len);
 
     const char *field = (const char *)dynBufferGetCurrentData( packet );
     if( field_len )
@@ -189,19 +189,19 @@ static TcprosParserState readSubcriptionHeader( TcprosProcess *p, uint32_t *flag
 
 static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flags )
 {
-  PRINT_VDEBUG("readPublicationHeader()\n");
+  PRINT_VVDEBUG("readPublicationHeader()\n");
   DynBuffer *packet = &(p->packet);
   size_t bytes_to_read = dynBufferGetSize( packet );
 
   *flags = 0x0;
 
-  PRINT_DEBUG("readPublicationHeader() : Header len=%lu\n", (long unsigned)bytes_to_read);
+  PRINT_VDEBUG("readPublicationHeader() : Header len=%lu\n", (long unsigned)bytes_to_read);
 
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( packet );
 
-    PRINT_DEBUG("readPublicationHeader() : Field len=%d\n",field_len);
+    PRINT_VDEBUG("readPublicationHeader() : Field len=%d\n",field_len);
 
     const char *field = (const char *)dynBufferGetCurrentData( packet );
     if( field_len )
@@ -293,7 +293,7 @@ static TcprosParserState readPublicationHeader( TcprosProcess *p, uint32_t *flag
 
 TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx )
 {
-  PRINT_VDEBUG("cRosMessageParseSubcriptionHeader()\n");
+  PRINT_VVDEBUG("cRosMessageParseSubcriptionHeader()\n");
 
   TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
   DynBuffer *packet = &(server_proc->packet);
@@ -356,7 +356,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
 
 TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx )
 {
-  PRINT_VDEBUG("cRosMessageParsePublicationHeader()\n");
+  PRINT_VVDEBUG("cRosMessageParsePublicationHeader()\n");
 
   TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
   DynBuffer *packet = &(client_proc->packet);
@@ -413,7 +413,7 @@ TcprosParserState cRosMessageParsePublicationHeader( CrosNode *n, int client_idx
 
 void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx )
 {
-  PRINT_VDEBUG("cRosMessagePrepareSubcriptionHeader()\n");
+  PRINT_VVDEBUG("cRosMessagePrepareSubcriptionHeader()\n");
 
   TcprosProcess *client_proc = &(n->tcpros_client_proc[client_idx]);
   int sub_idx = client_proc->topic_idx;
@@ -457,7 +457,7 @@ cRosErrCodePack cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
 
 void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
 {
-  PRINT_VDEBUG("cRosMessagePreparePublicationHeader()\n");
+  PRINT_VVDEBUG("cRosMessagePreparePublicationHeader()\n");
 
   TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
   int pub_idx = server_proc->topic_idx;
@@ -489,7 +489,7 @@ cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_
   DynBuffer *packet;
   void *data_context;
   uint32_t packet_size;
-  PRINT_VDEBUG("cRosMessagePreparePublicationPacket()\n");
+  PRINT_VVDEBUG("cRosMessagePreparePublicationPacket()\n");
 
   server_proc = &(node->tcpros_server_proc[server_idx]);
   pub_idx = server_proc->topic_idx;
@@ -532,19 +532,19 @@ cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_
 
 static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flags )
 {
-  PRINT_VDEBUG("readServiceCallHeader()\n");
+  PRINT_VVDEBUG("readServiceCallHeader()\n");
   DynBuffer *packet = &(p->packet);
   size_t bytes_to_read = dynBufferGetSize( packet );
 
   *flags = 0x0;
 
-  PRINT_DEBUG("readServiceCallHeader() : Header len=%lu\n", (long unsigned)bytes_to_read);
+  PRINT_VDEBUG("readServiceCallHeader() : Header len=%lu\n", (long unsigned)bytes_to_read);
 
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( packet );
 
-    PRINT_DEBUG("readServiceCallHeader() : Field len=%d\n",field_len);
+    PRINT_VDEBUG("readServiceCallHeader() : Field len=%d\n",field_len);
 
     const char *field = (const char *)dynBufferGetCurrentData( packet );
 
@@ -651,7 +651,7 @@ static TcprosParserState readServiceCallHeader( TcprosProcess *p, uint32_t *flag
 
 TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_idx)
 {
-  PRINT_VDEBUG("cRosMessageParseServiceCallerHeader()\n");
+  PRINT_VVDEBUG("cRosMessageParseServiceCallerHeader()\n");
 
   TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
   DynBuffer *packet = &(server_proc->packet);
@@ -732,19 +732,19 @@ TcprosParserState cRosMessageParseServiceCallerHeader( CrosNode *n, int server_i
 
 static TcprosParserState readServiceProvisionHeader( TcprosProcess *p, uint32_t *flags )
 {
-  PRINT_VDEBUG("readServiceProvisionHeader()\n");
+  PRINT_VVDEBUG("readServiceProvisionHeader()\n");
   DynBuffer *packet = &(p->packet);
   size_t bytes_to_read = dynBufferGetSize( packet );
 
   *flags = 0x0;
 
-  PRINT_DEBUG("readServiceProvisionHeader() : Header len=%lu\n", (long unsigned)bytes_to_read);
+  PRINT_VDEBUG("readServiceProvisionHeader() : Header len=%lu\n", (long unsigned)bytes_to_read);
 
   while ( bytes_to_read > 0)
   {
     uint32_t field_len = getLen( packet );
 
-    PRINT_DEBUG("readServiceProvisionHeader() : Field len=%d\n",field_len);
+    PRINT_VDEBUG("readServiceProvisionHeader() : Field len=%d\n",field_len);
 
     const char *field = (const char *)dynBufferGetCurrentData( packet );
 
@@ -848,7 +848,7 @@ static TcprosParserState readServiceProvisionHeader( TcprosProcess *p, uint32_t 
 
 TcprosParserState cRosMessageParseServiceProviderHeader( CrosNode *n, int client_idx )
 {
-  PRINT_VDEBUG("cRosMessageParseServiceProviderHeader()\n");
+  PRINT_VVDEBUG("cRosMessageParseServiceProviderHeader()\n");
 
   TcprosProcess *client_proc = &(n->rpcros_client_proc[client_idx]);
   DynBuffer *packet = &(client_proc->packet);
@@ -908,7 +908,7 @@ TcprosParserState cRosMessageParseServiceProviderHeader( CrosNode *n, int client
 
 void cRosMessagePrepareServiceCallHeader(CrosNode *n, int client_idx)
 {
-  PRINT_VDEBUG("cRosMessagePrepareServiceCallHeader()\n");
+  PRINT_VVDEBUG("cRosMessagePrepareServiceCallHeader()\n");
 
   TcprosProcess *client_proc = &(n->rpcros_client_proc[client_idx]);
   int srv_idx = client_proc->service_idx;
@@ -939,7 +939,7 @@ cRosErrCodePack cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx
 {
   cRosErrCodePack ret_err;
 
-  PRINT_VDEBUG("cRosMessagePrepareServiceCallPacket()\n");
+  PRINT_VVDEBUG("cRosMessagePrepareServiceCallPacket()\n");
   TcprosProcess *client_proc = &(n->rpcros_client_proc[client_idx]);
   int svc_idx = client_proc->service_idx;
   DynBuffer *packet = &(client_proc->packet);
@@ -985,7 +985,7 @@ cRosErrCodePack cRosMessageParseServiceResponsePacket( CrosNode *n, int client_i
 
 void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
 {
-  PRINT_VDEBUG("cRosMessagePreparePublicationHeader()\n");
+  PRINT_VVDEBUG("cRosMessagePreparePublicationHeader()\n");
 
   TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
   int srv_idx = server_proc->service_idx;
@@ -1015,7 +1015,7 @@ cRosErrCodePack cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server
   cRosErrCodePack ret_err;
   uint8_t ok_byte; // OK field (byte size) of the service response packet
 
-  PRINT_VDEBUG("cRosMessageParseServiceArgumentsPacket()\n");
+  PRINT_VVDEBUG("cRosMessageParseServiceArgumentsPacket()\n");
   TcprosProcess *server_proc = &(n->rpcros_server_proc[server_idx]);
   DynBuffer *packet = &(server_proc->packet);
   int srv_idx = server_proc->service_idx;

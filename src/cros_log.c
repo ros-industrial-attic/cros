@@ -173,7 +173,7 @@ void cRosLogPrint(CrosNode* node,
       }
       case CROS_LOGLEVEL_DEBUG:
       {
-        PRINT_DEBUG("%s", log_msg);
+        PRINT_VDEBUG("%s", log_msg);
         break;
       }
       case CROS_LOGLEVEL_ERROR:

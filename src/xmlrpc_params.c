@@ -126,7 +126,7 @@ static void binaryToXml ( void *val, DynString *message )
 
 int paramFromXml (DynString *message, XmlrpcParam *param, ParamContainerType container)
 {
-  PRINT_VDEBUG ( "paramFromXml(), is_array : %s \n", (container == PARAM_CONTAINER_ARRAY)?"TRUE":"FALSE" );
+  PRINT_VVDEBUG ( "paramFromXml(), is_array : %s \n", (container == PARAM_CONTAINER_ARRAY)?"TRUE":"FALSE" );
 
   int rc;
   const char *c = dynStringGetCurrentData ( message );
@@ -156,13 +156,13 @@ int paramFromXml (DynString *message, XmlrpcParam *param, ParamContainerType con
     else if (container == PARAM_CONTAINER_ARRAY && len - i >= XMLRPC_DATA_ETAG.dim
              && strncmp ( c, XMLRPC_DATA_ETAG.str, XMLRPC_DATA_ETAG.dim ) == 0 )
     {
-      PRINT_VDEBUG ( "paramFromXml() : reach end of array\n" );
+      PRINT_VVDEBUG ( "paramFromXml() : reach end of array\n" );
       return -1;
     }
     else if (container == PARAM_CONTAINER_STRUCT && len - i >= XMLRPC_STRUCT_ETAG.dim
              && strncmp ( c, XMLRPC_STRUCT_ETAG.str, XMLRPC_STRUCT_ETAG.dim ) == 0 )
     {
-      PRINT_VDEBUG ( "paramFromXml() : reach end of struct\n" );
+      PRINT_VVDEBUG ( "paramFromXml() : reach end of struct\n" );
       return -1;
     }
   }
@@ -255,7 +255,7 @@ paramFromXml_exit:
 
 int arrayFromXml(DynString *message, XmlrpcParam *param)
 {
-  PRINT_VDEBUG ( "arrayFromXml()\n" );
+  PRINT_VVDEBUG ( "arrayFromXml()\n" );
 
   const char *c = dynStringGetCurrentData ( message );
   int len = dynStringGetLen ( message );
@@ -325,7 +325,7 @@ int arrayFromXml(DynString *message, XmlrpcParam *param)
 
 int structFromXml(DynString *message, XmlrpcParam *param)
 {
-  PRINT_VDEBUG ( "structFromXml()\n" );
+  PRINT_VVDEBUG ( "structFromXml()\n" );
 
   while (paramFromXml (message, param, PARAM_CONTAINER_STRUCT ) != -1);
 
@@ -452,7 +452,7 @@ int paramValueFromXml (DynString *message, XmlrpcParam *param,  ParamContainerTy
     }
   }
 
-  PRINT_VDEBUG("paramFromXml() : Param type %d \n", p_type );
+  PRINT_VVDEBUG("paramFromXml() : Param type %d \n", p_type );
 
   // Update pose indicator (useful in case it is an array parameter)
   dynStringSetPoseIndicator ( message, i );
@@ -798,7 +798,7 @@ XmlrpcParam * arrayAddElem ( XmlrpcParam *param )
 
   if ( param->array_n_elem == param->array_max_elem )
   {
-    PRINT_VDEBUG ( "arrayAddElem() : reallocate memory\n" );
+    PRINT_VVDEBUG ( "arrayAddElem() : reallocate memory\n" );
     XmlrpcParam *new_param = ( XmlrpcParam * ) realloc ( param->data.as_array,
                              ( XMLRPC_ARRAY_GROW_RATE * param->array_max_elem ) * sizeof ( XmlrpcParam ) );
     if ( new_param == NULL )
@@ -837,41 +837,41 @@ char *xmlrpcParamGetString( XmlrpcParam *param )
 
 void xmlrpcParamSetUnknown ( XmlrpcParam *param )
 {
-  PRINT_VDEBUG ( "xmlrpcParamSetUnknown()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamSetUnknown()\n" );
 
   param->type = XMLRPC_PARAM_UNKNOWN;
 }
 
 void xmlrpcParamSetBool ( XmlrpcParam *param, int val )
 {
-  PRINT_VDEBUG ( "xmlrpcSetBool()\n" );
+  PRINT_VVDEBUG ( "xmlrpcSetBool()\n" );
 
   param->type = XMLRPC_PARAM_BOOL;
   param->data.as_bool = ( ( val != 0 ) ?1:0 );
-  PRINT_DEBUG( "xmlrpcSetBool() : Set: %s\n", param->data.as_bool?"TRUE":"FALSE" );
+  PRINT_VDEBUG( "xmlrpcSetBool() : Set: %s\n", param->data.as_bool?"TRUE":"FALSE" );
 }
 
 void xmlrpcParamSetInt ( XmlrpcParam *param, int32_t val )
 {
-  PRINT_VDEBUG ( "xmlrpcSetInt()\n" );
+  PRINT_VVDEBUG ( "xmlrpcSetInt()\n" );
 
   param->type = XMLRPC_PARAM_INT;
   param->data.as_int = val;
-  PRINT_DEBUG( "xmlrpcSetInt() : Set: %d\n", param->data.as_int );
+  PRINT_VDEBUG( "xmlrpcSetInt() : Set: %d\n", param->data.as_int );
 }
 
 void xmlrpcParamSetDouble ( XmlrpcParam *param, double val )
 {
-  PRINT_VDEBUG ( "xmlrpcSetDouble()\n" );
+  PRINT_VVDEBUG ( "xmlrpcSetDouble()\n" );
 
   param->type = XMLRPC_PARAM_DOUBLE;
   param->data.as_double = val;
-  PRINT_DEBUG ( "xmlrpcSetDouble() : Set: %f\n", param->data.as_double );
+  PRINT_VDEBUG ( "xmlrpcSetDouble() : Set: %f\n", param->data.as_double );
 }
 
 int xmlrpcParamSetString ( XmlrpcParam *param, const char *val )
 {
-  PRINT_VDEBUG ( "xmlrpcSetString()\n" );
+  PRINT_VVDEBUG ( "xmlrpcSetString()\n" );
 
   int str_len = strlen ( val );
   return xmlrpcParamSetStringN ( param, val, str_len );
@@ -879,7 +879,7 @@ int xmlrpcParamSetString ( XmlrpcParam *param, const char *val )
 
 int xmlrpcParamSetStringN ( XmlrpcParam *param, const char *val, int n )
 {
-  PRINT_VDEBUG ( "xmlrpcSetStringN()\n" );
+  PRINT_VVDEBUG ( "xmlrpcSetStringN()\n" );
 
   param->type = XMLRPC_PARAM_STRING;
   param->data.as_string = ( char * ) malloc ( ( n + 1 ) *sizeof ( char ) );
@@ -907,7 +907,7 @@ int xmlrpcParamSetStringN ( XmlrpcParam *param, const char *val, int n )
   }
   param->data.as_string[i] = '\0';
 
-  PRINT_DEBUG ( "xmlrpcSetStringN() : Set: %s\n", param->data.as_string );
+  PRINT_VDEBUG ( "xmlrpcSetStringN() : Set: %s\n", param->data.as_string );
   return 0;
 }
 
@@ -940,7 +940,7 @@ XmlrpcParam *xmlrpcParamArrayGetParamAt( XmlrpcParam *param, int idx )
 
 int xmlrpcParamSetArray ( XmlrpcParam *param )
 {
-  PRINT_VDEBUG ( "xmlrpcSetArray()\n" );
+  PRINT_VVDEBUG ( "xmlrpcSetArray()\n" );
   param->type = XMLRPC_PARAM_ARRAY;
 
   param->data.as_array = ( XmlrpcParam * ) malloc ( XMLRPC_ARRAY_INIT_SIZE*sizeof ( XmlrpcParam ) );
@@ -957,7 +957,7 @@ int xmlrpcParamSetArray ( XmlrpcParam *param )
 
 int xmlrpcParamSetStruct( XmlrpcParam *param )
 {
-  PRINT_VDEBUG ( "xmlrpcSetArray()\n" );
+  PRINT_VVDEBUG ( "xmlrpcSetArray()\n" );
   param->type = XMLRPC_PARAM_STRUCT;
 
   param->data.as_array = ( XmlrpcParam * ) malloc ( XMLRPC_ARRAY_INIT_SIZE*sizeof ( XmlrpcParam ) );
@@ -980,7 +980,7 @@ XmlrpcParamType xmlrpcParamGetType ( XmlrpcParam *param )
 
 XmlrpcParam * xmlrpcParamArrayPushBackBool ( XmlrpcParam *param, int val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamArrayPushBackBool()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamArrayPushBackBool()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -991,7 +991,7 @@ XmlrpcParam * xmlrpcParamArrayPushBackBool ( XmlrpcParam *param, int val )
 
 XmlrpcParam * xmlrpcParamArrayPushBackInt ( XmlrpcParam *param, int32_t val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamArrayPushBackInt()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamArrayPushBackInt()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1002,7 +1002,7 @@ XmlrpcParam * xmlrpcParamArrayPushBackInt ( XmlrpcParam *param, int32_t val )
 
 XmlrpcParam * xmlrpcParamArrayPushBackDouble ( XmlrpcParam *param, double val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamArrayPushBackDouble()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamArrayPushBackDouble()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1013,7 +1013,7 @@ XmlrpcParam * xmlrpcParamArrayPushBackDouble ( XmlrpcParam *param, double val )
 
 XmlrpcParam * xmlrpcParamArrayPushBackString ( XmlrpcParam *param, const char *val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamArrayPushBackString()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamArrayPushBackString()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1024,7 +1024,7 @@ XmlrpcParam * xmlrpcParamArrayPushBackString ( XmlrpcParam *param, const char *v
 
 XmlrpcParam * xmlrpcParamArrayPushBackStringN ( XmlrpcParam *param, const char *val, int n )
 {
-  PRINT_VDEBUG ( "xmlrpcParamArrayPushBackStringN()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamArrayPushBackStringN()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1035,7 +1035,7 @@ XmlrpcParam * xmlrpcParamArrayPushBackStringN ( XmlrpcParam *param, const char *
 
 XmlrpcParam *xmlrpcParamArrayPushBackArray ( XmlrpcParam *param )
 {
-  PRINT_VDEBUG ( "xmlrpcParamArrayPushBackArray()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamArrayPushBackArray()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1046,7 +1046,7 @@ XmlrpcParam *xmlrpcParamArrayPushBackArray ( XmlrpcParam *param )
 
 XmlrpcParam * xmlrpcParamArrayPushBackStruct ( XmlrpcParam *param )
 {
-  PRINT_VDEBUG ( "xmlrpcParamArrayPushBackStruct()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamArrayPushBackStruct()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1076,7 +1076,7 @@ XmlrpcParam * xmlrpcParamStructGetParam( XmlrpcParam *param, const char *name )
 
 XmlrpcParam * xmlrpcParamStructPushBackBool( XmlrpcParam *param, const char *name, int val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamStructPushBackBool()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamStructPushBackBool()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1088,7 +1088,7 @@ XmlrpcParam * xmlrpcParamStructPushBackBool( XmlrpcParam *param, const char *nam
 
 XmlrpcParam * xmlrpcParamStructPushBackInt( XmlrpcParam *param, const char *name, int32_t val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamStructPushBackInt()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamStructPushBackInt()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1100,7 +1100,7 @@ XmlrpcParam * xmlrpcParamStructPushBackInt( XmlrpcParam *param, const char *name
 
 XmlrpcParam * xmlrpcParamStructPushBackDouble( XmlrpcParam *param, const char *name, double val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamStructPushBackDouble()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamStructPushBackDouble()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1112,7 +1112,7 @@ XmlrpcParam * xmlrpcParamStructPushBackDouble( XmlrpcParam *param, const char *n
 
 XmlrpcParam * xmlrpcParamStructPushBackString( XmlrpcParam *param, const char *name, const char *val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamStructPushBackString()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamStructPushBackString()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1124,7 +1124,7 @@ XmlrpcParam * xmlrpcParamStructPushBackString( XmlrpcParam *param, const char *n
 
 XmlrpcParam * xmlrpcParamStructPushBackStringN( XmlrpcParam *param, const char *name, const char *val, int n )
 {
-  PRINT_VDEBUG ( "xmlrpcParamStructPushBackStringN()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamStructPushBackStringN()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1136,7 +1136,7 @@ XmlrpcParam * xmlrpcParamStructPushBackStringN( XmlrpcParam *param, const char *
 
 XmlrpcParam * xmlrpcParamStructPushBackArray( XmlrpcParam *param, const char *name )
 {
-  PRINT_VDEBUG ( "xmlrpcParamStructPushBackArray()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamStructPushBackArray()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1148,7 +1148,7 @@ XmlrpcParam * xmlrpcParamStructPushBackArray( XmlrpcParam *param, const char *na
 
 XmlrpcParam * xmlrpcParamStructPushBackStruct ( XmlrpcParam *param, const char *name )
 {
-  PRINT_VDEBUG ( "xmlrpcParamStructPushBackStruct()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamStructPushBackStruct()\n" );
   XmlrpcParam *new_param = arrayAddElem ( param );
   if ( new_param == NULL )
     return NULL;
@@ -1179,7 +1179,7 @@ void xmlrpcParamInit( XmlrpcParam *param )
 
 void xmlrpcParamRelease ( XmlrpcParam *param )
 {
-  PRINT_VDEBUG ( "xmlrpcParamReleaseData()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamReleaseData()\n" );
 
   free(param->member_name);
 
@@ -1221,14 +1221,14 @@ void xmlrpcParamRelease ( XmlrpcParam *param )
   case XMLRPC_PARAM_UNKNOWN:
     break;
   default:
-    PRINT_VDEBUG ( "xmlrpcParamReleaseData() : Unknown parameter \n" );
+    PRINT_VVDEBUG ( "xmlrpcParamReleaseData() : Unknown parameter \n" );
     break;
   }
 }
 
 void xmlrpcParamToXml ( XmlrpcParam *param, DynString *message )
 {
-  PRINT_VDEBUG ( "xmlrpcParamToXml()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamToXml()\n" );
 
   int struct_member = 0;
   if (param->member_name != NULL)
@@ -1279,7 +1279,7 @@ void xmlrpcParamToXml ( XmlrpcParam *param, DynString *message )
 
 int xmlrpcParamFromXml ( DynString *message, XmlrpcParam *param )
 {
-  PRINT_VDEBUG ( "xmlrpcParamFromXml()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamFromXml()\n" );
 
   /* Save position indicator: it will be restored */
   int initial_pos_idx = dynStringGetPoseIndicatorOffset ( message );

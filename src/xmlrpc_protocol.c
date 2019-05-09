@@ -15,7 +15,7 @@
 static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int params_body_len,
     XmlrpcParamVector *params )
 {
-  PRINT_VDEBUG ( "parseXmlrpcMessageParams()\n" );
+  PRINT_VVDEBUG ( "parseXmlrpcMessageParams()\n" );
 
   int i = 0;
   const char *c = params_body;
@@ -146,7 +146,7 @@ static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int
 static XmlrpcParserState parseXmlrpcMessageBody ( const char *body, int body_len, XmlrpcMessageType *type,
     DynString *method, XmlrpcParamVector *params )
 {
-  PRINT_VDEBUG ( "parseXmlrpcMessageBody()\n" );
+  PRINT_VVDEBUG ( "parseXmlrpcMessageBody()\n" );
 
   *type = XMLRPC_MESSAGE_UNKNOWN;
   int i = 0;
@@ -225,9 +225,9 @@ static XmlrpcParserState parseXmlrpcMessageBody ( const char *body, int body_len
   }
 
   if( *type == XMLRPC_MESSAGE_REQUEST )
-    PRINT_DEBUG("Received request message, method : %s\n", dynStringGetData( method ));
+    PRINT_VDEBUG("Received request message, method : %s\n", dynStringGetData( method ));
   else if ( *type == XMLRPC_MESSAGE_RESPONSE )
-    PRINT_DEBUG("Received response message\n");
+    PRINT_VDEBUG("Received response message\n");
 
   return parseXmlrpcMessageParams ( c, body_len - i, params );
 }
@@ -235,7 +235,7 @@ static XmlrpcParserState parseXmlrpcMessageBody ( const char *body, int body_len
 void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessageType type,
                              const char *method, XmlrpcParamVector *params, DynString *message )
 {
-  PRINT_VDEBUG ( "generateXmlrpcMessage()\n" );
+  PRINT_VVDEBUG ( "generateXmlrpcMessage()\n" );
 
   dynStringClear ( message );
 
@@ -323,7 +323,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
                                      DynString *method, XmlrpcParamVector *params,
                                      char host[256], int *port)
 {
-  PRINT_VDEBUG ( "parseXmlrpcMessage()\n" );
+  PRINT_VVDEBUG ( "parseXmlrpcMessage()\n" );
 
   int msg_len = dynStringGetLen ( message );
   char *msg = ( char * ) dynStringGetData ( message );
@@ -356,7 +356,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
 
   if ( body_init == NULL )
   {
-    PRINT_DEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
+    PRINT_VDEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
     return XMLRPC_PARSER_INCOMPLETE;
   }
   else if ( body_len_init == NULL )
@@ -374,7 +374,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
 
   if ( body_len > (int)strlen ( body_init ) )
   {
-    PRINT_DEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
+    PRINT_VDEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
     return XMLRPC_PARSER_INCOMPLETE;
   }
 
@@ -396,7 +396,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
     *port = atoi(strtok_r(NULL,":",&progress));
   }
 
-  PRINT_DEBUG ( "parseXmlrpcMessage() : body len : %d\n", body_len );
+  PRINT_VDEBUG ( "parseXmlrpcMessage() : body len : %d\n", body_len );
 
   return parseXmlrpcMessageBody ( body_init, body_len, type, method, params );
 

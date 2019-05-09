@@ -9,7 +9,7 @@ enum { DYNSTRING_INIT_SIZE = 256, DYNSTRING_GROW_RATE = 2 };
 
 void dynStringInit ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "dynStringInit()\n" );
+  PRINT_VVDEBUG ( "dynStringInit()\n" );
 
   d_str->data = NULL;
   d_str->len = 0;
@@ -19,7 +19,7 @@ void dynStringInit ( DynString *d_str )
 
 void dynStringRelease ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "dynStringRelease()\n" );
+  PRINT_VVDEBUG ( "dynStringRelease()\n" );
 
   if ( d_str->data != NULL )
   {
@@ -33,14 +33,14 @@ void dynStringRelease ( DynString *d_str )
 
 int dynStringPushBackStr ( DynString *d_str, const char *new_str )
 {
-  PRINT_VDEBUG ( "dynStringPushBackStr()\n" );
+  PRINT_VVDEBUG ( "dynStringPushBackStr()\n" );
 
   return dynStringPushBackStrN ( d_str, new_str, strlen ( new_str ) );
 }
 
 int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
 {
-  PRINT_VDEBUG ( "dynStringPushBackStrN()\n" );
+  PRINT_VVDEBUG ( "dynStringPushBackStrN()\n" );
 
   if ( new_str == NULL )
   {
@@ -50,7 +50,7 @@ int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
 
   if ( d_str->data == NULL )
   {
-    PRINT_VDEBUG ( "dynStringPushBackStrN() : allocate memory for the first time\n" );
+    PRINT_VVDEBUG ( "dynStringPushBackStrN() : allocate memory for the first time\n" );
     d_str->data = ( char * ) malloc ( DYNSTRING_INIT_SIZE * sizeof ( char ) );
 
     if ( d_str->data == NULL )
@@ -66,7 +66,7 @@ int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
 
   while ( d_str->len + n + 1 > d_str->max )
   {
-    PRINT_VDEBUG ( "dynStringPushBackStrN() : reallocate memory\n" );
+    PRINT_VVDEBUG ( "dynStringPushBackStrN() : reallocate memory\n" );
     char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
                                                                           sizeof ( char ) );
     if ( n_d_str == NULL )
@@ -98,11 +98,11 @@ int dynStringReplaceWithStrN ( DynString *d_str, const char *new_str, int n )
 
 int dynStringPushBackChar ( DynString *d_str, const char c )
 {
-  PRINT_VDEBUG ( "dynStringPushBackChar()\n" );
+  PRINT_VVDEBUG ( "dynStringPushBackChar()\n" );
 
   if ( d_str->data == NULL )
   {
-    PRINT_VDEBUG ( "dynStringPushBackChar() : allocate memory for the first time\n" );
+    PRINT_VVDEBUG ( "dynStringPushBackChar() : allocate memory for the first time\n" );
     d_str->data = ( char * ) malloc ( DYNSTRING_INIT_SIZE * sizeof ( char ) );
 
     if ( d_str->data == NULL )
@@ -118,7 +118,7 @@ int dynStringPushBackChar ( DynString *d_str, const char c )
 
   if ( d_str->len + 1 > d_str->max )
   {
-    PRINT_VDEBUG ( "dynStringPushBackChar() : reallocate memory\n" );
+    PRINT_VVDEBUG ( "dynStringPushBackChar() : reallocate memory\n" );
     char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
                                                         sizeof ( char ) );
     if ( n_d_str == NULL )
@@ -139,7 +139,7 @@ int dynStringPushBackChar ( DynString *d_str, const char c )
 
 int dynStringPatch ( DynString *d_str, const char *new_str, int pos )
 {
-  PRINT_VDEBUG ( "dynStringPatch()\n" );
+  PRINT_VVDEBUG ( "dynStringPatch()\n" );
 
   if ( new_str == NULL )
   {
@@ -165,7 +165,7 @@ int dynStringPatch ( DynString *d_str, const char *new_str, int pos )
 
   while ( str_final_len + 1 > d_str->max )
   {
-    PRINT_VDEBUG ( "dynStringPatch() : reallocate memory\n" );
+    PRINT_VVDEBUG ( "dynStringPatch() : reallocate memory\n" );
     char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
                                                         sizeof ( char ) );
     if ( n_d_str == NULL )
@@ -189,7 +189,7 @@ int dynStringPatch ( DynString *d_str, const char *new_str, int pos )
 }
 void dynStringClear ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "dynStringClear()\n" );
+  PRINT_VVDEBUG ( "dynStringClear()\n" );
 
   if ( d_str->data == NULL )
     return;
@@ -201,21 +201,21 @@ void dynStringClear ( DynString *d_str )
 
 int dynStringGetLen ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "dynStringGetLen()\n" );
+  PRINT_VVDEBUG ( "dynStringGetLen()\n" );
 
   return d_str->len;
 }
 
 const char *dynStringGetData ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "getDynStringBuf()\n" );
+  PRINT_VVDEBUG ( "getDynStringBuf()\n" );
 
   return ( const char * ) d_str->data;
 }
 
 void dynStringMovePoseIndicator ( DynString *d_str, int offset )
 {
-  PRINT_VDEBUG ( "dynStringMovePoseIndicator()\n" );
+  PRINT_VVDEBUG ( "dynStringMovePoseIndicator()\n" );
 
   d_str->pos_offset += offset;
   if ( d_str->pos_offset < 0 )
@@ -226,7 +226,7 @@ void dynStringMovePoseIndicator ( DynString *d_str, int offset )
 
 void dynStringSetPoseIndicator ( DynString *d_str, int pos )
 {
-  PRINT_VDEBUG ( "dynStringSetPoseIndicator()\n" );
+  PRINT_VVDEBUG ( "dynStringSetPoseIndicator()\n" );
 
   d_str->pos_offset = pos;
   if ( d_str->pos_offset < 0 )
@@ -237,28 +237,28 @@ void dynStringSetPoseIndicator ( DynString *d_str, int pos )
 
 void dynStringRewindPoseIndicator ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "dynStringRewindPoseIndicator()\n" );
+  PRINT_VVDEBUG ( "dynStringRewindPoseIndicator()\n" );
 
   d_str->pos_offset = 0;
 }
 
 int dynStringGetPoseIndicatorOffset ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "dynStringGetPoseIndicatorOffset()\n" );
+  PRINT_VVDEBUG ( "dynStringGetPoseIndicatorOffset()\n" );
 
   return d_str->pos_offset;
 }
 
 const char *dynStringGetCurrentData ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "dynStringGetCurrentData()\n" );
+  PRINT_VVDEBUG ( "dynStringGetCurrentData()\n" );
 
   return ( const char * ) ( d_str->data + d_str->pos_offset );
 }
 
 int dynStringGetRemainingDataSize ( DynString *d_str )
 {
-  PRINT_VDEBUG ( "dynStringGetRemainingDataSize()\n" );
+  PRINT_VVDEBUG ( "dynStringGetRemainingDataSize()\n" );
 
   return d_str->len - d_str->pos_offset;
 }
