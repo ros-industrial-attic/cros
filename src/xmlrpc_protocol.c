@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #ifdef _WIN32
 #  define strtok_r strtok_s
@@ -272,7 +273,7 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
 
   int content_len_init = dynStringGetLen ( message );
 
-  dynStringPushBackStr ( message, "0000000000000\r\n\r\n" );
+  dynStringPushBackStr ( message, "          \r\n\r\n" );
   int content_init = dynStringGetLen ( message );
 
   dynStringPushBackStr ( message, XMLRPC_MESSAGE_BEGIN.str );
@@ -313,8 +314,14 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   int content_end = dynStringGetLen ( message );
   int content_len = content_end - content_init;
 
-  char content_len_str[15];
-  snprintf ( content_len_str, 15, "%.13d", content_len );
+  // Avoid writing numbers with more than the 10 digits
+  if(content_len > 9999999999L)
+  {
+     content_len = (INT_MAX < 9999999999L)?INT_MAX:9999999999L;
+     PRINT_VVDEBUG ( "generateXmlrpcMessage(): POST content too long. Trimming to %d.\n", content_len );
+  }
+  char content_len_str[12];
+  snprintf ( content_len_str, 12, "%010d", content_len );
 
   dynStringPatch ( message, content_len_str, content_len_init );
 }

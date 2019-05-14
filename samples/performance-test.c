@@ -39,6 +39,7 @@ void compute_times(void)
   printf("Time differences between reception times: ");
   for (n_stamp = 0; n_stamp+1 < n_sub_time_stamps; n_stamp++)
     printf("%fus ", cRosClockTimeStampToUSec(sub_time_stamps[n_stamp + 1] - sub_time_stamps[n_stamp]));
+  printf("\n");
 }
 
 // This callback will be invoked when the subscriber receives a message

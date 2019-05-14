@@ -39,8 +39,8 @@ static void intToXml ( int val, DynString *message )
 {
   dynStringPushBackStr ( message, XMLRPC_VALUE_TAG.str );
   dynStringPushBackStr ( message, XMLRPC_INT_TAG.str );
-  char num_str[15];
-  snprintf ( num_str, 15, "%.13d", val );
+  char num_str[22];
+  snprintf ( num_str, 22, "%d", val );
   dynStringPushBackStr ( message, num_str );
   dynStringPushBackStr ( message, XMLRPC_INT_ETAG.str );
   dynStringPushBackStr ( message, XMLRPC_VALUE_ETAG.str );
@@ -51,8 +51,8 @@ static void doubleToXml ( double val, DynString *message )
   setlocale ( LC_NUMERIC, "" ); //  Set decimal-point and thousands-separator character to the implementation-defined native environment
   dynStringPushBackStr ( message, XMLRPC_VALUE_TAG.str );
   dynStringPushBackStr ( message, XMLRPC_DOUBLE_TAG.str );
-  char num_str[256];
-  snprintf ( num_str, 256, "%.17f", val );
+  char num_str[26];
+  snprintf ( num_str, 26, "%.17g", val );
   dynStringPushBackStr ( message, num_str );
   dynStringPushBackStr ( message, XMLRPC_DOUBLE_ETAG.str );
   dynStringPushBackStr ( message, XMLRPC_VALUE_ETAG.str );
