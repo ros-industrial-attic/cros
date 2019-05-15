@@ -39,6 +39,8 @@ static int enqueueSlaveApiCallInternal(CrosNode *node, RosApiCall *call);
 static int enqueueMasterApiCallInternal(CrosNode *node, RosApiCall *call);
 static void printNodeProcState( CrosNode *n );
 
+FILE *Msg_output = NULL; //! The pointer to file stream used to print local messages (except debug messages). If it is NULL (default value), stdout is used.
+
 static int openXmlrpcClientSocket( CrosNode *n, int i )
 {
   int ret;
@@ -4045,3 +4047,14 @@ cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port
 
   return ret_err;
 }
+
+FILE *cRosOutStreamGet(void)
+{
+  return((Msg_output == NULL)?stdout:Msg_output);
+}
+
+void cRosOutStreamSet(FILE *new_stream)
+{
+  Msg_output = new_stream;
+}
+

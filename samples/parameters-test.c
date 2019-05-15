@@ -39,7 +39,7 @@
 #  define DIR_SEPARATOR_STR "/"
 #endif
 
-#include "cros_defs.h"
+#include "cros_log.h"
 #include "cros_node.h"
 #include "cros_api.h"
 #include "cros_clock.h"

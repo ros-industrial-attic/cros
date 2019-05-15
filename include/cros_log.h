@@ -1,3 +1,11 @@
+/*! \file cros_log.h
+ *  \brief This file declares the function and macros (ROS_INFO, ROS_DEBUG, ROS_WARN, ROS_ERROR and ROS_FATAL)
+ *         for printing messages using the ROS log. These messages are sent through the /rosout topic to the /rosout node.
+ *
+ * These macros must not be confused with the macros for printing messages localy (either in a local log file or local console) which
+ * are defined in cros_defs.h: PRINT_INFO, PRINT_DEBUG, PRINT_VDEBUG, PRINT_VVDEBUG and PRINT_ERROR
+ */
+
 #ifndef _CROS_LOG_H_
 #define _CROS_LOG_H_
 
@@ -19,8 +27,6 @@
 #define ROS_ERROR(node,...) PRINT_LOG(node, CROS_LOGLEVEL_ERROR, __VA_ARGS__)
 #define ROS_FATAL(node,...) PRINT_LOG(node, CROS_LOGLEVEL_FATAL, __VA_ARGS__)
 
-FILE *cRosOutStreamGet(void);
-void cRosOutStreamSet(FILE *new_stream);
 CrosLog *cRosLogNew(void);
 void cRosLogFree(CrosLog *log);
 

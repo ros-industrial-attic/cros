@@ -2,7 +2,7 @@
 #define _CROS_DEFS_H_
 
 #include <stdio.h>
-#include "cros_log.h"
+#include "cros_node.h"
 
 /*! \defgroup cros_defs Cros defintions */
 

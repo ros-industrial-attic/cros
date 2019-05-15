@@ -13,7 +13,9 @@
 #ifndef _CROS_NODE_H_
 #define _CROS_NODE_H_
 
+#include <stdio.h>
 #include <stdint.h>
+
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
 #include "cros_api_call.h"
@@ -375,5 +377,22 @@ XmlrpcParam *cRosNodeGetParameterValue( CrosNode *n, const char *key);
  *          the port could be connected.
  */
 cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port, unsigned long time_out);
+
+/*! \brief Set the file stream used when printing messages locally, that is, through macros:
+ *         PRINT_INFO, PRINT_DEBUG, PRINT_VDEBUG, PRINT_VVDEBUG and PRINT_ERROR.
+ *
+ *  There are two types of message printing:
+ *   - local message printing (which are printed to a file or to stdout depending on the file stream specified
+ *     when calling this function).
+ *   - ROS log messages. These messages are not affected by this function.
+ *  \param new_stream The file stream used. It must be a valid file stream or NULL if stdout must be used.
+ */
+void cRosOutStreamSet(FILE *new_stream);
+
+/*! \brief Get the file stream used for printing local messages.
+ *
+ *  \return The file stream used. If NULL was specified when calling cRosOutStreamSet(), stdout is returned.
+ */
+FILE *cRosOutStreamGet(void);
 
 #endif
