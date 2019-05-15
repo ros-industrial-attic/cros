@@ -29,7 +29,6 @@
  *  @{
  */
 
-
 /*! Max num published topics */
 #define CN_MAX_PUBLISHED_TOPICS 5
 
@@ -213,7 +212,8 @@ struct CrosNode
   char *message_root_path;      //! Directory with the message register
 
   CrosLogLevel log_level;
-  CrosLogQueue* log_queue;
+  int rosout_pub_idx;           //! Index of the publisher of the /rosout topic for ROS log messages
+
   uint32_t log_last_id;
 
   unsigned int next_call_id;

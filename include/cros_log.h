@@ -27,8 +27,6 @@
 #define ROS_FATAL(node,...) PRINT_LOG(node, CROS_LOGLEVEL_FATAL, __VA_ARGS__)
 
 typedef struct CrosLog CrosLog;
-typedef struct CrosLogNode CrosLogNode;
-typedef struct CrosLogQueue CrosLogQueue;
 
 struct CrosNode; // We forward declare CrosNode struct since it is used by cRosLogPrint() before it is declared
 
@@ -44,19 +42,6 @@ struct CrosLog
   uint32_t secs;
   uint32_t nsecs;
   size_t n_pubs;
-};
-
-struct CrosLogNode
-{
-  CrosLog *call;
-  CrosLogNode* next;
-};
-
-struct CrosLogQueue
-{
-  CrosLogNode* head;
-  CrosLogNode* tail;
-  size_t count;
 };
 
 typedef enum CrosLogLevel //!Logging levels
@@ -77,14 +62,5 @@ void cRosLogPrint(struct CrosNode *node,
                   const char *function, // function the message came from
                   uint32_t line,
                   const char *msg, ...);
-
-CrosLogQueue *cRosLogQueueNew(void);
-void cRosLogQueueInit(CrosLogQueue *queue);
-int cRosLogQueueEnqueue(CrosLogQueue *queue, CrosLog* log);
-CrosLog *cRosLogQueuePeek(CrosLogQueue *queue);
-CrosLog *cRosLogQueueDequeue(CrosLogQueue *queue);
-void cRosLogQueueRelease(CrosLogQueue *queue);
-size_t cRosLogQueueCount(CrosLogQueue *queue);
-int cRosLogQueueIsEmpty(CrosLogQueue *queue);
 
 #endif //_CROS_LOG_H

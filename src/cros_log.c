@@ -7,6 +7,8 @@
 #include "cros_defs.h"
 #include "cros_node.h"
 #include "cros_clock.h"
+#include "cros_message.h"
+#include "cros_api.h"
 
 CrosLog *cRosLogNew(void)
 {
@@ -36,94 +38,53 @@ void cRosLogFree(CrosLog *log)
   free(log);
 }
 
-CrosLogQueue *cRosLogQueueNew(void)
+cRosMessage *cRosLogToMessage(CrosNode* node, CrosLog* log)
 {
-  CrosLogQueue *new_queue = (CrosLogQueue *)calloc(1,sizeof(CrosLogQueue));
-  cRosLogQueueInit(new_queue);
-  return new_queue;
-}
+  cRosMessage *message;
+  size_t pub_ind;
 
-void cRosLogQueueInit(CrosLogQueue *queue)
-{
-  queue->tail = NULL;
-  queue->head = NULL;
-  queue->count = 0;
-}
-
-CrosLog * cRosLogQueuePeek(CrosLogQueue *queue)
-{
-  if (queue->head == NULL)
-    return NULL;
-
-  return queue->head->call;
-}
-
-int cRosLogQueueEnqueue(CrosLogQueue *queue, CrosLog* CrosLog)
-{
-  CrosLogNode *node = (CrosLogNode *)malloc(sizeof(CrosLogNode));
-
-  if(node == NULL)
+  message = cRosApiCreatePublisherMessage(node, node->rosout_pub_idx);
+  if(message != NULL)
   {
-    PRINT_ERROR("enqueueCrosLog() : Can't enqueue call\n");
-    return -1;
+    cRosMessageField* header_field = cRosMessageGetField(message, "header");
+    cRosMessage* header_msg = header_field->data.as_msg;
+    cRosMessageField* seq_id = cRosMessageGetField(header_msg, "seq");
+    seq_id->data.as_uint32 = node->log_last_id++;
+    cRosMessageField* time_field = cRosMessageGetField(header_msg, "stamp");
+    cRosMessage* time_msg = time_field->data.as_msg;
+    cRosMessageField* time_secs = cRosMessageGetField(time_msg, "secs");
+    time_secs->data.as_uint32 = log->secs;
+    cRosMessageField* time_nsecs = cRosMessageGetField(time_msg, "nsecs");
+    time_nsecs->data.as_uint32 = log->nsecs;
+    cRosMessageSetFieldValueString(cRosMessageGetField(header_msg, "frame_id"), "0");
+
+
+    cRosMessageField* level = cRosMessageGetField(message, "level");
+    level->data.as_uint8 = log->level;
+
+    cRosMessageField* name = cRosMessageGetField(message, "name"); // name of the node
+    cRosMessageSetFieldValueString(name, node->name);
+
+    cRosMessageField* msg = cRosMessageGetField(message, "msg"); // message
+    cRosMessageSetFieldValueString(msg, log->msg);
+
+    cRosMessageField* file = cRosMessageGetField(message, "file"); // file the message came from
+    cRosMessageSetFieldValueString(file, log->file);
+
+    cRosMessageField* function = cRosMessageGetField(message, "function"); // function the message came from
+    cRosMessageSetFieldValueString(function, log->function);
+
+    cRosMessageField* line = cRosMessageGetField(message, "line"); // line the message came from
+    line->data.as_uint32 = log->line;
+
+    cRosMessageField* topics = cRosMessageGetField(message, "topics"); // topic names that the node publishes
+
+    for(pub_ind = 0; pub_ind < log->n_pubs; pub_ind++)
+    {
+      cRosMessageFieldArrayPushBackString(topics, log->pubs[pub_ind]);
+    }
   }
-
-  node->call = CrosLog;
-  node->next = NULL;
-
-  if(queue->head == NULL)
-  {
-    queue->head = node;
-    queue->tail = node;
-  }
-  else
-  {
-    queue->tail->next = node;
-    queue->tail = node;
-  }
-
-  queue->count++;
-
-  return 0;
-}
-
-CrosLog * cRosLogQueueDequeue(CrosLogQueue *queue)
-{
-  CrosLogNode* head = queue->head;
-  queue->head = head->next;
-  if(queue->head == NULL)
-    queue->tail = queue->head;
-
-  CrosLog *call = head->call;
-  free(head);
-
-  queue->count--;
-
-  return call;
-}
-
-void cRosLogQueueRelease(CrosLogQueue *queue)
-{
-  CrosLogNode *current = queue->head;
-  while(current != NULL)
-  {
-    cRosLogFree(current->call);
-    CrosLogNode *next = current->next;
-    free(current);
-    current = next;
-  }
-
-  cRosLogQueueInit(queue);
-}
-
-size_t cRosLogQueueCount(CrosLogQueue *queue)
-{
-  return queue->count;
-}
-
-int cRosLogQueueIsEmpty(CrosLogQueue *queue)
-{
-  return queue->count == 0;
+  return(message);
 }
 
 void cRosLogPrint(CrosNode* node,
@@ -225,5 +186,22 @@ void cRosLogPrint(CrosNode* node,
 
   va_end(args);
   va_end(args_copy);
-  cRosLogQueueEnqueue(node->log_queue, log);
+
+  cRosMessage *topic_msg;
+  topic_msg = cRosLogToMessage(node, log);
+  if(topic_msg != NULL)
+  {
+    cRosErrCodePack err_cod;
+
+    //err_cod = cRosNodeSendTopicMsg(node, node->rosout_pub_idx, topic_msg, 0);cRosNodeQueueTopicMsg
+    err_cod = cRosNodeQueueTopicMsg(node, node->rosout_pub_idx, topic_msg);
+    if (err_cod != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(err_cod, "cRosLogPrint() : A message of /rosout topic could not be sent");
+    cRosMessageFree(topic_msg);
+  }
+  else
+  {
+    PRINT_ERROR ( "cRosLogPrint() : A message of /rosout topic could not be created to be sent.\n" );
+  }
+  cRosLogFree(log);
 }

@@ -384,6 +384,7 @@ cRosErrCodePack cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callb
 
 // Message polling
 cRosErrCodePack cRosNodeReceiveTopicMsg(CrosNode *node, int subidx, cRosMessage *msg, unsigned char *buff_overflow, unsigned long time_out);
+cRosErrCodePack cRosNodeQueueTopicMsg( CrosNode *node, int pubidx, cRosMessage *msg );
 cRosErrCodePack cRosNodeSendTopicMsg(CrosNode *node, int pubidx, cRosMessage *msg, unsigned long time_out);
 cRosErrCodePack cRosNodeServiceCall(CrosNode *node, int svcidx, cRosMessage *req_msg, cRosMessage *resp_msg, unsigned long time_out);
 cRosMessage *cRosApiCreatePublisherMessage(CrosNode *node, int pubidx);

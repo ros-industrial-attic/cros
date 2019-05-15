@@ -201,7 +201,7 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  printf("Node RPCROS port: %i\n", node->rpcros_port);
+  ROS_INFO(node, "Node %s created with RPCROS port: %i", node->name, node->rpcros_port);
 
   // Function exit_deamon_handler() will be called when Ctrl-C is pressed or kill is executed
   set_signal_handler();

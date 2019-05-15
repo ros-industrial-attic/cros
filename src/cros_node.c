@@ -1655,59 +1655,6 @@ static char* LogLevelToString(CrosLogLevel log_level)
   return ret;
 }
 
-static CallbackResponse callback_pub_log(cRosMessage *message, void* data_context)
-{
-  CrosNode* node = (CrosNode*) data_context;
-  CrosLogQueue* queue = node->log_queue;
-
-  if(!cRosLogQueueIsEmpty(queue))
-  {
-    size_t pub_ind;
-    CrosLog* log = cRosLogQueueDequeue(queue);
-
-    cRosMessageField* header_field = cRosMessageGetField(message, "header");
-    cRosMessage* header_msg = header_field->data.as_msg;
-    cRosMessageField* seq_id = cRosMessageGetField(header_msg, "seq");
-    seq_id->data.as_uint32 = node->log_last_id++;
-    cRosMessageField* time_field = cRosMessageGetField(header_msg, "stamp");
-    cRosMessage* time_msg = time_field->data.as_msg;
-    cRosMessageField* time_secs = cRosMessageGetField(time_msg, "secs");
-    time_secs->data.as_uint32 = log->secs;
-    cRosMessageField* time_nsecs = cRosMessageGetField(time_msg, "nsecs");
-    time_nsecs->data.as_uint32 = log->nsecs;
-    cRosMessageSetFieldValueString(cRosMessageGetField(header_msg, "frame_id"), "0");
-
-
-    cRosMessageField* level = cRosMessageGetField(message, "level");
-    level->data.as_uint8 = log->level;
-
-    cRosMessageField* name = cRosMessageGetField(message, "name"); //name of the node
-    cRosMessageSetFieldValueString(name, node->name);
-
-    cRosMessageField* msg = cRosMessageGetField(message, "msg"); //message
-    cRosMessageSetFieldValueString(msg, log->msg);
-
-    cRosMessageField* file = cRosMessageGetField(message, "file"); //file the message came from
-    cRosMessageSetFieldValueString(file, log->file);
-
-    cRosMessageField* function = cRosMessageGetField(message, "function"); //function the message came from
-    cRosMessageSetFieldValueString(function, log->function);
-
-    cRosMessageField* line = cRosMessageGetField(message, "line"); //line the message came from
-    line->data.as_uint32 = log->line;
-
-    cRosMessageField* topics = cRosMessageGetField(message, "topics"); //topic names that the node publishes
-
-    for(pub_ind = 0; pub_ind < log->n_pubs; pub_ind++)
-    {
-      cRosMessageFieldArrayPushBackString(topics, log->pubs[pub_ind]);
-    }
-
-    cRosLogFree(log);
-  }
-  return 0;
-}
-
 static CallbackResponse callback_srv_set_logger_level(cRosMessage *request, cRosMessage *response, void* context)
 {
   cRosMessageField* level = cRosMessageGetField(request, "level");
@@ -1997,7 +1944,6 @@ CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const ch
     return NULL;
   }
 
-  new_n->log_queue = cRosLogQueueNew();
   new_n-> log_last_id = 0;
 
   /*
@@ -2006,8 +1952,9 @@ CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const ch
 
   cRosErrCodePack ret_err;
 
-  ret_err = cRosApiRegisterPublisher(new_n,"/rosout","rosgraph_msgs/Log", 100,
-                                  callback_pub_log, NULL, new_n, NULL);
+  // Create a publisher of the topic /rosout of type "rosgraph_msgs/Log".
+  // The messages of this topic will not be periodically sent but on demand (loop_period = -1).
+  ret_err = cRosApiRegisterPublisher(new_n,"/rosout","rosgraph_msgs/Log", -1, NULL, NULL, new_n, &new_n->rosout_pub_idx);
   if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
     PRINT_ERROR ( "cRosNodeCreate(): Error registering rosout.\n");
@@ -3474,29 +3421,12 @@ cRosErrCodePack cRosNodeReceiveTopicMsg( CrosNode *node, int subidx, cRosMessage
   return ret_err;
 }
 
-cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *msg, unsigned long time_out)
+cRosErrCodePack cRosNodeQueueTopicMsg( CrosNode *node, int pubidx, cRosMessage *msg )
 {
   cRosErrCodePack ret_err;
   PublisherNode *pub_node;
-  uint64_t start_time, elapsed_time = 0; // Initialized just to avoid a compiler warning
-  PRINT_VVDEBUG ( "cRosNodeSendTopicMsg ()\n" );
-
-  if(pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
-    return CROS_BAD_PARAM_ERR;
 
   pub_node = &node->pubs[pubidx];
-  if(pub_node->topic_name == NULL)
-    return CROS_BAD_PARAM_ERR;
-
-  start_time = cRosClockGetTimeMs();
-  ret_err = CROS_SUCCESS_ERR_PACK; // default return value
-  // While the buffer is full and the timeout is not reached wait
-  while(cRosMessageQueueVacancies(&pub_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
-  {
-    ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
-  }
-
-  if(ret_err == CROS_SUCCESS_ERR_PACK)
   {
     if(cRosMessageQueueVacancies(&pub_node->msg_queue) > 0) // If no error and there is at space in the queue, put the new message
     {
@@ -3519,6 +3449,33 @@ cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *m
     else
       ret_err = CROS_SEND_TOP_TIMEOUT_ERR;
   }
+  return ret_err;
+}
+
+cRosErrCodePack cRosNodeSendTopicMsg( CrosNode *node, int pubidx, cRosMessage *msg, unsigned long time_out )
+{
+  cRosErrCodePack ret_err;
+  PublisherNode *pub_node;
+  uint64_t start_time, elapsed_time = 0; // Initialized just to avoid a compiler warning
+  PRINT_VVDEBUG ( "cRosNodeSendTopicMsg ()\n" );
+
+  if(pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
+    return CROS_BAD_PARAM_ERR;
+
+  pub_node = &node->pubs[pubidx];
+  if(pub_node->topic_name == NULL)
+    return CROS_BAD_PARAM_ERR;
+
+  start_time = cRosClockGetTimeMs();
+  ret_err = CROS_SUCCESS_ERR_PACK; // default return value
+  // While the buffer is full and the timeout is not reached wait
+  while(cRosMessageQueueVacancies(&pub_node->msg_queue) == 0 && ret_err == CROS_SUCCESS_ERR_PACK && (time_out == CROS_INFINITE_TIMEOUT || (elapsed_time=cRosClockGetTimeMs()-start_time) <= time_out))
+  {
+    ret_err = cRosNodeDoEventsLoop ( node, time_out - elapsed_time);
+  }
+
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+     cRosNodeQueueTopicMsg( node, pubidx, msg );
 
   return ret_err;
 }

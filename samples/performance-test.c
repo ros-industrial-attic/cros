@@ -223,7 +223,7 @@ int main(int argc, char **argv)
     cRosMessage *msg;
     cRosMessageField *data_field;
 
-    // Create a publisher to topic /chatter of type "std_msgs/String" and request that the associated callback be invoked every 100ms (10Hz)
+    // Create a publisher to topic /chatter of type "std_msgs/String"
     err_cod = cRosApiRegisterPublisher(node, "/chatter", "std_msgs/String", -1, NULL, NULL, NULL, &pubidx);
     if (err_cod != CROS_SUCCESS_ERR_PACK)
     {
