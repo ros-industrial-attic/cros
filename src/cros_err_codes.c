@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include "cros_log.h"
+#include "cros_node.h"
 #include "cros_err_codes.h"
 
 // Populate the error message list global variable using the messages defined before (ERROR_CODE_LIST_DEF) but

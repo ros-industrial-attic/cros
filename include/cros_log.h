@@ -11,7 +11,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "cros_node.h"
 
 #define PRINT_LOG(node,log_level,...) \
      cRosLogPrint(node,\
@@ -27,10 +26,52 @@
 #define ROS_ERROR(node,...) PRINT_LOG(node, CROS_LOGLEVEL_ERROR, __VA_ARGS__)
 #define ROS_FATAL(node,...) PRINT_LOG(node, CROS_LOGLEVEL_FATAL, __VA_ARGS__)
 
+typedef struct CrosLog CrosLog;
+typedef struct CrosLogNode CrosLogNode;
+typedef struct CrosLogQueue CrosLogQueue;
+
+struct CrosNode; // We forward declare CrosNode struct since it is used by cRosLogPrint() before it is declared
+
+struct CrosLog
+{
+  uint8_t level;   //! debug level
+  char* name;      //! name of the node
+  char* msg;       //! message
+  char* file;      //! file the message came from
+  char* function;  //! function the message came from
+  uint32_t line;   //! line the message came from
+  char** pubs;     //! topic names that the node publishes
+  uint32_t secs;
+  uint32_t nsecs;
+  size_t n_pubs;
+};
+
+struct CrosLogNode
+{
+  CrosLog *call;
+  CrosLogNode* next;
+};
+
+struct CrosLogQueue
+{
+  CrosLogNode* head;
+  CrosLogNode* tail;
+  size_t count;
+};
+
+typedef enum CrosLogLevel //!Logging levels
+{
+  CROS_LOGLEVEL_DEBUG = 1,
+  CROS_LOGLEVEL_INFO = 2,
+  CROS_LOGLEVEL_WARN = 4,
+  CROS_LOGLEVEL_ERROR = 8,
+  CROS_LOGLEVEL_FATAL = 16
+} CrosLogLevel;
+
 CrosLog *cRosLogNew(void);
 void cRosLogFree(CrosLog *log);
 
-void cRosLogPrint(CrosNode *node,
+void cRosLogPrint(struct CrosNode *node,
                   CrosLogLevel level,   // debug level
                   const char *file,     // file the message came from
                   const char *function, // function the message came from
@@ -46,4 +87,4 @@ void cRosLogQueueRelease(CrosLogQueue *queue);
 size_t cRosLogQueueCount(CrosLogQueue *queue);
 int cRosLogQueueIsEmpty(CrosLogQueue *queue);
 
-#endif //_CROS_LOG_H_
+#endif //_CROS_LOG_H
