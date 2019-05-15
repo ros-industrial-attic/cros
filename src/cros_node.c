@@ -3091,14 +3091,14 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
       if( rpcros_listner_fd > nfds ) nfds = rpcros_listner_fd;
     }
   }
-  
+
   if (nfds + 1 == 0)
   {
     PRINT_VDEBUG("cRosNodeDoEventsLoop() : Warning: tcpIpSocketSelect() is being called with no file descriptors to monitor.\n");
   }
 
   int n_set = tcpIpSocketSelect(nfds + 1, &r_fds, &w_fds, &err_fds, timeout);
-  
+
   cur_time = cRosClockGetTimeMs(); // Update current time after select()
   if (n_set == -1)
   {
@@ -3121,7 +3121,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
         if (call != NULL)
         {
           call->method = CROS_API_GET_PID;
-          int rc = xmlrpcParamVectorPushBackString(&call->params, "/rosout");
+          int rc = xmlrpcParamVectorPushBackString(&call->params, n->name);
           if(rc >= 0)
           {
             rosproc->message_type = XMLRPC_MESSAGE_REQUEST;
