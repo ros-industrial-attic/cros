@@ -51,7 +51,7 @@ int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
   if ( d_str->data == NULL )
   {
     PRINT_VVDEBUG ( "dynStringPushBackStrN() : allocate memory for the first time\n" );
-    d_str->data = ( char * ) malloc ( DYNSTRING_INIT_SIZE * sizeof ( char ) );
+    d_str->data = ( char * ) malloc ( (DYNSTRING_INIT_SIZE + n + 1) * sizeof ( char ) ); // Reserve one char at the end of the array (+1) to store the \0 terminating char
 
     if ( d_str->data == NULL )
     {
@@ -59,24 +59,22 @@ int dynStringPushBackStrN ( DynString *d_str, const char *new_str, int n )
       return -1;
     }
 
-    d_str->data[0] = '\0';
     d_str->len = 0;
-    d_str->max = DYNSTRING_INIT_SIZE;
+    d_str->max = DYNSTRING_INIT_SIZE + n;
   }
-
-  while ( d_str->len + n + 1 > d_str->max )
-  {
-    PRINT_VVDEBUG ( "dynStringPushBackStrN() : reallocate memory\n" );
-    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
-                                                                          sizeof ( char ) );
-    if ( n_d_str == NULL )
+  else
+    if(d_str->len + n > d_str->max)
     {
-      PRINT_ERROR ( "dynStringPushBackStrN() : Can't allocate more memory\n" );
-      return -1;
+      PRINT_VVDEBUG ( "dynStringPushBackStrN() : reallocate memory\n" );
+      char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max + n + 1) * sizeof ( char ) );
+      if ( n_d_str == NULL )
+      {
+        PRINT_ERROR ( "dynStringPushBackStrN() : Can't reallocate more memory\n" );
+        return -1;
+      }
+      d_str->max =  DYNSTRING_GROW_RATE * d_str->max + n;
+      d_str->data = n_d_str;
     }
-    d_str->max *= DYNSTRING_GROW_RATE;
-    d_str->data = n_d_str;
-  }
 
   memcpy ( ( void * ) ( d_str->data + d_str->len ), ( void * ) new_str, ( size_t ) n );
   d_str->len += n;
@@ -103,7 +101,7 @@ int dynStringPushBackChar ( DynString *d_str, const char c )
   if ( d_str->data == NULL )
   {
     PRINT_VVDEBUG ( "dynStringPushBackChar() : allocate memory for the first time\n" );
-    d_str->data = ( char * ) malloc ( DYNSTRING_INIT_SIZE * sizeof ( char ) );
+    d_str->data = ( char * ) malloc ( (DYNSTRING_INIT_SIZE + 2) * sizeof ( char ) );
 
     if ( d_str->data == NULL )
     {
@@ -113,22 +111,22 @@ int dynStringPushBackChar ( DynString *d_str, const char c )
 
     d_str->data[0] = '\0';
     d_str->len = 0;
-    d_str->max = DYNSTRING_INIT_SIZE;
+    d_str->max = DYNSTRING_INIT_SIZE + 1;
   }
-
-  if ( d_str->len + 1 > d_str->max )
-  {
-    PRINT_VVDEBUG ( "dynStringPushBackChar() : reallocate memory\n" );
-    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
-                                                        sizeof ( char ) );
-    if ( n_d_str == NULL )
+  else
+    if ( d_str->len + 1 > d_str->max ) // If there is not enogh space in the array to store a new char, allocate more meory
     {
-      PRINT_ERROR ( "dynStringPushBackChar() : Can't allocate more memory\n" );
-      return -1;
+      PRINT_VVDEBUG ( "dynStringPushBackChar() : reallocate memory\n" );
+      char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max + 2) *
+                                                          sizeof ( char ) );
+      if ( n_d_str == NULL )
+      {
+        PRINT_ERROR ( "dynStringPushBackChar() : Can't allocate more memory\n" );
+        return -1;
+      }
+      d_str->max = DYNSTRING_GROW_RATE * d_str->max + 1;
+      d_str->data = n_d_str;
     }
-    d_str->max *= DYNSTRING_GROW_RATE;
-    d_str->data = n_d_str;
-  }
 
   d_str->data[d_str->len] = c;
   d_str->len += 1;
@@ -153,27 +151,27 @@ int dynStringPatch ( DynString *d_str, const char *new_str, int pos )
     return -1;
   }
 
-  if ( pos >= d_str->len )
+  if ( pos > d_str->len )
   {
     PRINT_ERROR ( "dynStringPatch() : The starting position for the copy must be smaller \
-                  than the current dynamic string lenght\n" );
+                  or equal to the current dynamic string lenght\n" );
     return -1;
   }
 
   int new_str_len = strlen ( new_str );
   int str_final_len = pos + new_str_len;
 
-  while ( str_final_len + 1 > d_str->max )
+  if ( str_final_len > d_str->max )
   {
     PRINT_VVDEBUG ( "dynStringPatch() : reallocate memory\n" );
-    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max ) *
+    char *n_d_str = ( char * ) realloc ( d_str->data, ( DYNSTRING_GROW_RATE * d_str->max + new_str_len + 1) *
                                                         sizeof ( char ) );
     if ( n_d_str == NULL )
     {
       PRINT_ERROR ( "dynStringPatch() : Can't allocate more memory\n" );
       return -1;
     }
-    d_str->max *= DYNSTRING_GROW_RATE;
+    d_str->max = DYNSTRING_GROW_RATE * d_str->max + new_str_len;
     d_str->data = n_d_str;
   }
 
@@ -187,6 +185,7 @@ int dynStringPatch ( DynString *d_str, const char *new_str, int pos )
 
   return d_str->len;
 }
+
 void dynStringClear ( DynString *d_str )
 {
   PRINT_VVDEBUG ( "dynStringClear()\n" );

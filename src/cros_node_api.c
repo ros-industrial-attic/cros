@@ -833,11 +833,24 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_GET_BUS_INFO:
     {
-      // CHECK-ME What to answer here?
+      // Answer the transport/topic connection information
       xmlrpcParamVectorPushBackArray(&params);
-      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
-      xmlrpcParamArrayPushBackInt(array, 0);
-      xmlrpcParamArrayPushBackString(array, "");
+      XmlrpcParam *ret_parm_arr = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(ret_parm_arr, 1);
+      xmlrpcParamArrayPushBackString(ret_parm_arr, "");
+      XmlrpcParam *ret_businfo_arr = xmlrpcParamArrayPushBackArray(ret_parm_arr);
+
+/*      XmlrpcParam *ret_connect_arr = xmlrpcParamArrayPushBackArray(ret_businfo_arr);
+      xmlrpcParamArrayPushBackInt(ret_connect_arr, 1);
+      xmlrpcParamArrayPushBackString(ret_connect_arr, "http://127.0.0.1:45259/");
+      xmlrpcParamArrayPushBackString(ret_connect_arr, "i");
+      xmlrpcParamArrayPushBackString(ret_connect_arr, "TCPROS");
+      xmlrpcParamArrayPushBackString(ret_connect_arr, "/rosout");
+      xmlrpcParamArrayPushBackInt(ret_connect_arr, 1);
+      xmlrpcParamArrayPushBackString(ret_connect_arr, "TCPROS connection on port 35220 to [127.0.0.1:38589 on socket 13]");
+*/
+//      xmlrpcParamVectorPrint( &params );
+
       break;
     }
     case CROS_API_GET_MASTER_URI:
