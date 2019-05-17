@@ -167,7 +167,7 @@ int main(int argc, char **argv)
   getcwd(path, sizeof(path));
   strncat(path, DIR_SEPARATOR_STR"rosdb", sizeof(path) - strlen(path) - 1);
 
-  printf("PATH ROSDB: %s\n", path);
+  printf("Using the following path for message definitions: %s\n", path);
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", ROS_MASTER_ADDRESS, ROS_MASTER_PORT, path);
   if( node == NULL )
@@ -201,7 +201,7 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  ROS_INFO(node, "Node %s created with RPCROS port: %i", node->name, node->rpcros_port);
+  ROS_INFO(node, "Node %s created with XMLRPC port: %i, TCPROS port: %i and RPCROS port: %i\n", node->name, node->xmlrpc_port, node->tcpros_port, node->rpcros_port);
 
   // Function exit_deamon_handler() will be called when Ctrl-C is pressed or kill is executed
   set_signal_handler();

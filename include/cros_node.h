@@ -71,7 +71,7 @@
 #define CN_MAX_RPCROS_CLIENT_CONNECTIONS CN_MAX_SERVICE_CALLERS
 
 /*! Node automatic XMLRPC ping cycle period (in msec) */
-#define CN_PING_LOOP_PERIOD 1000
+#define CN_PING_LOOP_PERIOD 10000
 
 /*! Maximum I/O operations timeout (in msec) */
 #define CN_IO_TIMEOUT 3000

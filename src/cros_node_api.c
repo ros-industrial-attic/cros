@@ -585,6 +585,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
 
   return ret;
 }
+
 // return value is different from 0 only when a response message cannot be generated
 int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
 {
@@ -610,7 +611,11 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
   {
     case CROS_API_GET_PID:
     {
-      xmlrpcParamVectorPushBackInt( &params, n->pid );
+      xmlrpcParamVectorPushBackArray(&params);
+      XmlrpcParam *array = xmlrpcParamVectorAt(&params, 0);
+      xmlrpcParamArrayPushBackInt(array, 1);
+      xmlrpcParamArrayPushBackString(array, "");
+      xmlrpcParamArrayPushBackInt(array, n->pid);
       break;
     }
     case CROS_API_PUBLISHER_UPDATE:
