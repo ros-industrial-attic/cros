@@ -203,7 +203,7 @@ struct CrosNode
   unsigned short tcpros_port;   //! The node port for the TCPROS protocol
   unsigned short rpcros_port;   //! The node port for the RPCROS protocol
 
-  int pid;                      //! Process ID
+  int pid;                      //! cROS node process ID
   int roscore_pid;              //! Roscore PID
 
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)

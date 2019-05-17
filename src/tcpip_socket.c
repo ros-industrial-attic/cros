@@ -726,6 +726,21 @@ unsigned short tcpIpSocketGetPort( TcpIpSocket *s )
   return s->port;
 }
 
+unsigned short tcpIpSocketGetConnPort( TcpIpSocket *s )
+{
+  return ntohs( s->adr.sin_port );
+}
+
+const char *tcpIpSocketGetConnAddress( TcpIpSocket *s )
+{
+  char host_addr_buff[MAX_HOST_NAME_LEN+1];
+  const char *ret_host_addr;
+
+  ret_host_addr = inet_ntop(s->adr.sin_family, &s->adr.sin_addr, host_addr_buff, sizeof(host_addr_buff));
+
+  return ret_host_addr;
+}
+
 int tcpIpSocketSelect( int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, uint64_t time_out )
 {
   struct timeval timeout_tv;

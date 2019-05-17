@@ -8,13 +8,20 @@
 #  define FN_INVALID_SOCKET INVALID_SOCKET
 
 #  define FN_ERROR_INVALID_PARAMETER ERROR_INVALID_PARAMETER
+#  define MAX_HOST_NAME_LEN 256
 #else
 #  include <netinet/in.h>
 #  include <errno.h>
+#  ifndef __USE_POSIX
+#    define __USE_POSIX
+#  endif
+#  include <limits.h>
+#  define MAX_HOST_NAME_LEN _POSIX_HOST_NAME_MAX
 #  define FN_SOCKET_ERROR (-1)
 #  define FN_INVALID_SOCKET (-1)
 
 #  define FN_ERROR_INVALID_PARAMETER ENOSPC
+#  define MAX_HOST_NAME_LEN _POSIX_HOST_NAME_MAX
 #endif
 
 #include "dyn_string.h"
@@ -42,11 +49,13 @@ typedef enum
 typedef struct TcpIpSocket TcpIpSocket;
 struct TcpIpSocket
 {
-  int fd;
-  unsigned short port;
-  struct sockaddr_in adr;
-  unsigned char open, connected,
-                listening, is_nonblocking;
+  int fd; //! File descriptor for the new socket
+  unsigned short port; //! Port of the host to which the socket is connected, or port to which the socket is binded if it is listening
+  struct sockaddr_in adr; //! Address of the host to which the socket is connected
+  unsigned char open; //! It is 1 if the socket has been already created (successful socket() funciton call). Otherwise it is 0
+  unsigned char connected; //! It is 1 if the socket is connected (inbound or outbound). Otherwise it is 0
+  unsigned char listening; //! It is 1 if the socket is already in the listening state (ready to accept connections). Otherwise it is 0
+  unsigned char is_nonblocking; //! It is 1 if the socket has been configured as non blocking. Otherwise it is 0
 };
 
 /*! \brief Initialize the TcpIpSocket object with default values
@@ -243,6 +252,22 @@ int tcpIpSocketGetFD( TcpIpSocket *s );
  *  \return Returns the tcp/ip port
  */
 unsigned short tcpIpSocketGetPort( TcpIpSocket *s );
+
+/*! \brief Return the port of the socket connected to the TcpIpSocket object
+ *
+ *  \param s A TcpIpSocket object
+ *
+ *  \return Returns the tcp/ip port
+ */
+unsigned short tcpIpSocketGetConnPort( TcpIpSocket *s );
+
+/*! \brief Return the Address of the socket connected to the TcpIpSocket object
+ *
+ *  \param s A TcpIpSocket object
+ *
+ *  \return Returns a pointer to the address string or NULL if the address string could not be obtained.
+ */
+const char *tcpIpSocketGetConnAddress( TcpIpSocket *s );
 
 /*! \brief Check several file descriptors simultaneously waiting until at least one of them is ready
  *          for reading, writing or atteding an exceptional condition. That is, the select() function is called.

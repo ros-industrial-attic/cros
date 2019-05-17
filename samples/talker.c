@@ -106,16 +106,16 @@ int main(int argc, char **argv)
   node = cRosNodeCreate(node_name, "127.0.0.1", ROS_MASTER_ADDRESS, ROS_MASTER_PORT, path);
 
   // Create a publisher to topic /chatter of type "std_msgs/String" and request that the associated callback be invoked every 100ms (10Hz)
-  err_cod = cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 100, callback_pub, NULL, NULL, &pubidx);
+  err_cod = cRosApiRegisterPublisher(node, "/chatter","std_msgs/String", 1000, callback_pub, NULL, NULL, &pubidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosApiRegisterPublisher() failed; did you run this program one directory above 'rosdb'?");
     cRosNodeDestroy( node );
     return EXIT_FAILURE;
   }
-  
+
   // Create a service caller named /sum of type "roscpp_tutorials/TwoInts" and request that the associated callback be invoked every 200ms (5Hz)
-  err_cod = cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", 200, callback_srv_add_two_ints, NULL, NULL, 1, 1, &svcidx);
+  err_cod = cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", 2000, callback_srv_add_two_ints, NULL, NULL, 1, 1, &svcidx);
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceCaller() failed; did you run this program one directory above 'rosdb'?");

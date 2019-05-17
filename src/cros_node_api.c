@@ -6,16 +6,10 @@
 #  include <winsock2.h>
 #  include <ws2tcpip.h>
 #  define strtok_r strtok_s
-#  define MAX_HOST_NAME_LEN 256
 #else
 #  include <sys/socket.h>
 #  include <arpa/inet.h>
 #  include <netdb.h>
-#  ifndef __USE_POSIX
-#    define __USE_POSIX
-#  endif
-#  include <limits.h>
-#  define MAX_HOST_NAME_LEN _POSIX_HOST_NAME_MAX
 #endif
 
 #include "cros_node_api.h"
@@ -833,24 +827,92 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
     case CROS_API_GET_BUS_INFO:
     {
+      int proc_idx;
+      char tcpros_url_msg[MAX_HOST_NAME_LEN+60];
+      XmlrpcParam *ret_parm_arr, *ret_businfo_arr, *ret_connect_arr;
+
       // Answer the transport/topic connection information
       xmlrpcParamVectorPushBackArray(&params);
-      XmlrpcParam *ret_parm_arr = xmlrpcParamVectorAt(&params, 0);
-      xmlrpcParamArrayPushBackInt(ret_parm_arr, 1);
-      xmlrpcParamArrayPushBackString(ret_parm_arr, "");
-      XmlrpcParam *ret_businfo_arr = xmlrpcParamArrayPushBackArray(ret_parm_arr);
+      ret_parm_arr = xmlrpcParamVectorAt(&params, 0);
+      if(ret_parm_arr != NULL)
+      {
+        xmlrpcParamArrayPushBackInt(ret_parm_arr, 1);
+        xmlrpcParamArrayPushBackString(ret_parm_arr, "");
+        ret_businfo_arr = xmlrpcParamArrayPushBackArray(ret_parm_arr);
+        if(ret_businfo_arr == NULL)
+          ret=-1;
+      }
+      else
+        ret=-1;
 
-/*      XmlrpcParam *ret_connect_arr = xmlrpcParamArrayPushBackArray(ret_businfo_arr);
-      xmlrpcParamArrayPushBackInt(ret_connect_arr, 1);
-      xmlrpcParamArrayPushBackString(ret_connect_arr, "http://127.0.0.1:45259/");
-      xmlrpcParamArrayPushBackString(ret_connect_arr, "i");
-      xmlrpcParamArrayPushBackString(ret_connect_arr, "TCPROS");
-      xmlrpcParamArrayPushBackString(ret_connect_arr, "/rosout");
-      xmlrpcParamArrayPushBackInt(ret_connect_arr, 1);
-      xmlrpcParamArrayPushBackString(ret_connect_arr, "TCPROS connection on port 35220 to [127.0.0.1:38589 on socket 13]");
+/*
+      for ( role_idx = 0; role_idx < CN_MAX_PUBLISHED_TOPICS && ret_err == CROS_SUCCESS_ERR_PACK; role_idx++)
+      {
+        PublisherNode *publisher = n->pubs[role_idx];
+        if(publisher->topic_name != NULL) // Publisher in use
+        {
+          TcprosProcess *tcpros_proc;
+          int pub_tcpros_id = publisher->client_tcpros_id;
+
+          if(pub_tcpros_id != -1)
+          {
+            tcpros_proc = n->tcpros_server_proc[pub_tcpros_id];
+            tcpros_proc->
+          }
+
+          publisher->client_tcpros_id
+        }
+      }
 */
-//      xmlrpcParamVectorPrint( &params );
 
+
+      for(proc_idx=0;proc_idx<CN_MAX_TCPROS_CLIENT_CONNECTIONS && ret==0;proc_idx++)
+      {
+        TcprosProcess *cur_cli_proc = &n->tcpros_client_proc[proc_idx];
+        if(cur_cli_proc->topic_idx != -1)
+        {
+          ret_connect_arr = xmlrpcParamArrayPushBackArray(ret_businfo_arr);
+          if(ret_connect_arr != NULL)
+          {
+            xmlrpcParamArrayPushBackInt(ret_connect_arr, proc_idx);
+            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "http://%s:%hu/", tcpIpSocketGetConnAddress(&cur_cli_proc->socket), tcpIpSocketGetConnPort(&cur_cli_proc->socket));
+            xmlrpcParamArrayPushBackString(ret_connect_arr, tcpros_url_msg);
+            xmlrpcParamArrayPushBackString(ret_connect_arr, "o");
+            xmlrpcParamArrayPushBackString(ret_connect_arr, "TCPROS");
+            xmlrpcParamArrayPushBackString(ret_connect_arr, dynStringGetData(&cur_cli_proc->topic));
+            xmlrpcParamArrayPushBackInt(ret_connect_arr, 1);
+            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "TCPROS connection to [%s:%hu on socket fd %i]", cur_cli_proc->sub_tcpros_host, cur_cli_proc->sub_tcpros_port, tcpIpSocketGetFD(&cur_cli_proc->socket));
+            xmlrpcParamArrayPushBackString(ret_connect_arr, tcpros_url_msg);
+          }
+          else
+            ret=-1;
+        }
+      }
+
+      for(proc_idx=0;proc_idx<CN_MAX_TCPROS_SERVER_CONNECTIONS && ret==0;proc_idx++)
+      {
+        TcprosProcess *cur_ser_proc = &n->tcpros_server_proc[proc_idx];
+        if(cur_ser_proc->topic_idx != -1)
+        {
+          ret_connect_arr = xmlrpcParamArrayPushBackArray(ret_businfo_arr);
+          if(ret_connect_arr != NULL)
+          {
+            xmlrpcParamArrayPushBackInt(ret_connect_arr, proc_idx);
+            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "http://%s:%hu/", tcpIpSocketGetConnAddress(&cur_ser_proc->socket), tcpIpSocketGetConnPort(&cur_ser_proc->socket));
+            xmlrpcParamArrayPushBackString(ret_connect_arr, tcpros_url_msg);
+            xmlrpcParamArrayPushBackString(ret_connect_arr, "i");
+            xmlrpcParamArrayPushBackString(ret_connect_arr, "TCPROS");
+            xmlrpcParamArrayPushBackString(ret_connect_arr, dynStringGetData(&cur_ser_proc->topic));
+            xmlrpcParamArrayPushBackInt(ret_connect_arr, 1);
+            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "TCPROS connection on port %hu from [%s:%hu on socket %i]", tcpIpSocketGetPort(&cur_ser_proc->socket), tcpIpSocketGetConnAddress(&cur_ser_proc->socket), tcpIpSocketGetConnPort(&cur_ser_proc->socket), tcpIpSocketGetFD(&cur_ser_proc->socket));
+            xmlrpcParamArrayPushBackString(ret_connect_arr, tcpros_url_msg);
+          }
+          else
+            ret=-1;
+        }
+      }
+
+      xmlrpcParamVectorPrint( &params );
       break;
     }
     case CROS_API_GET_MASTER_URI:
