@@ -68,7 +68,6 @@ void tcpIpSocketInit ( TcpIpSocket *s )
 {
   PRINT_VVDEBUG ( "tcpIpSocketInit()\n" );
   s->fd = FN_INVALID_SOCKET;
-  s->port = 0;
   memset ( & ( s->adr ), 0, sizeof ( struct sockaddr_in ) );
   s->open = 0;
   s->connected = 0;
@@ -315,7 +314,6 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
   }
   PRINT_DEBUG (ANSI_COLOR_YELLOW"tcpIpSocketConnect() : connection established to %s:%i through FD:%i\n"ANSI_COLOR_RESET, host_addr, host_port, s->fd);
 
-  s->port = host_port;
   s->adr = adr;
   s->connected = 1;
 
@@ -405,15 +403,6 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host_addr, unsigned short
       return 0;
     }
 
-    struct sockaddr_in sa;
-    socklen_t sa_len = sizeof( sa );
-    if ( getsockname(s->fd, (struct sockaddr *)&sa, &sa_len) == FN_SOCKET_ERROR )
-    {
-      PRINT_ERROR ( "tcpIpSocketBindListen() : getsockname() failed. System error code: %i \n", tcpIpSocketGetError());
-      return 0;
-    }
-
-    s->port = ntohs(sa.sin_port);
     s->adr = adr;
     s->listening = 1;
   }
@@ -452,7 +441,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     if ( s->is_nonblocking &&
        ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
     {
-      PRINT_VDEBUG ( "tcpIpSocketAccept() : Accept in progress from port %i, new FD:%i\n", new_adr.sin_port, new_fd);
+      PRINT_VDEBUG ( "tcpIpSocketAccept() : Accept in progress from port %i, new FD:%i\n", ntohs( new_adr.sin_port ), new_fd);
       state = TCPIPSOCKET_IN_PROGRESS;
     }
     else
@@ -462,14 +451,13 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     }
   }
   else
-    PRINT_DEBUG (ANSI_COLOR_YELLOW"tcpIpSocketAccept() : Accepted connecion at port %i from port %i, new FD:%i\n"ANSI_COLOR_RESET, s->port, new_adr.sin_port, new_fd);
+    PRINT_DEBUG (ANSI_COLOR_YELLOW"tcpIpSocketAccept() : Accepted connecion from port %i, new FD:%i\n"ANSI_COLOR_RESET, ntohs(new_adr.sin_port), new_fd);
 
   if( new_s->open )
     tcpIpSocketClose ( new_s );
 
   new_s->fd = new_fd;
   new_s->adr = new_adr;
-  new_s->port = s->port;
   new_s->open = 1;
   new_s->connected = 1;
 
@@ -735,8 +723,6 @@ unsigned short tcpIpSocketGetPort( TcpIpSocket *s )
     PRINT_ERROR ( "tcpIpSocketConnect() : getsockname() failed obtaining the socket local port due to error code: %i\n", fn_error_code);
   }
 
-  if(s->port != ret_addr_port)
-     printf("****ERROR PORTS DIFERENT: %hu and %hu **********\n", s->port, ret_addr_port);
   return ret_addr_port;
 }
 
