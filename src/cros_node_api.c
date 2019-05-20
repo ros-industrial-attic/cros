@@ -854,7 +854,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           if(ret_connect_arr != NULL)
           {
             xmlrpcParamArrayPushBackInt(ret_connect_arr, proc_idx);
-            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "http://%s:%hu/", tcpIpSocketGetConnAddress(&cur_cli_proc->socket), tcpIpSocketGetConnPort(&cur_cli_proc->socket));
+            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "http://%s:%hu/", tcpIpSocketGetRemoteAddress(&cur_cli_proc->socket), tcpIpSocketGetRemotePort(&cur_cli_proc->socket));
  // This URL could also be the name of the node that receives the topic messages
             xmlrpcParamArrayPushBackString(ret_connect_arr, tcpros_url_msg);
  // In this case, this node is the subscriber, so the connection direction marked as inbound. This means that data (messages) is transmitted
@@ -885,7 +885,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           if(ret_connect_arr != NULL)
           {
             xmlrpcParamArrayPushBackInt(ret_connect_arr, proc_idx);
-            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "http://%s:%hu/", tcpIpSocketGetConnAddress(&cur_ser_proc->socket), tcpIpSocketGetConnPort(&cur_ser_proc->socket));
+            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "http://%s:%hu/", tcpIpSocketGetRemoteAddress(&cur_ser_proc->socket), tcpIpSocketGetRemotePort(&cur_ser_proc->socket));
             xmlrpcParamArrayPushBackString(ret_connect_arr, tcpros_url_msg);
  // In this case, this node is the publisher, so the connection direction is marked as outbound. This means that data (messages) is transmitted
  // from this node to other node: published -> subscriber (although the connection is established from other node to this node: subscriber -> publisher)
@@ -893,7 +893,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
             xmlrpcParamArrayPushBackString(ret_connect_arr, "TCPROS");
             xmlrpcParamArrayPushBackString(ret_connect_arr, dynStringGetData(&cur_ser_proc->topic));
             xmlrpcParamArrayPushBackInt(ret_connect_arr, 1);
-            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "TCPROS connection on port %hu to [%s:%hu on socket %i]", tcpIpSocketGetPort(&cur_ser_proc->socket), tcpIpSocketGetConnAddress(&cur_ser_proc->socket), tcpIpSocketGetConnPort(&cur_ser_proc->socket), tcpIpSocketGetFD(&cur_ser_proc->socket));
+            snprintf(tcpros_url_msg, sizeof(tcpros_url_msg), "TCPROS connection on port %hu to [%s:%hu on socket %i]", tcpIpSocketGetPort(&cur_ser_proc->socket), tcpIpSocketGetRemoteAddress(&cur_ser_proc->socket), tcpIpSocketGetRemotePort(&cur_ser_proc->socket), tcpIpSocketGetFD(&cur_ser_proc->socket));
  // example of tcpros_url_msg sniffed from a ROS publisher node (/turtlesim): TCPROS connection on port 49463 to [127.0.0.1:55636 on socket 26]
  // 49463 is the TCPROS local listening port of this (publisher) node, which received the incoming connection
  // 127.0.0.1 is the address of the other (remote node). In this case it is also a local address

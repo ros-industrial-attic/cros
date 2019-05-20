@@ -50,8 +50,7 @@ typedef struct TcpIpSocket TcpIpSocket;
 struct TcpIpSocket
 {
   int fd; //! File descriptor for the new socket
-  unsigned short port; //! Port of the host to which the socket is connected, or port to which the socket is binded if it is listening
-  struct sockaddr_in adr; //! Address of the host to which the socket is connected
+  struct sockaddr_in rem_addr; //! Adress of the (remote) host to which this socket is connected or address to which the socket is binded (if it is listening)
   unsigned char open; //! It is 1 if the socket has been already created (successful socket() funciton call). Otherwise it is 0
   unsigned char connected; //! It is 1 if the socket is connected (inbound or outbound). Otherwise it is 0
   unsigned char listening; //! It is 1 if the socket is already in the listening state (ready to accept connections). Otherwise it is 0
@@ -245,29 +244,31 @@ TcpIpSocketState tcpIpSocketReadString( TcpIpSocket *s, DynString *d_str );
  */
 int tcpIpSocketGetFD( TcpIpSocket *s );
 
-/*! \brief Return the port associated with the TcpIpSocket object
+/*! \brief Return the current (local) port to which the TcpIpSocket object is associated.
  *
  *  \param s A TcpIpSocket object
  *
- *  \return Returns the tcp/ip port
+ *  \return Returns the TCP/IP port number.
  */
 unsigned short tcpIpSocketGetPort( TcpIpSocket *s );
 
-/*! \brief Return the port of the socket connected to the TcpIpSocket object
+/*! \brief Return the (remote) port to which the TcpIpSocket object is connected, or the
+ *         port to which the socket is binded in case of being a listening port.
  *
- *  \param s A TcpIpSocket object
+ *  \param s A TcpIpSocket object.
  *
- *  \return Returns the tcp/ip port
+ *  \return Returns the TCP/IP port number.
  */
-unsigned short tcpIpSocketGetConnPort( TcpIpSocket *s );
+unsigned short tcpIpSocketGetRemotePort( TcpIpSocket *s );
 
-/*! \brief Return the Address of the socket connected to the TcpIpSocket object
+/*! \brief Return the (remote) address to which the TcpIpSocket object is connected, or the
+ *         address to which the socket is binded in case of being a listening port.
  *
- *  \param s A TcpIpSocket object
+ *  \param s A TcpIpSocket object.
  *
  *  \return Returns a pointer to the address string or NULL if the address string could not be obtained.
  */
-const char *tcpIpSocketGetConnAddress( TcpIpSocket *s );
+const char *tcpIpSocketGetRemoteAddress( TcpIpSocket *s );
 
 /*! \brief Check several file descriptors simultaneously waiting until at least one of them is ready
  *          for reading, writing or atteding an exceptional condition. That is, the select() function is called.

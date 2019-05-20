@@ -68,7 +68,7 @@ void tcpIpSocketInit ( TcpIpSocket *s )
 {
   PRINT_VVDEBUG ( "tcpIpSocketInit()\n" );
   s->fd = FN_INVALID_SOCKET;
-  memset ( & ( s->adr ), 0, sizeof ( struct sockaddr_in ) );
+  memset ( & ( s->rem_addr ), 0, sizeof ( struct sockaddr_in ) );
   s->open = 0;
   s->connected = 0;
   s->listening = 0;
@@ -314,7 +314,7 @@ TcpIpSocketState tcpIpSocketConnect ( TcpIpSocket *s, const char *host_addr, uns
   }
   PRINT_DEBUG (ANSI_COLOR_YELLOW"tcpIpSocketConnect() : connection established to %s:%i through FD:%i\n"ANSI_COLOR_RESET, host_addr, host_port, s->fd);
 
-  s->adr = adr;
+  s->rem_addr = adr;
   s->connected = 1;
 
   return TCPIPSOCKET_DONE;
@@ -403,7 +403,7 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host_addr, unsigned short
       return 0;
     }
 
-    s->adr = adr;
+    s->rem_addr = adr;
     s->listening = 1;
   }
 
@@ -441,7 +441,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     if ( s->is_nonblocking &&
        ( fn_error_code == FN_EWOULDBLOCK || fn_error_code == FN_EINPROGRESS || fn_error_code == FN_EAGAIN ) )
     {
-      PRINT_VDEBUG ( "tcpIpSocketAccept() : Accept in progress from port %i, new FD:%i\n", ntohs( new_adr.sin_port ), new_fd);
+      PRINT_VDEBUG ( "tcpIpSocketAccept() : Connection accept in progress from port %i, new FD:%i\n", ntohs( new_adr.sin_port ), new_fd);
       state = TCPIPSOCKET_IN_PROGRESS;
     }
     else
@@ -457,7 +457,7 @@ TcpIpSocketState tcpIpSocketAccept ( TcpIpSocket *s, TcpIpSocket *new_s )
     tcpIpSocketClose ( new_s );
 
   new_s->fd = new_fd;
-  new_s->adr = new_adr;
+  new_s->rem_addr = new_adr;
   new_s->open = 1;
   new_s->connected = 1;
 
@@ -726,17 +726,17 @@ unsigned short tcpIpSocketGetPort( TcpIpSocket *s )
   return ret_addr_port;
 }
 
-unsigned short tcpIpSocketGetConnPort( TcpIpSocket *s )
+unsigned short tcpIpSocketGetRemotePort( TcpIpSocket *s )
 {
-  return ntohs( s->adr.sin_port );
+  return ntohs( s->rem_addr.sin_port );
 }
 
-const char *tcpIpSocketGetConnAddress( TcpIpSocket *s )
+const char *tcpIpSocketGetRemoteAddress( TcpIpSocket *s )
 {
   char host_addr_buff[MAX_HOST_NAME_LEN+1];
   const char *ret_host_addr;
 
-  ret_host_addr = inet_ntop(s->adr.sin_family, &s->adr.sin_addr, host_addr_buff, sizeof(host_addr_buff));
+  ret_host_addr = inet_ntop(s->rem_addr.sin_family, &s->rem_addr.sin_addr, host_addr_buff, sizeof(host_addr_buff));
 
   return ret_host_addr;
 }
