@@ -2,6 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "tcpip_socket.h"
+#include "cros_defs.h"
+#include "cros_log.h"
+#include "cros_clock.h"
+
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
 #  include <windows.h>
@@ -20,6 +25,7 @@
 #  define FN_EINTR WSAEINTR
 
 #  define FN_SHUT_RDWR SD_BOTH
+typedef int fn_socklen_t;
 #else
 #  include <unistd.h>
 #  include <fcntl.h>
@@ -42,12 +48,8 @@
 #  define FN_EINTR EINTR
 // shutdown() how mode:
 #  define FN_SHUT_RDWR SHUT_RDWR
+typedef socklen_t fn_socklen_t;
 #endif
-
-#include "tcpip_socket.h"
-#include "cros_defs.h"
-#include "cros_log.h"
-#include "cros_clock.h"
 
 #define TCPIP_SOCKET_READ_BUFFER_SIZE 2048
 // Definitions for debug messages only.
@@ -403,17 +405,15 @@ int tcpIpSocketBindListen( TcpIpSocket *s, const char *host_addr, unsigned short
       return 0;
     }
 
-    struct sockaddr sa;
-    socklen_t sa_len = sizeof( struct sockaddr );
+    struct sockaddr_in sa;
+    socklen_t sa_len = sizeof( sa );
     if ( getsockname(s->fd, (struct sockaddr *)&sa, &sa_len) == FN_SOCKET_ERROR )
     {
       PRINT_ERROR ( "tcpIpSocketBindListen() : getsockname() failed. System error code: %i \n", tcpIpSocketGetError());
       return 0;
     }
 
-    struct sockaddr_in *sin = (struct sockaddr_in *)&sa;
-
-    s->port = ntohs(sin->sin_port);
+    s->port = ntohs(sa.sin_port);
     s->adr = adr;
     s->listening = 1;
   }
@@ -723,7 +723,21 @@ int tcpIpSocketGetFD ( TcpIpSocket *s )
 
 unsigned short tcpIpSocketGetPort( TcpIpSocket *s )
 {
-  return s->port;
+  struct sockaddr_in addr;
+  int fn_error_code;
+  unsigned short ret_addr_port;
+  fn_socklen_t len_adr = sizeof ( addr );
+  if ( getsockname ( s->fd, (struct sockaddr *)&addr, &len_adr ) == 0 )
+    ret_addr_port = ntohs ( ((struct sockaddr_in *)&addr)->sin_port );
+  else
+  {
+    fn_error_code = tcpIpSocketGetError();
+    PRINT_ERROR ( "tcpIpSocketConnect() : getsockname() failed obtaining the socket local port due to error code: %i\n", fn_error_code);
+  }
+
+  if(s->port != ret_addr_port)
+     printf("****ERROR PORTS DIFERENT: %hu and %hu **********\n", s->port, ret_addr_port);
+  return ret_addr_port;
 }
 
 unsigned short tcpIpSocketGetConnPort( TcpIpSocket *s )
