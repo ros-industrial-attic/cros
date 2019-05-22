@@ -502,7 +502,7 @@ unsigned char *getMD5Msg(cRosMessageDef* msg)
         fields_it = fields_it->next;
     }
 
-    if(buffer.len == 0)
+    if(dynStringGetLen(&buffer) == 0)
     {
         dynStringRelease(&buffer);
         return NULL;
@@ -510,7 +510,7 @@ unsigned char *getMD5Msg(cRosMessageDef* msg)
 
     MD5_CTX md5_t;
     MD5_Init(&md5_t);
-    MD5_Update(&md5_t,buffer.data,buffer.len - 1);
+    MD5_Update(&md5_t, dynStringGetData(&buffer), dynStringGetLen(&buffer) - 1);
     MD5_Final(result, &md5_t);
     dynStringRelease(&buffer);
 
@@ -523,6 +523,7 @@ cRosErrCodePack getMD5Txt(cRosMessageDef* msg_def, DynString* buffer)
 
     msgConst* const_it = msg_def->first_const;
 
+    dynStringPushBackStr(buffer,""); // Ensure that the returned DynString has allocated memory
     ret_err = CROS_SUCCESS_ERR_PACK;
     while(ret_err == CROS_SUCCESS_ERR_PACK && const_it->next != NULL)
     {
@@ -1892,7 +1893,7 @@ cRosErrCodePack cRosMessageBuildFromDef(cRosMessage** message_ptr, cRosMessageDe
   unsigned char* res = getMD5Msg(msg_def);
   cRosMD5Readable(res, &output);
   free(res);
-  strcpy(message->md5sum,output.data);
+  strcpy(message->md5sum, dynStringGetData(&output));
   dynStringRelease(&output);
 
   msgFieldDef* field_def_itr =  msg_def->first_field;

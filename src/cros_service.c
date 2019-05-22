@@ -81,8 +81,8 @@ cRosErrCodePack loadFromFileSrv(char *filename, cRosSrvDef *srv)
         fseek(f, 0, SEEK_END);
         long fsize = ftell(f);
         fseek(f, 0, SEEK_SET);
-        char *srv_req = NULL;
-        char *srv_res = NULL;
+        char *srv_req;
+        char *srv_res;
         char *srv_text = (char *)malloc(fsize + 1);
         if(srv_text == NULL)
         {
@@ -113,7 +113,7 @@ cRosErrCodePack loadFromFileSrv(char *filename, cRosSrvDef *srv)
 
         //splitting msg_text into the request response parts
         srv_res = strstr(srv_text, SRV_DELIMITER);
-        if(srv_res == NULL)
+        if(srv_res == NULL) // The delimiter must be present in the service definition
         {
             free(srv_text);
             free(file_tokenized);
@@ -127,6 +127,8 @@ cRosErrCodePack loadFromFileSrv(char *filename, cRosSrvDef *srv)
           *(srv_res - 1) = '\0';
           srv_req = srv_text;
         }
+        else
+          srv_req = NULL;//""; // The service has no request parameter
 
         srv_res += strlen(SRV_DELIMITER); // skip the delimiter
         if(*srv_res == '\n')
@@ -343,14 +345,14 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
   if(srv->request->plain_text != NULL)
   {
     getMD5Txt(srv->request, &buffer);
-    MD5_Update(&md5_t,buffer.data,buffer.len - 1);
+    MD5_Update(&md5_t, dynStringGetData(&buffer), dynStringGetLen(&buffer) - 1);
     dynStringClear(&buffer);
   }
 
   if(srv->response->plain_text != NULL)
   {
     getMD5Txt(srv->response, &buffer);
-    MD5_Update(&md5_t,buffer.data,buffer.len - 1);
+    MD5_Update(&md5_t, dynStringGetData(&buffer), dynStringGetLen(&buffer) - 1);
   }
   dynStringRelease(&buffer);
 
@@ -361,7 +363,7 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
   cRosMD5Readable(result,&output);
   free(result);
 
-  strcpy(md5sum, output.data);
+  strcpy(md5sum, dynStringGetData(&output));
   dynStringRelease(&output);
 
   if(srv->request->plain_text != NULL)

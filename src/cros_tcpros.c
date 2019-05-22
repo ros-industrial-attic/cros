@@ -488,6 +488,7 @@ cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_
   int pub_idx;
   DynBuffer *packet;
   void *data_context;
+  uint32_t *packet_data_size_ptr;
   uint32_t packet_size;
   PRINT_VVDEBUG("cRosMessagePreparePublicationPacket()\n");
 
@@ -501,7 +502,8 @@ cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_
   ret_err = pub_node->callback( packet, server_proc->send_msg_now, data_context);
 
   packet_size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
-  *(uint32_t *)packet->data = packet_size;
+  packet_data_size_ptr = (uint32_t *)dynBufferGetData(packet);
+  *packet_data_size_ptr = packet_size;
 
   // The following code block manages the logic of non-periodic msg sending
   if(server_proc->send_msg_now != 0) // A non-periodic msg has just been sent
@@ -950,8 +952,9 @@ cRosErrCodePack cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx
   ret_err = n->service_callers[svc_idx].callback( packet, NULL, 0, data_context);
   client_proc->send_msg_now = 0; // End of service call
 
-  uint32_t size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
-  memcpy(packet->data, &size, sizeof(uint32_t));
+  uint32_t data_size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
+  uint32_t *packet_data_size_ptr = (uint32_t *)dynBufferGetData(packet);
+  *packet_data_size_ptr = data_size;
 
   return ret_err;
 }
@@ -1031,8 +1034,8 @@ cRosErrCodePack cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server
   {
     ok_byte = TCPROS_OK_BYTE_SUCCESS;
     dynBufferPushBackBuf( packet, &ok_byte, sizeof(uint8_t) );
-    dynBufferPushBackUInt32( packet, service_response.size); // data size field
-    dynBufferPushBackBuf( packet, service_response.data, service_response.size); // Response data
+    dynBufferPushBackUInt32( packet, dynBufferGetSize(&service_response)); // data size field
+    dynBufferPushBackBuf( packet, dynBufferGetData(&service_response), dynBufferGetSize(&service_response)); // Response data
   }
   else
   {

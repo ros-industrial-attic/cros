@@ -928,6 +928,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       xmlrpcParamArrayPushBackInt(array, 1);
       xmlrpcParamArrayPushBackString(array, "");
       xmlrpcParamArrayPushBackInt(array, 1);
+      PRINT_INFO ( "cRosApiParseRequestPrepareResponse() : Received shutdown request through ROS slave API. This call will be ignored.\n" );
       break;
     }
     case CROS_API_PARAM_UPDATE:
