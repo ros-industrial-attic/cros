@@ -503,10 +503,7 @@ unsigned char *getMD5Msg(cRosMessageDef* msg)
     }
 
     if(dynStringGetLen(&buffer) == 0)
-    {
-        dynStringRelease(&buffer);
-        return NULL;
-    }
+        dynStringPushBackStr(&buffer,"\n");
 
     MD5_CTX md5_t;
     MD5_Init(&md5_t);
@@ -523,7 +520,6 @@ cRosErrCodePack getMD5Txt(cRosMessageDef* msg_def, DynString* buffer)
 
     msgConst* const_it = msg_def->first_const;
 
-    dynStringPushBackStr(buffer,""); // Ensure that the returned DynString has allocated memory
     ret_err = CROS_SUCCESS_ERR_PACK;
     while(ret_err == CROS_SUCCESS_ERR_PACK && const_it->next != NULL)
     {
@@ -618,6 +614,12 @@ cRosErrCodePack getMD5Txt(cRosMessageDef* msg_def, DynString* buffer)
         }
         fields_it = fields_it->next;
     }
+
+    if(dynStringGetLen(buffer) == 0)
+        dynStringPushBackStr(buffer,""); // Ensure that the returned DynString has allocated memory
+    else
+        dynStringReduce (buffer, 0, 1); // Remove the ending \n character which must not be processed by the MD5 algorithm
+
     return ret_err;
 }
 

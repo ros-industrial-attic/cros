@@ -198,6 +198,29 @@ void dynStringClear ( DynString *d_str )
   d_str->len = 0;
 }
 
+void dynStringReduce ( DynString *d_str, int rem_left, int rem_right)
+{
+  PRINT_VVDEBUG ( "dynStringReduce()\n" );
+
+  if ( d_str->data == NULL )
+    return;
+
+  if (rem_left > d_str->len)
+    rem_left = d_str->len;
+  if (rem_left + rem_right > d_str->len)
+    rem_right = d_str->len - rem_left;
+
+  d_str->len -= rem_left + rem_right;
+  memmove(d_str->data, d_str->data+rem_left, d_str->len);
+  d_str->data[d_str->len] = '\0';
+  d_str->pos_offset -= rem_left;
+  if(d_str->pos_offset < 0)
+    d_str->pos_offset = 0;
+  else
+    if(d_str->pos_offset > d_str->len)
+      d_str->pos_offset > d_str->len;
+}
+
 int dynStringGetLen ( DynString *d_str )
 {
   PRINT_VVDEBUG ( "dynStringGetLen()\n" );

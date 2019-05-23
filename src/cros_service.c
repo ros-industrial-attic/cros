@@ -128,7 +128,7 @@ cRosErrCodePack loadFromFileSrv(char *filename, cRosSrvDef *srv)
           srv_req = srv_text;
         }
         else
-          srv_req = NULL;//""; // The service has no request parameter
+          srv_req = ""; // The service has no request parameter
 
         srv_res += strlen(SRV_DELIMITER); // skip the delimiter
         if(*srv_res == '\n')
@@ -345,14 +345,14 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
   if(srv->request->plain_text != NULL)
   {
     getMD5Txt(srv->request, &buffer);
-    MD5_Update(&md5_t, dynStringGetData(&buffer), dynStringGetLen(&buffer) - 1);
+    MD5_Update(&md5_t, dynStringGetData(&buffer), dynStringGetLen(&buffer));
     dynStringClear(&buffer);
   }
 
   if(srv->response->plain_text != NULL)
   {
     getMD5Txt(srv->response, &buffer);
-    MD5_Update(&md5_t, dynStringGetData(&buffer), dynStringGetLen(&buffer) - 1);
+    MD5_Update(&md5_t, dynStringGetData(&buffer), dynStringGetLen(&buffer));
   }
   dynStringRelease(&buffer);
 

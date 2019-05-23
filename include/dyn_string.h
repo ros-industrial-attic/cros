@@ -12,10 +12,10 @@
 typedef struct DynString DynString;
 struct DynString
 {
-  int len;            //! Current string length
-  int pos_offset;     //! Current position indicator
-  int max;            //! Max string size
-  char *data;         //! String data
+  int len;            //! Current string length not including the \0 character at the end of the string
+  int pos_offset;     //! Movable current string position indicator (cursor) that indicates the start of a last string chunk
+  int max;            //! Max string size not including the space for \0 character at the end of the string
+  char *data;         //! Pointer to the \0-terminated string data
 };
 
 /*! \brief Initialize a dynamic string
@@ -85,6 +85,16 @@ int dynStringPatch( DynString *d_str, const char *new_str, int pos );
  *  \param d_str Pointer to a DynString object
  */
 void dynStringClear( DynString *d_str );
+
+/*! \brief Truncates a DynString object. If more characters than available are tried to be removed, the string just becomes empty.
+ *         The offset index of the DynString is moved left the number of positions removed from left up to pointing to 0. If
+ *         characters are removed from the right, the offset is adjusted to limit its right position to the \0 character at most.
+ *
+ *  \param d_str Pointer to a DynString object
+ *  \param rem_left Number of character to remove from the beggning of the string
+ *  \param rem_right Number of character to remove from the end of the string
+ */
+void dynStringReduce ( DynString *d_str, int rem_left, int rem_right);
 
 /*! \brief Get the current dynamic string length, not including the terminating null byte
  *
