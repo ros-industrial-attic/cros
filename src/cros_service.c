@@ -168,7 +168,7 @@ cRosErrCodePack loadFromFileSrv(const char *filename, cRosSrvDef *srv)
         else
           ret_err=CROS_MEM_ALLOC_ERR;
 
-        if(srv_req != NULL)
+        if(ret_err == CROS_SUCCESS_ERR_PACK)
         {
           srv->request->package = strdup(srv->package);
           srv->request->root_dir = strdup(srv->root_dir);
@@ -181,7 +181,7 @@ cRosErrCodePack loadFromFileSrv(const char *filename, cRosSrvDef *srv)
             ret_err=CROS_MEM_ALLOC_ERR;
         }
 
-        if(ret_err == CROS_SUCCESS_ERR_PACK && strlen(srv_res) != 0)
+        if(ret_err == CROS_SUCCESS_ERR_PACK)
         {
           srv->response->package = strdup(srv->package);
           srv->response->root_dir = strdup(srv->root_dir);
