@@ -57,7 +57,7 @@ cRosErrCodePack initCrosSrv(cRosSrvDef* srv)
     return ret_err;
 }
 
-cRosErrCodePack loadFromFileSrv(char *filename, cRosSrvDef *srv)
+cRosErrCodePack loadFromFileSrv(const char *filename, cRosSrvDef *srv)
 {
     cRosErrCodePack ret_err;
     size_t f_read_bytes;
@@ -305,7 +305,7 @@ cRosErrCodePack cRosServiceBuild(cRosService* service, const char* filepath)
   return cRosServiceBuildInner(&service->request, &service->response, NULL, service->md5sum, filepath);
 }
 
-cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **response_ptr, char **message_definition, char *md5sum, const char* filepath)
+cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **response_ptr, char **message_definition, char *md5sum, const char *srv_filepath)
 {
   cRosErrCodePack ret_err;
 
@@ -319,17 +319,8 @@ cRosErrCodePack cRosServiceBuildInner(cRosMessage **request_ptr, cRosMessage **r
     free(srv);
     return ret_err;
   }
-  char *copy_filepath = (char *)malloc(strlen(filepath)+sizeof(char));
-  if(copy_filepath == NULL)
-  {
-    cRosServiceDefFree(srv);
-    return CROS_MEM_ALLOC_ERR;
-  }
 
-  strcpy(copy_filepath, filepath);
-
-  ret_err = loadFromFileSrv(copy_filepath, srv);
-  free(copy_filepath);
+  ret_err = loadFromFileSrv(srv_filepath, srv);
   if (ret_err != CROS_SUCCESS_ERR_PACK)
   {
     cRosServiceDefFree(srv);

@@ -22,7 +22,7 @@ struct t_srvDef
 
 typedef struct t_srvDef cRosSrvDef;
 
-cRosErrCodePack cRosServiceBuildInner(cRosMessage **request, cRosMessage **response, char **message_definition, char *md5sum, const char* filepath);
+cRosErrCodePack cRosServiceBuildInner(cRosMessage **request, cRosMessage **response, char **message_definition, char *md5sum, const char *srv_filepath);
 cRosErrCodePack initCrosSrv(cRosSrvDef* srv);
 
 cRosErrCodePack getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);
@@ -34,7 +34,7 @@ cRosErrCodePack getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* 
 //  the text of the embedded type.
 char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps);
 
-cRosErrCodePack loadFromFileSrv(char* filename, cRosSrvDef* srv);
+cRosErrCodePack loadFromFileSrv(const char *filename, cRosSrvDef* srv);
 
 void cRosServiceDefFree(cRosSrvDef* service_def);
 
