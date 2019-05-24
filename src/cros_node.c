@@ -155,8 +155,7 @@ static int openTcprosListnerSocket( CrosNode *n )
 static void closeTcprosProcess(TcprosProcess *process)
 {
   tcpIpSocketClose(&process->socket);
-  tcprosProcessClear(process, 1);
-  tcprosProcessChangeState(process, TCPROS_PROCESS_STATE_IDLE );
+  tcprosProcessReset(process);
 }
 
 static void closeXmlrpcProcess(XmlrpcProcess *process)
@@ -659,7 +658,7 @@ static cRosErrCodePack tcprosClientConnect( CrosNode *n, int client_idx)
   if(!client_proc->socket.open)
     openTcprosClientSocket(n, client_idx);
 
-  tcprosProcessClear( client_proc, 0 ); // clear packet buffer and variable indicating bytes left to receive (left_to_recv)
+  tcprosProcessClear( client_proc ); // clear packet buffer and variable indicating bytes left to receive (left_to_recv)
   TcpIpSocketState conn_state = tcpIpSocketConnect( &(client_proc->socket),
                                        client_proc->sub_tcpros_host, client_proc->sub_tcpros_port );
   switch (conn_state)
@@ -723,7 +722,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          tcprosProcessClear( client_proc, 0);
+          tcprosProcessClear( client_proc );
           client_proc->left_to_recv = sizeof(uint32_t);
           tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER_SIZE );
 
@@ -733,9 +732,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
           break;
 
         case TCPIPSOCKET_DISCONNECTED:
-          tcprosProcessClear( client_proc, 1);
-          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_IDLE );
-          tcpIpSocketClose( &(client_proc->socket) );
+          closeTcprosProcess( client_proc );
           break;
 
         case TCPIPSOCKET_FAILED:
@@ -762,7 +759,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
             const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
             uint32_t header_size;
             ROS_TO_HOST_UINT32(*((uint32_t *)data), header_size);
-            tcprosProcessClear( client_proc, 0 );
+            tcprosProcessClear( client_proc );
             client_proc->left_to_recv = header_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER);
             goto read_header;
@@ -813,7 +810,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
       switch ( parser_state )
       {
         case TCPROS_PARSER_DONE:
-          tcprosProcessClear( client_proc, 0);
+          tcprosProcessClear( client_proc );
           client_proc->left_to_recv = sizeof(uint32_t);
           tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_SIZE );
           break;
@@ -843,7 +840,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
             const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
             uint32_t msg_size = 0;
             ROS_TO_HOST_UINT32(*((uint32_t *)data), msg_size);
-            tcprosProcessClear( client_proc, 0);
+            tcprosProcessClear( client_proc );
             client_proc->left_to_recv = msg_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING);
             goto read_msg;
@@ -875,7 +872,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
           if (client_proc->left_to_recv == 0)
           {
               ret_err = cRosMessageParsePublicationPacket(n, client_idx);
-              tcprosProcessClear( client_proc, 0);
+              tcprosProcessClear( client_proc );
               client_proc->left_to_recv = sizeof(uint32_t);
               tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_SIZE );
           }
@@ -910,7 +907,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
   if( server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER)
   {
     PRINT_VDEBUG ( "doWithTcprosServerSocket() : Reading header. Tcpros server index %d \n", i );
-    tcprosProcessClear( server_proc, 0);
+    tcprosProcessClear( server_proc );
     TcpIpSocketState sock_state = tcpIpSocketReadBuffer( &(server_proc->socket),
                                                          &(server_proc->packet) );
     TcprosParserState parser_state = TCPROS_PARSER_ERROR;
@@ -938,7 +935,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
       case TCPROS_PARSER_DONE:
 
         PRINT_VDEBUG ( "doWithTcprosServerSocket() : Done reading and parsing with no error\n" );
-        tcprosProcessClear( server_proc, 0);
+        tcprosProcessClear( server_proc );
         cRosMessagePreparePublicationHeader( n, i );
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
         break;
@@ -958,7 +955,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
     PRINT_VDEBUG ( "doWithTcprosServerSocket() : writing. Tcpros server index: %d \n", i );
     if( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING )
     {
-      tcprosProcessClear( server_proc, 0 );
+      tcprosProcessClear( server_proc );
       ret_err = cRosMessagePreparePublicationPacket( n, i );
       tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
     }
@@ -969,7 +966,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
     {
       case TCPIPSOCKET_DONE:
         PRINT_VDEBUG ( "doWithTcprosServerSocket() : Done writing with no error\n" );
-        tcprosProcessClear( server_proc, 0);
+        tcprosProcessClear( server_proc );
         tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WAIT_FOR_WRITING );
         break;
 
@@ -999,7 +996,7 @@ static cRosErrCodePack rpcrosClientConnect(CrosNode *n, int client_idx)
     openRpcrosClientSocket(n, client_idx);
 
   ServiceCallerNode *service_caller = &(n->service_callers[client_proc->service_idx]);
-  tcprosProcessClear( client_proc, 0 );
+  tcprosProcessClear( client_proc );
   TcpIpSocketState conn_state = tcpIpSocketConnect( &(client_proc->socket), service_caller->service_host, service_caller->service_port );
   switch (conn_state)
   {
@@ -1062,7 +1059,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          tcprosProcessClear( client_proc, 0);
+          tcprosProcessClear( client_proc );
           client_proc->left_to_recv = sizeof(uint32_t);
           tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER_SIZE );
 
@@ -1072,9 +1069,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
           break;
 
         case TCPIPSOCKET_DISCONNECTED:
-          tcprosProcessClear( client_proc, 1);
-          tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_IDLE );
-          tcpIpSocketClose( &(client_proc->socket) );
+          closeTcprosProcess( client_proc );
           break;
 
         case TCPIPSOCKET_FAILED:
@@ -1101,7 +1096,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
             const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
             uint32_t header_size;
             ROS_TO_HOST_UINT32(*((uint32_t *)data), header_size);
-            tcprosProcessClear( client_proc, 0 );
+            tcprosProcessClear( client_proc );
             client_proc->left_to_recv = header_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER);
             goto read_header;
@@ -1158,7 +1153,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
       switch ( parser_state )
       {
         case TCPROS_PARSER_DONE:
-          tcprosProcessClear( client_proc, 0);
+          tcprosProcessClear( client_proc );
           tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WAIT_FOR_WRITING );
           break;
         case TCPROS_PARSER_HEADER_INCOMPLETE:
@@ -1173,7 +1168,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
 
     case TCPROS_PROCESS_STATE_START_WRITING:
     {
-      tcprosProcessClear(client_proc, 0);
+      tcprosProcessClear( client_proc );
       ret_err = cRosMessagePrepareServiceCallPacket(n, client_idx);
       tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WRITING );
     }
@@ -1188,7 +1183,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
       {
         case TCPIPSOCKET_DONE:
           PRINT_VDEBUG ( "doWithRpcrosClientSocket() : Done writing with no error\n" );
-          tcprosProcessClear( client_proc, 0); // Clears only packet and left_to_recv vars
+          tcprosProcessClear( client_proc ); // Clears only packet and left_to_recv vars
           client_proc->left_to_recv = sizeof(uint32_t) + sizeof(uint8_t);
           tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_SIZE );
           break;
@@ -1226,7 +1221,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
             uint32_t msg_size;
             client_proc->ok_byte = *data;
             ROS_TO_HOST_UINT32(*((uint32_t *)(data+1)), msg_size);
-            tcprosProcessClear( client_proc, 0);
+            tcprosProcessClear( client_proc );
             client_proc->left_to_recv = msg_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING);
             goto read_msg;
@@ -1262,12 +1257,12 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
               ret_err = cRosMessageParseServiceResponsePacket(n, client_idx);
               if(client_proc->persistent)
               {
-                tcprosProcessClear( client_proc, 0);
+                tcprosProcessClear( client_proc );
                 tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_WAIT_FOR_WRITING );
               }
               else
               {
-                tcprosProcessClear( client_proc, 0);
+                tcprosProcessClear( client_proc );
                 tcpIpSocketClose( &(client_proc->socket) );
                 openRpcrosClientSocket(n, client_idx);
                 // The master should be checked before contacting the service provider again,
@@ -1330,7 +1325,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
             const unsigned char *data = dynBufferGetCurrentData(&server_proc->packet);
             uint32_t header_size;
             ROS_TO_HOST_UINT32(*((uint32_t *)data), header_size);
-            tcprosProcessClear( server_proc, 0 );
+            tcprosProcessClear( server_proc );
             server_proc->left_to_recv = header_size;
             tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING_HEADER);
             goto read_header;
@@ -1339,9 +1334,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
         case TCPIPSOCKET_IN_PROGRESS:
           break;
         case TCPIPSOCKET_DISCONNECTED:
-          tcprosProcessClear( server_proc, 1 );
-          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-          tcpIpSocketClose( &(server_proc->socket) );
+          closeTcprosProcess( server_proc );
           break;
         case TCPIPSOCKET_FAILED:
         default:
@@ -1385,7 +1378,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
       switch ( parser_state )
       {
         case TCPROS_PARSER_DONE:
-          tcprosProcessClear( server_proc, 0);
+          tcprosProcessClear( server_proc );
           tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING_HEADER );
           PRINT_VDEBUG("doWithRpcrosServerSocket() : Header parsed. Probing session: %d. Rpcros server index: %d \n", server_proc->probe, i);
           break;
@@ -1411,15 +1404,21 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
       switch ( sock_state )
       {
         case TCPIPSOCKET_DONE:
-          PRINT_VDEBUG ( "doWithRpcrosServerSocket() : Done write header with no error. RpcrosServer index: %d \n", i);
+          PRINT_VDEBUG ( "doWithRpcrosServerSocket() : Done writing header with no error. RpcrosServer index: %d \n", i);
           if(server_proc->probe)
           {
-            tcprosProcessClear( server_proc, 1 );
-            tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
+            if(server_proc->persistent)
+            {
+              tcprosProcessClear( server_proc );
+              tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING_HEADER_SIZE);
+              server_proc->left_to_recv = sizeof(uint32_t);
+            }
+            else
+              closeTcprosProcess( server_proc );
           }
           else
           {
-            tcprosProcessClear( server_proc, 0 );
+            tcprosProcessClear( server_proc );
             server_proc->left_to_recv = sizeof(uint32_t);
             tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING_SIZE );
           }
@@ -1429,9 +1428,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
           break;
 
         case TCPIPSOCKET_DISCONNECTED:
-          tcprosProcessClear( server_proc , 1);
-          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-          tcpIpSocketClose( &(server_proc->socket) );
+          closeTcprosProcess( server_proc );
           break;
 
         case TCPIPSOCKET_FAILED:
@@ -1460,7 +1457,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
             const uint32_t *data = (const uint32_t *)dynBufferGetCurrentData(&server_proc->packet);
             uint32_t msg_size;
             ROS_TO_HOST_UINT32(*data, msg_size);
-            tcprosProcessClear( server_proc, 0);
+            tcprosProcessClear( server_proc );
             if (msg_size == 0)
             {
               PRINT_VDEBUG ( "doWithRpcrosServerSocket() : Done reading size with no error\n" );
@@ -1511,9 +1508,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
         case TCPIPSOCKET_IN_PROGRESS:
           break;
         case TCPIPSOCKET_DISCONNECTED:
-          tcprosProcessClear( server_proc, 1 );
-          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-          tcpIpSocketClose( &(server_proc->socket) );
+          closeTcprosProcess( server_proc );
           break;
         case TCPIPSOCKET_FAILED:
         default:
@@ -1549,16 +1544,14 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
             tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING_SIZE);
           }
           else
-            tcprosProcessClear( server_proc, 1 );
+            closeTcprosProcess( server_proc );
           break;
 
         case TCPIPSOCKET_IN_PROGRESS:
           break;
 
         case TCPIPSOCKET_DISCONNECTED:
-          tcprosProcessClear( server_proc, 1 );
-          tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_IDLE );
-          tcpIpSocketClose( &(server_proc->socket) );
+          closeTcprosProcess( server_proc );
           break;
 
         case TCPIPSOCKET_FAILED:

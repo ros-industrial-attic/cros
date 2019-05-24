@@ -72,12 +72,18 @@ void tcprosProcessInit( TcprosProcess *p );
  */
 void tcprosProcessRelease( TcprosProcess *p );
 
-/*! \brief Clear internal data of an TcprosProcess object (the internal memory IS NOT released)
+/*! \brief Clear internal i/o data buffer (packet) of a TcprosProcess object
  *
  *  \param s Pointer to TcprosProcess object
- *  \param fullreset true to do perform a full reset, false to just allow a new packet to be read
  */
-void tcprosProcessClear( TcprosProcess *p , int fullreset );
+void tcprosProcessClear( TcprosProcess *p );
+
+/*! \brief Reset the state and clear all the content of a TcprosProcess object (the
+ *         internal memory IS NOT released, so we can continue using the process)
+ *
+ *  \param s Pointer to TcprosProcess object
+ */
+void tcprosProcessReset( TcprosProcess *p );
 
 /*! \brief Change the internal state of an TcprosProcess object, and update its timer
  *
