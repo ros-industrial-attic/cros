@@ -10,8 +10,6 @@
  *  @{
  */
 
-#define LITTLE_ENDIAN_ARC 1
-
 #ifndef CROS_DEBUG_LEVEL
 #  define CROS_DEBUG_LEVEL 1
 #endif
@@ -42,15 +40,33 @@
 
 #define PRINT_ERROR(...) fprintf(cRosOutStreamGet(), __VA_ARGS__)
 
+// macros for detecting and converting endianness
+
+// We ignore the existence of mixed endianness
+#ifdef _WIN32
+#  define LITTLE_ENDIAN_ARC 1
+#else
+#  ifdef __APPLE__
+#    ifndef __BIG_ENDIAN__
+#      define LITTLE_ENDIAN_ARC 1
+#    endif
+#  else
+#    include <endian.h>
+#    if __BYTE_ORDER == __LITTLE_ENDIAN
+#      define LITTLE_ENDIAN_ARC 1
+#    endif
+#  endif
+#endif
+
 #if LITTLE_ENDIAN_ARC
 #  define HOST_TO_ROS_UINT32( val, converted_val ) converted_val = (val)
 #else
 #define HOST_TO_ROS_UINT32( val, converted_val )\
 {\
-  converted_val =  (((val)>>24)&0xff) |   \
-                    (((val)<<8)&0XFF0000) | \
-                    (((val)>>8)&0XFF00) |   \
-                    (((val)<<24)&0XFF000000;\
+  converted_val =  (((val)>>24)&0x000000FFUL) | \
+                    (((val)<<8)&0X00FF0000UL) | \
+                    (((val)>>8)&0X0000FF00UL) | \
+                    (((val)<<24)&0XFF000000UL;\
 }
 #endif
 
