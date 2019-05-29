@@ -758,7 +758,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
           {
             const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
             uint32_t header_size;
-            ROS_TO_HOST_UINT32(*((uint32_t *)data), header_size);
+            header_size = ROS_TO_HOST_UINT32(*(uint32_t *)data);
             tcprosProcessClear( client_proc );
             client_proc->left_to_recv = header_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER);
@@ -839,7 +839,7 @@ static cRosErrCodePack doWithTcprosClientSocket( CrosNode *n, int client_idx)
           {
             const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
             uint32_t msg_size = 0;
-            ROS_TO_HOST_UINT32(*((uint32_t *)data), msg_size);
+            msg_size = ROS_TO_HOST_UINT32(*(uint32_t *)data);
             tcprosProcessClear( client_proc );
             client_proc->left_to_recv = msg_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING);
@@ -1095,7 +1095,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
           {
             const unsigned char *data = dynBufferGetCurrentData(&client_proc->packet);
             uint32_t header_size;
-            ROS_TO_HOST_UINT32(*((uint32_t *)data), header_size);
+            header_size = ROS_TO_HOST_UINT32(*(uint32_t *)data);
             tcprosProcessClear( client_proc );
             client_proc->left_to_recv = header_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING_HEADER);
@@ -1220,7 +1220,7 @@ static cRosErrCodePack doWithRpcrosClientSocket(CrosNode *n, int client_idx)
             const uint8_t *data = (const uint8_t *)dynBufferGetCurrentData(&client_proc->packet);
             uint32_t msg_size;
             client_proc->ok_byte = *data;
-            ROS_TO_HOST_UINT32(*((uint32_t *)(data+1)), msg_size);
+            msg_size = ROS_TO_HOST_UINT32(*(uint32_t *)(data+1));
             tcprosProcessClear( client_proc );
             client_proc->left_to_recv = msg_size;
             tcprosProcessChangeState( client_proc, TCPROS_PROCESS_STATE_READING);
@@ -1324,7 +1324,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
           {
             const unsigned char *data = dynBufferGetCurrentData(&server_proc->packet);
             uint32_t header_size;
-            ROS_TO_HOST_UINT32(*((uint32_t *)data), header_size);
+            header_size = ROS_TO_HOST_UINT32(*(uint32_t *)data);
             tcprosProcessClear( server_proc );
             server_proc->left_to_recv = header_size;
             tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_READING_HEADER);
@@ -1456,7 +1456,7 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
           {
             const uint32_t *data = (const uint32_t *)dynBufferGetCurrentData(&server_proc->packet);
             uint32_t msg_size;
-            ROS_TO_HOST_UINT32(*data, msg_size);
+            msg_size = ROS_TO_HOST_UINT32(*data);
             tcprosProcessClear( server_proc );
             if (msg_size == 0)
             {

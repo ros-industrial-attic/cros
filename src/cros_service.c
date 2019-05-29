@@ -413,7 +413,7 @@ static uint32_t getLen( DynBuffer *pkt )
 {
   uint32_t len;
   const unsigned char *data = dynBufferGetCurrentData(pkt);
-  ROS_TO_HOST_UINT32(*((uint32_t *)data), len);
+  len = ROS_TO_HOST_UINT32(*(uint32_t *)data);
   dynBufferMovePoseIndicator(pkt,sizeof(uint32_t));
 
   return len;
@@ -424,7 +424,7 @@ static uint32_t pushBackField( DynBuffer *pkt, TcprosTagStrDim *tag, const char 
   size_t val_len = strlen( val );
   uint32_t out_len, field_len = tag->dim + val_len;
   //PRINT_VDEBUG("pushBackField() : filed : %s field_len ; %d\n", tag->str, field_len);
-  HOST_TO_ROS_UINT32( field_len, out_len );
+  out_len = HOST_TO_ROS_UINT32( field_len );
   dynBufferPushBackUInt32( pkt, out_len );
   dynBufferPushBackBuf( pkt, (const unsigned char*)tag->str, tag->dim );
   dynBufferPushBackBuf( pkt, (const unsigned char*)val, val_len );

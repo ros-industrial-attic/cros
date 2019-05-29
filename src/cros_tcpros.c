@@ -15,7 +15,7 @@ static uint32_t getLen( DynBuffer *pkt )
 {
   uint32_t len;
   const unsigned char *data = dynBufferGetCurrentData(pkt);
-  ROS_TO_HOST_UINT32(*((uint32_t *)data), len);
+  len = ROS_TO_HOST_UINT32(*(uint32_t *)data);
   dynBufferMovePoseIndicator(pkt,sizeof(uint32_t));
 
   return len;
@@ -26,7 +26,7 @@ static uint32_t pushBackField( DynBuffer *pkt, TcprosTagStrDim *tag, const char 
   size_t val_len = strlen( val );
   uint32_t out_len, field_len = tag->dim + val_len;
   //PRINT_VDEBUG("pushBackField() : filed : %s field_len ; %d\n", tag->str, field_len);
-  HOST_TO_ROS_UINT32( field_len, out_len );
+  out_len = HOST_TO_ROS_UINT32( field_len );
   dynBufferPushBackUInt32( pkt, out_len );
   dynBufferPushBackBuf( pkt, (const unsigned char*)tag->str, tag->dim );
   dynBufferPushBackBuf( pkt, (const unsigned char*)val, val_len );
@@ -429,7 +429,7 @@ void cRosMessagePrepareSubcriptionHeader( CrosNode *n, int client_idx )
   if(n->subs[sub_idx].tcp_nodelay)
     header_len += pushBackField( packet, &TCPROS_TCP_NODELAY_TAG, "1" );
 
-  HOST_TO_ROS_UINT32( header_len, header_out_len );
+  header_out_len= HOST_TO_ROS_UINT32( header_len );
   uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
   *header_len_p = header_out_len;
 }
@@ -475,7 +475,7 @@ void cRosMessagePreparePublicationHeader( CrosNode *n, int server_idx )
   header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->pubs[pub_idx].topic_type );
   header_len += pushBackField( packet, &TCPROS_TCP_NODELAY_TAG, (server_proc->tcp_nodelay)?"1":"0" );
 
-  HOST_TO_ROS_UINT32( header_len, header_out_len );
+  header_out_len = HOST_TO_ROS_UINT32( header_len );
   uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
   *header_len_p = header_out_len;
 }
@@ -932,7 +932,7 @@ void cRosMessagePrepareServiceCallHeader(CrosNode *n, int client_idx)
  //header_len += pushBackField( packet, &TCPROS_SERVICE_RESPONSETYPE_TAG, n->service_callers[srv_idx].serviceresponse_type );
   header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->service_callers[srv_idx].service_type );
 
-  HOST_TO_ROS_UINT32( header_len, header_out_len );
+  header_out_len = HOST_TO_ROS_UINT32( header_len );
   uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
   *header_len_p = header_out_len;
 }
@@ -1008,7 +1008,7 @@ void cRosMessagePrepareServiceProviderHeader( CrosNode *n, int server_idx)
     header_len += pushBackField( packet, &TCPROS_TYPE_TAG, n->service_providers[srv_idx].service_type );
   //}
 
-  HOST_TO_ROS_UINT32( header_len, header_out_len );
+  header_out_len = HOST_TO_ROS_UINT32( header_len );
   uint32_t *header_len_p = (uint32_t *)dynBufferGetData( packet );
   *header_len_p = header_out_len;
 }

@@ -58,19 +58,17 @@
 #  endif
 #endif
 
+// We only support processors with sizeof(char)==1
 #if LITTLE_ENDIAN_ARC
-#  define HOST_TO_ROS_UINT32( val, converted_val ) converted_val = (val)
+#  define HOST_TO_ROS_UINT32(val) (val)
 #else
-#define HOST_TO_ROS_UINT32( val, converted_val )\
-{\
-  converted_val =  (((val)>>24)&0x000000FFUL) | \
-                    (((val)<<8)&0X00FF0000UL) | \
-                    (((val)>>8)&0X0000FF00UL) | \
-                    (((val)<<24)&0XFF000000UL;\
-}
+#  define HOST_TO_ROS_UINT32(val) (((val)>>24)&0x000000FFUL) | \
+                                  (((val)<<8)&0X00FF0000UL)  | \
+                                  (((val)>>8)&0X0000FF00UL)  | \
+                                  (((val)<<24)&0XFF000000UL)
 #endif
 
-#define ROS_TO_HOST_UINT32( val, converted_val ) HOST_TO_ROS_UINT32( val, converted_val )
+#define ROS_TO_HOST_UINT32 HOST_TO_ROS_UINT32
 
 /*! @}*/
 
