@@ -55,7 +55,8 @@ typedef enum CrosLogLevel //!Logging levels
 
 CrosLog *cRosLogNew(void);
 void cRosLogFree(CrosLog *log);
-
+int stringToLogLevel(const char* level_str, CrosLogLevel *level_num);
+const char *LogLevelToString(CrosLogLevel log_level);
 void cRosLogPrint(struct CrosNode *node,
                   CrosLogLevel level,   // debug level
                   const char *file,     // file the message came from

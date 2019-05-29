@@ -2232,7 +2232,7 @@ int cRosMessageSetFieldValueString(cRosMessageField* field, const char* value)
   field->data.as_string = (char *)realloc(field->data.as_string, sizeof(char)*(str_len+1));
   if(field->data.as_string != NULL)
   {
-    strcpy(field->data.as_string,value);
+    strcpy(field->data.as_string, value);
     field->size = (int)str_len;
     ret=0; // Success
   }

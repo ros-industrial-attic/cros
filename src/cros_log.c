@@ -38,6 +38,64 @@ void cRosLogFree(CrosLog *log)
   free(log);
 }
 
+int stringToLogLevel(const char* level_str, CrosLogLevel *level_num)
+{
+  int ret;
+  ret = 0; // Default return value: success
+  if(strcasecmp("Info",level_str) == 0)
+  {
+    *level_num = CROS_LOGLEVEL_INFO;
+  }
+  else if(strcasecmp("Debug",level_str) == 0)
+  {
+    *level_num = CROS_LOGLEVEL_DEBUG;
+  }
+  else if(strcasecmp("Warn",level_str) == 0)
+  {
+    *level_num = CROS_LOGLEVEL_WARN;
+  }
+  else if(strcasecmp("Error",level_str) == 0)
+  {
+    *level_num = CROS_LOGLEVEL_ERROR;
+  }
+  else if(strcasecmp("Fatal",level_str) == 0)
+  {
+    *level_num = CROS_LOGLEVEL_FATAL;
+  }
+  else
+  {
+    ret = -1; // Unknown input level string: return error
+  }
+  return ret;
+}
+
+const char *LogLevelToString(CrosLogLevel log_level)
+{
+  char *ret;
+
+  switch(log_level)
+  {
+    case CROS_LOGLEVEL_INFO:
+      ret = "INFO";
+      break;
+    case CROS_LOGLEVEL_DEBUG:
+      ret = "DEBUG";
+      break;
+    case CROS_LOGLEVEL_WARN:
+      ret = "WARN";
+      break;
+    case CROS_LOGLEVEL_ERROR:
+      ret = "ERROR";
+      break;
+    case CROS_LOGLEVEL_FATAL:
+      ret = "FATAL";
+      break;
+    default:
+      ret = "UNKNOWN";
+  }
+  return ret;
+}
+
 cRosMessage *cRosLogToMessage(CrosNode* node, CrosLog* log)
 {
   cRosMessage *message;
@@ -80,9 +138,7 @@ cRosMessage *cRosLogToMessage(CrosNode* node, CrosLog* log)
     cRosMessageField* topics = cRosMessageGetField(message, "topics"); // topic names that the node publishes
 
     for(pub_ind = 0; pub_ind < log->n_pubs; pub_ind++)
-    {
       cRosMessageFieldArrayPushBackString(topics, log->pubs[pub_ind]);
-    }
   }
   return(message);
 }
@@ -92,116 +148,76 @@ void cRosLogPrint(CrosNode* node,
                   const char* file,     // file the message came from
                   const char* function, // function the message came from
                   uint32_t line,
-                  const char* msg, ...) // message
+                  const char* msg_fmt_str, ...) // message
 {
-  char* log_msg = NULL;
-  va_list args;
-
-  va_start(args,msg);
-
-  struct timeval wall_time;
-
-  wall_time = cRosClockGetTimeSecUsec();
-
-  if(node == NULL)
+  // Only print the message localy if its priority level is equal or higher than the current log
+  // priority set for this ROS node or we cannot find out the node's prioroty level
+  if(node == NULL || level >= node->log_level)
   {
+    struct timeval wall_time;
+    int msg_str_size;
+    va_list msg_str_args;
 
-    fprintf(cRosOutStreamGet(), "\n[%d,%ld] ", (int)wall_time.tv_sec, (long)wall_time.tv_usec);
-    size_t msg_size = strlen(msg) + 512;
+    wall_time = cRosClockGetTimeSecUsec();
 
-    log_msg = (char *)calloc(msg_size + 1, sizeof(char));
-    vsprintf(log_msg,msg,args);
+    fprintf(cRosOutStreamGet(), "[%s] [%d,%ld] ", LogLevelToString(level), (int)wall_time.tv_sec, (long)wall_time.tv_usec);
+    va_start(msg_str_args, msg_fmt_str);
+    msg_str_size = vfprintf(cRosOutStreamGet(), msg_fmt_str, msg_str_args);
+    va_end(msg_str_args);
 
-    switch(level)
+    // Only print the message in rosout if its priority level is equal or higher than the node's current log priority
+    if(node != NULL)
     {
-      case CROS_LOGLEVEL_INFO:
-      case CROS_LOGLEVEL_WARN:
+      int pub_ind;
+
+      CrosLog* log = cRosLogNew();
+
+      log->secs = wall_time.tv_sec;
+      log->nsecs = (uint32_t)wall_time.tv_usec;
+
+      log->level = level;
+
+      log->file = strdup(file); // We need to make a string memory copy since it is freed later in the cRosLogFree() call
+
+      log->function = strdup(function);
+
+      log->line = line;
+
+      log->n_pubs = node->n_pubs;
+      log->pubs = (char **)calloc(log->n_pubs,sizeof(char*));
+
+      for(pub_ind = 0; pub_ind < node->n_pubs; pub_ind++)
       {
-        PRINT_INFO("%s", log_msg);
-        break;
+        if(node->pubs[pub_ind].topic_name != NULL)
+          log->pubs[pub_ind] = strdup(node->pubs[pub_ind].topic_name);
+        else
+          log->pubs[pub_ind] = NULL;
       }
-      case CROS_LOGLEVEL_DEBUG:
+
+      log->msg = (char *)malloc((msg_str_size + 1)*sizeof(char));
+
+      // We need to use the argument list twice (the 1st time to call vfprintf and the 2nd time to call vsprintf), so we start the arg list again here
+      va_start(msg_str_args, msg_fmt_str);
+      vsprintf(log->msg, msg_fmt_str, msg_str_args);
+      va_end(msg_str_args);
+
+      cRosMessage *topic_msg;
+      topic_msg = cRosLogToMessage(node, log);
+      if(topic_msg != NULL)
       {
-        PRINT_VDEBUG("%s", log_msg);
-        break;
+        cRosErrCodePack err_cod;
+
+        //err_cod = cRosNodeSendTopicMsg(node, node->rosout_pub_idx, topic_msg, 0);cRosNodeQueueTopicMsg
+        err_cod = cRosNodeQueueTopicMsg(node, node->rosout_pub_idx, topic_msg);
+        if (err_cod != CROS_SUCCESS_ERR_PACK)
+          cRosPrintErrCodePack(err_cod, "cRosLogPrint() : A message of /rosout topic could not be sent");
+        cRosMessageFree(topic_msg);
       }
-      case CROS_LOGLEVEL_ERROR:
-      case CROS_LOGLEVEL_FATAL:
+      else
       {
-        PRINT_ERROR("%s", log_msg);
-        break;
+        PRINT_ERROR ( "cRosLogPrint() : A message of /rosout topic could not be created to be sent.\n" );
       }
+      cRosLogFree(log);
     }
-
-    va_end(args);
-    free(log_msg);
-    return;
   }
-
-  // We need to use the argument list twice (the 1st time to call vprintf and the 2nd time to call vsprintf), so we make a copy
-  va_list args_copy;
-  va_copy(args_copy, args);
-
-  if(level != node->log_level &&
-      (level != CROS_LOGLEVEL_ERROR || level != CROS_LOGLEVEL_FATAL))
-    return;
-
-  CrosLog* log = cRosLogNew();
-
-  log->secs = wall_time.tv_sec;
-  log->nsecs = (uint32_t)wall_time.tv_usec;
-
-  log->level = level;
-
-  log->file =  (char *)calloc(strlen(file)+1, sizeof(char));
-  strncpy(log->file, file,strlen(file));
-
-  log->function =  (char *)calloc(strlen(function)+1, sizeof(char));
-  strncpy(log->function, function,strlen(function));
-
-  log->line = line;
-
-  int i;
-  log->n_pubs = node->n_pubs;
-  log->pubs = (char **)calloc(log->n_pubs,sizeof(char*));
-
-  for(i = 0; i <node->n_pubs; i++)
-  {
-    if(node->pubs[i].topic_name != NULL)
-    {
-      log->pubs[i] = (char *)calloc(strlen(node->pubs[i].topic_name) + 1, sizeof(char));
-      strncpy(log->pubs[i], node->pubs[i].topic_name,strlen(node->pubs[i].topic_name));
-    }
-    else
-      log->pubs[i] = NULL;
-  }
-
-  fprintf(cRosOutStreamGet(),"\n[%d,%d] ",log->secs, log->nsecs);
-
-  size_t msg_size = vfprintf(cRosOutStreamGet(),msg,args) + 512;
-
-  log_msg = (char *)calloc(msg_size + 1, sizeof(char));
-  vsprintf(log_msg,msg,args_copy);
-  log->msg = log_msg;
-
-  va_end(args);
-  va_end(args_copy);
-
-  cRosMessage *topic_msg;
-  topic_msg = cRosLogToMessage(node, log);
-  if(topic_msg != NULL)
-  {
-    cRosErrCodePack err_cod;
-
-    //err_cod = cRosNodeSendTopicMsg(node, node->rosout_pub_idx, topic_msg, 0);cRosNodeQueueTopicMsg
-    err_cod = cRosNodeQueueTopicMsg(node, node->rosout_pub_idx, topic_msg);
-    if (err_cod != CROS_SUCCESS_ERR_PACK)
-      cRosPrintErrCodePack(err_cod, "cRosLogPrint() : A message of /rosout topic could not be sent");
-    cRosMessageFree(topic_msg);
-  }
-  else
-  {
-    PRINT_ERROR ( "cRosLogPrint() : A message of /rosout topic could not be created to be sent.\n" );
-  }
-  cRosLogFree(log);
 }

@@ -1571,95 +1571,21 @@ static cRosErrCodePack doWithRpcrosServerSocket(CrosNode *n, int i)
 }
 
 /*
- * Services, publisher and support functions for the logging feature
+ * Callback functions for the service callS of the logging mechanism
  */
-static int stringToLogLevel(const char* level_str, CrosLogLevel *level_num)
-{
-  int ret;
-  ret = 0; // Default return value: success
-  if(strcasecmp("Info",level_str) == 0)
-  {
-    *level_num = CROS_LOGLEVEL_INFO;
-  }
-  else if(strcasecmp("Debug",level_str) == 0)
-  {
-    *level_num = CROS_LOGLEVEL_DEBUG;
-  }
-  else if(strcasecmp("Warn",level_str) == 0)
-  {
-    *level_num = CROS_LOGLEVEL_WARN;
-  }
-  else if(strcasecmp("Error",level_str) == 0)
-  {
-    *level_num = CROS_LOGLEVEL_ERROR;
-  }
-  else if(strcasecmp("Fatal",level_str) == 0)
-  {
-    *level_num = CROS_LOGLEVEL_FATAL;
-  }
-  else
-  {
-    ret = -1; // Unknown input level string: return error
-  }
-  return ret;
-}
-
-static char* LogLevelToString(CrosLogLevel log_level)
-{
-  char *ret = NULL;
-
-  switch(log_level)
-  {
-    case CROS_LOGLEVEL_INFO:
-    {
-      ret = (char *)calloc(strlen("INFO") + 1, sizeof(char));
-      strncpy(ret, "INFO",strlen("INFO"));
-      return ret;
-    }
-    case CROS_LOGLEVEL_DEBUG:
-    {
-      ret = (char *)calloc(strlen("DEBUG") + 1, sizeof(char));
-      strncpy(ret, "DEBUG",strlen("DEBUG"));
-      return ret;
-    }
-    case CROS_LOGLEVEL_WARN:
-    {
-      ret = (char *)calloc(strlen("WARN") + 1, sizeof(char));
-      strncpy(ret, "WARN",strlen("WARN"));
-      return  ret;
-    }
-    case CROS_LOGLEVEL_ERROR:
-    {
-      ret = (char *)calloc(strlen("ERROR") + 1, sizeof(char));
-      strncpy(ret, "ERROR",strlen("ERROR"));
-      return ret;
-    }
-    case CROS_LOGLEVEL_FATAL:
-    {
-      ret = (char *)calloc(strlen("FATAL") + 1, sizeof(char));
-      strncpy(ret, "FATAL",strlen("FATAL"));
-      return ret;
-    }
-    default:
-    {
-      PRINT_ERROR ( "LogLevelToString() : Invalid logging level\n");
-    }
-  }
-  return ret;
-}
-
 static CallbackResponse callback_srv_set_logger_level(cRosMessage *request, cRosMessage *response, void* context)
 {
   cRosMessageField* level = cRosMessageGetField(request, "level");
   const char* level_str = level->data.as_string;
   CrosNode* node = (CrosNode*) context;
   if(stringToLogLevel(level_str, &node->log_level) == 0)
-    PRINT_INFO( "callback_srv_set_logger_level() : Node debug level changed to %i\n", node->log_level);
+    PRINT_INFO( "callback_srv_set_logger_level() : Node log priority level changed to %s\n", LogLevelToString(node->log_level));
   return 0;
 }
 
 static CallbackResponse callback_srv_get_loggers(cRosMessage *request, cRosMessage *response, void* context)
 {
+  const char *log_level_str;
   cRosMessageField* loggers = cRosMessageGetField(response, "loggers");
 
   cRosMessage* logger_msg;
@@ -1671,9 +1597,8 @@ static CallbackResponse callback_srv_get_loggers(cRosMessage *request, cRosMessa
   cRosMessageField* logger = cRosMessageGetField(logger_msg, "name");
   cRosMessageSetFieldValueString(logger, "ros.cros_node");
   cRosMessageField* level = cRosMessageGetField(logger_msg, "level");
-  char* str_level = LogLevelToString(node->log_level);
-  cRosMessageSetFieldValueString(level, str_level);
-  free(str_level);
+  log_level_str = LogLevelToString(node->log_level);
+  cRosMessageSetFieldValueString(level, log_level_str);
 
   cRosMessageFieldArrayPushBackMsg(loggers,logger_msg);
   return 0;
