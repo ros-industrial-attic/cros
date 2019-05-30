@@ -2624,21 +2624,33 @@ cRosMessage *cRosMessageFieldArrayAtMsgGet(cRosMessageField *field, int position
       field->type != CROS_STD_MSGS_DURATION && field->type != CROS_STD_MSGS_HEADER) || !field->is_array)
     return NULL;
 
+  if(position >= field->array_size)
+    return NULL;
+
   cRosMessage* msg =  field->data.as_msg_array[position];
   return msg;
 }
 
-int cRosMessageFieldArrayAtMsgSet(cRosMessageField *field, int position, cRosMessage* val)
+int cRosMessageFieldArrayAtMsgSet(cRosMessageField *field, int position, cRosMessage* msg)
 {
+  int ret;
   if((field->type != CROS_CUSTOM_TYPE && field->type != CROS_STD_MSGS_TIME &&
       field->type != CROS_STD_MSGS_DURATION && field->type != CROS_STD_MSGS_HEADER) || !field->is_array)
     return -1;
+
   if(position > field->array_size)
     return -1;
 
-  cRosMessageFree(field->data.as_msg_array[position]);
-  field->data.as_msg_array[position] = val;
-  return 0;
+  if(position == field->array_size)
+    ret = cRosMessageFieldArrayPushBackMsg(field, msg);
+  else
+  {
+    cRosMessageFree(field->data.as_msg_array[position]);
+    field->data.as_msg_array[position] = msg;
+    ret = 0;
+  }
+
+  return ret;
 }
 
 char *cRosMessageFieldArrayAtStringGet(cRosMessageField *field, int position)

@@ -1586,21 +1586,27 @@ static CallbackResponse callback_srv_set_logger_level(cRosMessage *request, cRos
 static CallbackResponse callback_srv_get_loggers(cRosMessage *request, cRosMessage *response, void* context)
 {
   const char *log_level_str;
-  cRosMessageField* loggers = cRosMessageGetField(response, "loggers");
+  cRosMessage *logger_msg;
+  cRosMessageField *loggers_field, *level_field;
+  CrosNode *node = (CrosNode*) context;
 
-  cRosMessage* logger_msg;
+  loggers_field = cRosMessageGetField(response, "loggers");
 
-  CrosNode* node = (CrosNode*) context;
+  logger_msg = cRosMessageFieldArrayAtMsgGet(loggers_field, 0);
+  if(logger_msg == NULL) // If the message array is empty (it is the first time that the callback fn is called), create a new message (array element)
+  {
+    cRosMessageField *logger_field;
 
-  cRosMessageNewBuild(node->message_root_path, "roscpp/Logger", &logger_msg);
+    cRosMessageNewBuild(node->message_root_path, "roscpp/Logger", &logger_msg);
+    logger_field = cRosMessageGetField(logger_msg, "name");
+    cRosMessageSetFieldValueString(logger_field, "ros.cros_node");
 
-  cRosMessageField* logger = cRosMessageGetField(logger_msg, "name");
-  cRosMessageSetFieldValueString(logger, "ros.cros_node");
-  cRosMessageField* level = cRosMessageGetField(logger_msg, "level");
+    cRosMessageFieldArrayPushBackMsg(loggers_field, logger_msg);
+  }
+  level_field = cRosMessageGetField(logger_msg, "level");
   log_level_str = LogLevelToString(node->log_level);
-  cRosMessageSetFieldValueString(level, log_level_str);
+  cRosMessageSetFieldValueString(level_field, log_level_str);
 
-  cRosMessageFieldArrayPushBackMsg(loggers,logger_msg);
   return 0;
 }
 
