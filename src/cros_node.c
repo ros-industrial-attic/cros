@@ -4,10 +4,8 @@
 #include <ctype.h>
 
 #ifdef _WIN32
-#  define WIN32_LEAN_AND_MEAN // speed up the build process by excluding parts of the Windows header
+#  define WIN32_LEAN_AND_MEAN // This define speed up the build process by excluding some parts of the Windows header
 #  include <windows.h>
-
-#  define strcasecmp _stricmp // This is the POSIX verion of strnicmp
 #else
 #  include <unistd.h>
 #endif

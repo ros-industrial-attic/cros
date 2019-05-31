@@ -3,6 +3,10 @@
 #include <string.h>
 #include <stdarg.h>
 
+#ifdef _WIN32
+#  define strcasecmp _stricmp // This is the POSIX verion of strnicmp
+#endif
+
 #include "cros_log.h"
 #include "cros_defs.h"
 #include "cros_node.h"
@@ -207,7 +211,7 @@ void cRosLogPrint(CrosNode* node,
       {
         cRosErrCodePack err_cod;
 
-        //err_cod = cRosNodeSendTopicMsg(node, node->rosout_pub_idx, topic_msg, 0);cRosNodeQueueTopicMsg
+        //err_cod = cRosNodeSendTopicMsg(node, node->rosout_pub_idx, topic_msg, 0);
         err_cod = cRosNodeQueueTopicMsg(node, node->rosout_pub_idx, topic_msg);
         if (err_cod != CROS_SUCCESS_ERR_PACK)
           cRosPrintErrCodePack(err_cod, "cRosLogPrint() : A message of /rosout topic could not be sent");

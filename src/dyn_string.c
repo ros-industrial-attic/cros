@@ -218,7 +218,7 @@ void dynStringReduce ( DynString *d_str, int rem_left, int rem_right)
     d_str->pos_offset = 0;
   else
     if(d_str->pos_offset > d_str->len)
-      d_str->pos_offset > d_str->len;
+      d_str->pos_offset = d_str->len;
 }
 
 int dynStringGetLen ( DynString *d_str )
