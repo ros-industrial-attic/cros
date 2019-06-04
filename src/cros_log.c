@@ -177,7 +177,7 @@ void cRosLogPrint(CrosNode* node,
       CrosLog* log = cRosLogNew();
 
       log->secs = wall_time.tv_sec;
-      log->nsecs = (uint32_t)wall_time.tv_usec;
+      log->nsecs = (uint32_t)wall_time.tv_usec*1000;
 
       log->level = level;
 
@@ -210,11 +210,22 @@ void cRosLogPrint(CrosNode* node,
       if(topic_msg != NULL)
       {
         cRosErrCodePack err_cod;
+        int rosout_pub_idx = node->rosout_pub_idx;
 
-        //err_cod = cRosNodeSendTopicMsg(node, node->rosout_pub_idx, topic_msg, 0);
-        err_cod = cRosNodeQueueTopicMsg(node, node->rosout_pub_idx, topic_msg);
+        //err_cod = cRosNodeSendTopicMsg(node, rosout_pub_idx, topic_msg, 0);
+        err_cod = cRosNodeQueueTopicMsg(node, rosout_pub_idx, topic_msg);
         if (err_cod != CROS_SUCCESS_ERR_PACK)
-          cRosPrintErrCodePack(err_cod, "cRosLogPrint() : A message of /rosout topic could not be sent");
+        {
+          // Check if the rossout publisher has any TCP process associated, that is, check if a node is subscribed to this topic
+          int srv_proc_ind, subs_node;
+          subs_node = 0;
+          for(srv_proc_ind=0;srv_proc_ind<CN_MAX_TCPROS_SERVER_CONNECTIONS && subs_node==0;srv_proc_ind++)
+            if(node->tcpros_server_proc[srv_proc_ind].topic_idx == rosout_pub_idx)
+              subs_node = 1; // there is a subscriber
+          // Only print the error message if there is a subscriber node, that is, if there is a node that should receive the rosout message
+          if(subs_node == 1)
+             cRosPrintErrCodePack(err_cod, "cRosLogPrint() : A message of /rosout topic could not be sent");
+        }
         cRosMessageFree(topic_msg);
       }
       else

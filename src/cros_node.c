@@ -3350,7 +3350,7 @@ cRosErrCodePack cRosNodeQueueTopicMsg( CrosNode *node, int pubidx, cRosMessage *
 
   pub_node = &node->pubs[pubidx];
   {
-    if(cRosMessageQueueVacancies(&pub_node->msg_queue) > 0) // If no error and there is at space in the queue, put the new message
+    if(cRosMessageQueueVacancies(&pub_node->msg_queue) > 0) // If no error and there is space in the queue, put the new message
     {
       if(cRosMessageQueueAdd(&pub_node->msg_queue, msg) == 0)
       {
