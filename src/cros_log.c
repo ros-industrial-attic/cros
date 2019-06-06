@@ -164,7 +164,7 @@ void cRosLogPrint(CrosNode* node,
 
     wall_time = cRosClockGetTimeSecUsec();
 
-    fprintf(cRosOutStreamGet(), "[%s] [%d,%ld] ", LogLevelToString(level), (int)wall_time.tv_sec, (long)wall_time.tv_usec);
+    fprintf(cRosOutStreamGet(), "[%s] [%d,%ld] ", LogLevelToString(level), (int)wall_time.tv_sec, (long)wall_time.tv_usec*1000);
     va_start(msg_str_args, msg_fmt_str);
     msg_str_size = vfprintf(cRosOutStreamGet(), msg_fmt_str, msg_str_args);
     va_end(msg_str_args);

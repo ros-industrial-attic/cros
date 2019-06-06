@@ -309,7 +309,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
 
   if( TCPROS_SUBCRIPTION_HEADER_FLAGS != ( header_flags&TCPROS_SUBCRIPTION_HEADER_FLAGS) )
   {
-    PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Missing fields\n");
+    PRINT_ERROR("cRosMessageParseSubcriptionHeader() : There are missing fields in the received header.\n");
     ret = TCPROS_PARSER_ERROR;
   }
   else
@@ -322,9 +322,11 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
       if (pub->topic_name == NULL)
         continue;
 
+      //printf("cRosMessageParseSubcriptionHeader() : checking if the topic in received header is what we expect: Topic name: %s Topic type: %s MD5: %s.\n", pub->topic_name, pub->topic_type, pub->md5sum);
+
       if( strcmp(pub->topic_name, dynStringGetData(&(server_proc->topic))) == 0 &&
-          strcmp(pub->topic_type, dynStringGetData(&(server_proc->type))) == 0 &&
-          strcmp(pub->md5sum, dynStringGetData(&(server_proc->md5sum))) == 0)
+          (strcmp(pub->topic_type, dynStringGetData(&(server_proc->type))) == 0 || strcmp(dynStringGetData(&(server_proc->type)), "*") == 0) &&
+          (strcmp(pub->md5sum, dynStringGetData(&(server_proc->md5sum))) == 0 || strcmp(dynStringGetData(&(server_proc->md5sum)), "*") == 0))
       {
         topic_found = 1;
         server_proc->topic_idx = i; // Assign a topic (publisher index) to the TCPROS process
@@ -337,7 +339,9 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
 
     if( ! topic_found )
     {
-      PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Wrong service, type or md5sum\n");
+      PRINT_ERROR("cRosMessageParseSubcriptionHeader() : Wrong service, type or md5sum in the received header. "
+      "Received: Topic name: %s Topic type: %s MD5: %s.\n", \
+      dynStringGetData(&(server_proc->topic)), dynStringGetData(&(server_proc->type)), dynStringGetData(&(server_proc->md5sum)));
       server_proc->topic_idx = -1;
       ret = TCPROS_PARSER_ERROR;
     }

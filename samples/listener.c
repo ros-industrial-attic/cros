@@ -65,7 +65,7 @@ static CallbackResponse callback_srv_add_two_ints(cRosMessage *request, cRosMess
     if(sum_field != NULL)
     {
       sum_field->data.as_int64 = response_val;
-      ROS_INFO(node,"Service add 2 ints. Arguments: {a: %lld, b: %lld}. Response: %lld\n", (long long)a, (long long)b, (long long)response_val);
+      ROS_INFO(node,"Service add 2 ints. Args: {a: %lld, b: %lld}. Resp: %lld\n", (long long)a, (long long)b, (long long)response_val);
     }
   }
 
