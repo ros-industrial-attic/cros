@@ -899,7 +899,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
   cRosErrCodePack ret_err;
   PRINT_VVDEBUG ( "doWithTcprosServerSocket()\n" );
 
-  ret_err = CROS_SUCCESS_ERR_PACK;
+  ret_err = CROS_SUCCESS_ERR_PACK; // Default return value
   TcprosProcess *server_proc = &(n->tcpros_server_proc[i]);
 
   if( server_proc->state == TCPROS_PROCESS_STATE_READING_HEADER)
@@ -935,7 +935,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
         PRINT_VDEBUG ( "doWithTcprosServerSocket() : Done reading and parsing with no error\n" );
         tcprosProcessClear( server_proc );
         cRosMessagePreparePublicationHeader( n, i );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING );
+        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WRITING ); // Proceed to write the header
         break;
       case TCPROS_PARSER_HEADER_INCOMPLETE:
         break;
@@ -948,10 +948,10 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
     }
   }
   else if( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING ||
-           server_proc->state == TCPROS_PROCESS_STATE_WRITING )
+           server_proc->state == TCPROS_PROCESS_STATE_WRITING ) // It is time to write a message or header
   {
     PRINT_VDEBUG ( "doWithTcprosServerSocket() : writing. Tcpros server index: %d \n", i );
-    if( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING )
+    if( server_proc->state == TCPROS_PROCESS_STATE_START_WRITING ) // Start to publish a message
     {
       tcprosProcessClear( server_proc );
       ret_err = cRosMessagePreparePublicationPacket( n, i );
@@ -965,7 +965,7 @@ static cRosErrCodePack doWithTcprosServerSocket( CrosNode *n, int i )
       case TCPIPSOCKET_DONE:
         PRINT_VDEBUG ( "doWithTcprosServerSocket() : Done writing with no error\n" );
         tcprosProcessClear( server_proc );
-        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WAIT_FOR_WRITING );
+        tcprosProcessChangeState( server_proc, TCPROS_PROCESS_STATE_WAIT_FOR_WRITING ); // Wait before publishing a message
         break;
 
       case TCPIPSOCKET_IN_PROGRESS:
@@ -2629,7 +2629,7 @@ void printNodeProcState( CrosNode *n )
 cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 {
   cRosErrCodePack ret_err;
-  uint64_t tmp_timeout, cur_time;
+  uint64_t wakeup_timeout, cur_time;
   int nfds = -1;
   fd_set r_fds, w_fds, err_fds;
   int i = 0;
@@ -2839,24 +2839,24 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
   cur_time = cRosClockGetTimeMs();
 
   if( n->xmlrpc_client_proc[0].wake_up_time_ms > cur_time )
-    tmp_timeout = n->xmlrpc_client_proc[0].wake_up_time_ms - cur_time;
+    wakeup_timeout = n->xmlrpc_client_proc[0].wake_up_time_ms - cur_time;
   else
-    tmp_timeout = 0;
+    wakeup_timeout = 0;
 
-  if( tmp_timeout < timeout )
-    timeout = tmp_timeout;
+  if( wakeup_timeout < timeout )
+    timeout = wakeup_timeout;
 
   for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS; i++ )
   {
     if( n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING)
     {
       if( n->tcpros_server_proc[i].wake_up_time_ms > cur_time )
-        tmp_timeout = n->tcpros_server_proc[i].wake_up_time_ms - cur_time;
+        wakeup_timeout = n->tcpros_server_proc[i].wake_up_time_ms - cur_time;
       else
-        tmp_timeout = 0;
+        wakeup_timeout = 0;
 
-      if( tmp_timeout < timeout )
-        timeout = tmp_timeout;
+      if( wakeup_timeout < timeout )
+        timeout = wakeup_timeout;
     }
   }
 
@@ -2913,12 +2913,12 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     if( n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING)
     {
       if( n->rpcros_client_proc[i].wake_up_time_ms > cur_time )
-        tmp_timeout = n->rpcros_client_proc[i].wake_up_time_ms - cur_time;
+        wakeup_timeout = n->rpcros_client_proc[i].wake_up_time_ms - cur_time;
       else
-        tmp_timeout = 0;
+        wakeup_timeout = 0;
 
-      if( tmp_timeout < timeout )
-        timeout = tmp_timeout;
+      if( wakeup_timeout < timeout )
+        timeout = wakeup_timeout;
     }
   }
 
@@ -2968,6 +2968,8 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     PRINT_VDEBUG("cRosNodeDoEventsLoop() : Warning: tcpIpSocketSelect() is being called with no file descriptors to monitor.\n");
   }
 
+  // The node waits here until the specified file descriptors become ready for the corresponding I/O operation or the timeout is up
+  // ------------------------------------------------------------------------------------------------------------------------------
   int n_set = tcpIpSocketSelect(nfds + 1, &r_fds, &w_fds, &err_fds, timeout);
 
   cur_time = cRosClockGetTimeMs(); // Update current time after select()
@@ -2985,7 +2987,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     {
       if(rosproc->state == XMLRPC_PROCESS_STATE_IDLE)
       {
-        /* Prepare to ping roscore ... */
+        // Prepare to ping roscore ...
         PRINT_VDEBUG("cRosNodeDoEventsLoop() : Sending ping to ROS Master\n");
 
         RosApiCall *call = newRosApiCall();
@@ -3032,14 +3034,14 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     }
     if( rosproc->state != XMLRPC_PROCESS_STATE_IDLE && cRosClockGetTimeMs() - rosproc->last_change_time > CN_IO_TIMEOUT ) // last_change_time is updated when changing process state
     {
-      /* Timeout between I/O operations... close the socket and re-advertise */
+      // Timeout between I/O operations... close the socket and re-advertise
       PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : XMLRPC client I/O timeout\n");
       handleXmlrpcClientError( n, 0 );
     }
 
     for( i = 0; i < CN_MAX_TCPROS_SERVER_CONNECTIONS && ret_err==CROS_SUCCESS_ERR_PACK; i++ )
     {
-      if(n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING) // TCPROS process ready to write
+      if(n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING) // TCPROS process ready to write a message
       {
         if(n->tcpros_server_proc[i].send_msg_now != 0) // Is there a msg waiting to be sent in the queue signaled to be sent? (immediate sending)
         {
@@ -3056,7 +3058,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
                 n->tcpros_server_proc[i].state == TCPROS_PROCESS_STATE_WRITING ) &&
                cur_time - n->tcpros_server_proc[i].last_change_time > CN_IO_TIMEOUT )
       {
-        /* Timeout between I/O operations */
+        // Timeout between I/O operations
         PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : TCPROS server I/O timeout\n");
         handleTcprosServerError( n, i );
       }
@@ -3081,7 +3083,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
                 n->rpcros_client_proc[i].state == TCPROS_PROCESS_STATE_WRITING ) &&
                cur_time - n->rpcros_client_proc[i].last_change_time > CN_IO_TIMEOUT )
       {
-        /* Timeout between I/O operations */
+        // Timeout between I/O operations
         PRINT_VDEBUG ( "cRosNodeDoEventsLoop() : TCPROS server I/O timeout\n");
         handleTcprosServerError( n, i );
       }

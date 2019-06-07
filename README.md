@@ -1,27 +1,33 @@
 ![cROS logo](resources/cROS_logo.jpg)
 
-# cROS 1.0-rc1
+# cROS 1.0-rc2
 
-cROS is a library written in stadard c-language that provides a single thread
-implementation of the  basic features required to implement a ROS
+cROS is a library written in stadard C language that provides a single-thread
+implementation of the basic features required to implement a ROS
 (Robot Operating System) node.
 This ROS node supports the concurrent operation as several:
+
  * Topic subscribers
  * Topic Publishers
  * Service providers (servers)
  * Service callers (clients)
  * Parameter subscribers
 
+cROS can run on Linux, OS X and Windows.
+
 ### Requirements
 
-cROS runs on a base Linux distribution with:
+On a Linux-based distribution it can be compiled with:
+
  * The GCC compiler
  * CMake 2.6 or later
  * (Optional) Doxygen
 
+On Windows it can be compiled with Microsoft Visual Studio 15 or later.
+
 ### Build cROS
 
-cROS uses CMake the cross platform build system. To create a build directory
+On Linux cROS uses CMake, the cross platform build system. To create a build directory
 an compile the project, type the following commands in a terminal starting
 from the source root directory:
 

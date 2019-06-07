@@ -510,7 +510,7 @@ cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_
   *packet_data_size_ptr = packet_size;
 
   // The following code block manages the logic of non-periodic msg sending
-  if(server_proc->send_msg_now != 0) // A non-periodic msg has just been sent
+  if(server_proc->send_msg_now != 0) // A non-periodic msg has just been requested to be sent
   {
     int srv_proc_ind, all_proc_sent;
     server_proc->send_msg_now = 0; // Indicate that the current msg does not have to been sent anymore
