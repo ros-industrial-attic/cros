@@ -159,7 +159,7 @@ static void closeTcprosProcess(TcprosProcess *process)
 static void closeXmlrpcProcess(XmlrpcProcess *process)
 {
   tcpIpSocketClose(&process->socket);
-  xmlrpcProcessClear(process, 1);
+  xmlrpcProcessReset(process);
   xmlrpcProcessChangeState(process, XMLRPC_PROCESS_STATE_IDLE);
 }
 
@@ -434,7 +434,7 @@ static cRosErrCodePack doWithXmlrpcClientSocket(CrosNode *n, int i)
         case TCPIPSOCKET_DONE:
           {
           // NB: Node release is done by handleApiCallAttempt when the ros master response is received
-          xmlrpcProcessClear(client_proc, 0);
+          xmlrpcProcessClear(client_proc);
           xmlrpcProcessChangeState( client_proc, XMLRPC_PROCESS_STATE_READING );
           break;
           }
@@ -577,7 +577,7 @@ static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
         break;
 
       case TCPIPSOCKET_DISCONNECTED:
-        xmlrpcProcessClear( &(n->xmlrpc_server_proc[i]), 1);
+        xmlrpcProcessReset( &(n->xmlrpc_server_proc[i]) );
         xmlrpcProcessChangeState( &(n->xmlrpc_server_proc[i]), XMLRPC_PROCESS_STATE_IDLE );
         tcpIpSocketClose( &(n->xmlrpc_server_proc[i].socket) );
         break;
@@ -622,7 +622,7 @@ static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
     switch ( sock_state )
     {
       case TCPIPSOCKET_DONE:
-        xmlrpcProcessClear( server_proc, 1);
+        xmlrpcProcessReset( server_proc );
         xmlrpcProcessChangeState( server_proc, XMLRPC_PROCESS_STATE_READING );
         break;
 
@@ -630,7 +630,7 @@ static cRosErrCodePack doWithXmlrpcServerSocket( CrosNode *n, int i )
         break;
 
       case TCPIPSOCKET_DISCONNECTED:
-        xmlrpcProcessClear( server_proc, 1);
+        xmlrpcProcessReset( server_proc );
         xmlrpcProcessChangeState( server_proc, XMLRPC_PROCESS_STATE_IDLE );
         tcpIpSocketClose( &(server_proc->socket) );
         break;

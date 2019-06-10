@@ -1039,7 +1039,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
     }
   }
 
-  xmlrpcProcessClear(server_proc, 0);
+  xmlrpcProcessClear(server_proc);
   generateXmlrpcMessage(NULL, 0, server_proc->message_type,
                         dynStringGetData(&server_proc->method), &params, &server_proc->message); // host and port are not used in XMLRPC_MESSAGE_RESPONSE
   xmlrpcParamVectorRelease(&params);

@@ -58,11 +58,17 @@ void xmlrpcProcessInit( XmlrpcProcess *p );
  */
 void xmlrpcProcessRelease( XmlrpcProcess *p );
 
-/*! \brief Clear internal data of an XmlrpcProcess object (the internal memory IS NOT released)
+/*! \brief Clear internal message buffer of an XmlrpcProcess object
  *
  *  \param s Pointer to XmlrpcProcess object
  */
-void xmlrpcProcessClear( XmlrpcProcess *p, int fullclear);
+void xmlrpcProcessClear( XmlrpcProcess *p);
+
+/*! \brief Reset the state and internal data of an XmlrpcProcess object (the internal memory IS NOT released)
+ *
+ *  \param s Pointer to XmlrpcProcess object
+ */
+void xmlrpcProcessReset( XmlrpcProcess *p);
 
 /*! \brief Change the internal state of an XmlrpcProcess object, and update its timer
  *

@@ -42,7 +42,7 @@ struct TcprosProcess
   DynString serviceresponse_type;       //! The service response type
   DynString md5sum;                     //! The MD5 sum of the message type
   DynString caller_id;                  //! The name of subscriber or service caller
-  unsigned char latching;               //! If 1, the publisher is sending latched messages. Otherwise
+  unsigned char latching;               //! If 1, the publisher is sending latched messages. Otherwise 0
   unsigned char tcp_nodelay;            //! If 1, the publisher should set TCP_NODELAY on the socket, if possible. Otherwise 0
   unsigned char persistent;             //! If 1, the service connection should be kept open for multiple requests. Otherwise it should be 0
   DynBuffer packet;                     //! The incoming/outgoing TCPROS packet

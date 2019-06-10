@@ -35,22 +35,25 @@ void xmlrpcProcessRelease( XmlrpcProcess *p )
   xmlrpcParamVectorRelease( &(p->response) );
 }
 
-void xmlrpcProcessClear( XmlrpcProcess *p, int fullclear)
+void xmlrpcProcessClear( XmlrpcProcess *p)
 {
   dynStringClear(&p->message);
-  if (fullclear)
-  {
-    if (p->current_call != NULL)
-      freeRosApiCall(p->current_call);
+}
 
-    p->current_call = NULL;
-    dynStringClear(&p->method);
-    xmlrpcParamVectorRelease(&p->params);
-    xmlrpcParamVectorRelease(&p->response);
-    p->message_type = XMLRPC_MESSAGE_UNKNOWN;
-    memset(p->host, 0, sizeof(p->host));
-    p->port = -1;
-  }
+void xmlrpcProcessReset( XmlrpcProcess *p)
+{
+  xmlrpcProcessClear(p);
+
+  if (p->current_call != NULL)
+    freeRosApiCall(p->current_call);
+
+  p->current_call = NULL;
+  dynStringClear(&p->method);
+  xmlrpcParamVectorRelease(&p->params);
+  xmlrpcParamVectorRelease(&p->response);
+  p->message_type = XMLRPC_MESSAGE_UNKNOWN;
+  memset(p->host, 0, sizeof(p->host));
+  p->port = -1;
 }
 
 void xmlrpcProcessChangeState( XmlrpcProcess *p, XmlrpcProcessState state )
