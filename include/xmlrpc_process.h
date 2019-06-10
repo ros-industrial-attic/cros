@@ -39,7 +39,6 @@ struct XmlrpcProcess
     *  (e.g., generated using generateXmlrpcMessage() ) */
   DynString message;
   uint64_t last_change_time;            //! Last state change time (in ms)
-  uint64_t wake_up_time_ms;             //! The time for the next automatic cycle (in msec, since the Epoch)
   char host[256];
   int port;
 };

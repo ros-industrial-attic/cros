@@ -15,7 +15,6 @@ void xmlrpcProcessInit( XmlrpcProcess *p )
   xmlrpcParamVectorInit( &(p->params) );
   xmlrpcParamVectorInit( &(p->response) );
   p->last_change_time = 0;
-  p->wake_up_time_ms = 0;
   memset(p->host, 0, sizeof(p->host));
   p->port = -1;
 }

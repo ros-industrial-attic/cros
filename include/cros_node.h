@@ -214,6 +214,8 @@ struct CrosNode
   CrosLogLevel log_level;
   int rosout_pub_idx;           //! Index of the publisher of the /rosout topic for ROS log messages
 
+  uint64_t xmlrpc_master_wake_up_time; //! The time (in msec, since the Epoch) for the next automatic operation cycle of the xmlrpc_client_proc[0] (xmlrpc master-node client proc)
+
   uint32_t log_last_id;
 
   unsigned int next_call_id;

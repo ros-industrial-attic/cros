@@ -1788,6 +1788,8 @@ CrosNode *cRosNodeCreate (const char *node_name, const char *node_host, const ch
   initApiCallQueue(&new_n->master_api_queue);
   initApiCallQueue(&new_n->slave_api_queue);
 
+  new_n->xmlrpc_master_wake_up_time = 0;
+
   int i, fn_ret;
   for (i = 0 ; i < CN_MAX_XMLRPC_SERVER_CONNECTIONS; i++)
     xmlrpcProcessInit( &(new_n->xmlrpc_server_proc[i]) );
@@ -2838,8 +2840,8 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
 
   cur_time = cRosClockGetTimeMs();
 
-  if( n->xmlrpc_client_proc[0].wake_up_time_ms > cur_time )
-    wakeup_timeout = n->xmlrpc_client_proc[0].wake_up_time_ms - cur_time;
+  if( n->xmlrpc_master_wake_up_time > cur_time )
+    wakeup_timeout = n->xmlrpc_master_wake_up_time - cur_time;
   else
     wakeup_timeout = 0;
 
@@ -2983,7 +2985,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
     PRINT_VDEBUG ("cRosNodeDoEventsLoop() : tcpIpSocketSelect() finished due to timeout (parameter: %llu ms) or it was interrupted\n", (long long unsigned)timeout);
 
     XmlrpcProcess *rosproc = &n->xmlrpc_client_proc[0];
-    if(rosproc->wake_up_time_ms <= cur_time ) // It's time to wakeup, ping master, and maybe look up in master for pending services
+    if(n->xmlrpc_master_wake_up_time <= cur_time ) // It's time to wakeup, ping master, and maybe look up in master for pending services
     {
       if(rosproc->state == XMLRPC_PROCESS_STATE_IDLE)
       {
@@ -3021,7 +3023,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
                enqueueServiceLookup(n, client_proc->service_idx);
              }
           }
-          rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD; // The process completed doing what it should, so wake up again CN_PING_LOOP_PERIOD milliseconds later
+          n->xmlrpc_master_wake_up_time = cur_time + CN_PING_LOOP_PERIOD; // The process completed doing what it should, so wake up again CN_PING_LOOP_PERIOD milliseconds later
         }
         else
         {
@@ -3030,7 +3032,7 @@ cRosErrCodePack cRosNodeDoEventsLoop ( CrosNode *n, uint64_t timeout )
         }
       }
       else
-        rosproc->wake_up_time_ms = cur_time + CN_PING_LOOP_PERIOD/50; // The process is busy, so try to wake up again soon (CN_PING_LOOP_PERIOD/100 milliseconds later) to do what is pending
+        n->xmlrpc_master_wake_up_time = cur_time + CN_PING_LOOP_PERIOD/50; // The process is busy, so try to wake up again soon (CN_PING_LOOP_PERIOD/50 milliseconds later) to do what is pending
     }
     if( rosproc->state != XMLRPC_PROCESS_STATE_IDLE && cRosClockGetTimeMs() - rosproc->last_change_time > CN_IO_TIMEOUT ) // last_change_time is updated when changing process state
     {
