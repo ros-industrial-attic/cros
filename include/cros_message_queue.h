@@ -3,7 +3,7 @@
  *
  *  cRosMessageQueue implements a queue of TCPROS-protocol messages. This queue behaves as a
  *  FIFO (First In First Out).
- *  This queue is only stores the fields of the messages (fields fields of the struct), not the message definition (msgDef field).
+ *  This queue only stores the fields of the messages ('fields' fields of the struct), not the message definition (msgDef field).
  *  \author Richard R. Carrillo. Aging in Vision and Action lab, Institut de la Vision, Sorbonne University, Paris, France.
  *  \date 31 Oct 2017
  */

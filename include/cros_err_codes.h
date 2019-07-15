@@ -54,6 +54,7 @@
   MSG_COD_ELEM(CROS_RPCROS_CLI_REFUS_ERR, "An RPCROS client process could not establish the connection to the target address because the connection was refused") \
   MSG_COD_ELEM(CROS_SOCK_OPEN_TIMEOUT_ERR, "The specified timeout was up while waiting for the specified port to be open") \
   MSG_COD_ELEM(CROS_SOCK_OPEN_CONN_ERR, "An error occurred when the specified target port was tried to be connected (target address could not be resolved?)") \
+  MSG_COD_ELEM(CROS_EXTRACT_MSG_INT_ERR, "An internal error occurred when sending an inmediate message: The message could not be extracted from the queue") \
   MSG_COD_ELEM(LAST_ERR_LIST_CODE, "") // Sentinel code used to mark the last element of the global error list
 
 #define CROS_SUCCESS_ERR_PACK 0U //! Function return value indicating success

@@ -17,14 +17,12 @@ void tcprosProcessInit( TcprosProcess *p )
   p->latching = p->tcp_nodelay = p->persistent = 0;
   p->probe = 0;
   p->last_change_time = 0;
-  p->wake_up_time_ms = 0;
   p->topic_idx = -1;
   p->service_idx = -1;
   p->ok_byte = 0;
   p->left_to_recv = 0;
   p->sub_tcpros_host = NULL;
   p->sub_tcpros_port = -1;
-  p->send_msg_now = 0;
 }
 
 void tcprosProcessRelease( TcprosProcess *p )
@@ -64,7 +62,6 @@ void tcprosProcessReset( TcprosProcess *p)
   p->tcp_nodelay = 0;
   p->persistent = 0;
   p->probe = 0;
-  p->wake_up_time_ms = 0;
   p->topic_idx = -1;
   p->service_idx = -1;
   p->ok_byte = 0;

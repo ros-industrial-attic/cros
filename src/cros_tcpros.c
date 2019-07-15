@@ -298,7 +298,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
   TcprosProcess *server_proc = &(n->tcpros_server_proc[server_idx]);
   DynBuffer *packet = &(server_proc->packet);
 
-  /* Save position indicator: it will be restored */
+  // Save position indicator: it will be restored
   int initial_pos_idx = dynBufferGetPoseIndicatorOffset ( packet );
   dynBufferRewindPoseIndicator ( packet );
 
@@ -328,11 +328,14 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
           (strcmp(pub->topic_type, dynStringGetData(&(server_proc->type))) == 0 || strcmp(dynStringGetData(&(server_proc->type)), "*") == 0) &&
           (strcmp(pub->md5sum, dynStringGetData(&(server_proc->md5sum))) == 0 || strcmp(dynStringGetData(&(server_proc->md5sum)), "*") == 0))
       {
+        int list_elem;
+
         topic_found = 1;
         server_proc->topic_idx = i; // Assign a topic (publisher index) to the TCPROS process
-        pub->client_tcpros_id = server_idx;
-        if(cRosMessageQueueUsage(&pub->msg_queue) > 0) // Check whether there are messages waiting in the queue to be sent
-          server_proc->send_msg_now = 1;
+        // Add the TcprosProcess index to the Publisher
+        for(list_elem=0;pub->tcpros_id_list[list_elem]!=-1;list_elem++); // Locate the list end
+        pub->tcpros_id_list[list_elem] = server_idx;
+        pub->tcpros_id_list[list_elem+1] = -1; // Set a new list end (sentinel)
         break;
       }
     }
@@ -352,7 +355,7 @@ TcprosParserState cRosMessageParseSubcriptionHeader( CrosNode *n, int server_idx
     }
   }
 
-  /* Restore position indicator */
+  // Restore position indicator
   dynBufferSetPoseIndicator ( packet, initial_pos_idx );
 
   return ret;
@@ -454,7 +457,11 @@ cRosErrCodePack cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
   if(cRosMessageQueueVacancies(&sub_node->msg_queue) == 0)
     sub_node->msg_queue_overflow = 1; // No space in the queue for the new message
 
-  ret_err = sub_node->callback(packet,data_context);
+  ret_err = cRosNodeDeserializeIncomingPacket(packet, data_context);
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+    ret_err = sub_node->callback(data_context);
+  else
+    cRosPrintErrCodePack(ret_err, "cRosNodeSubscriberCallback() failed decoding the received packet");
 
   return ret_err;
 }
@@ -491,7 +498,6 @@ cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_
   TcprosProcess *server_proc;
   int pub_idx;
   DynBuffer *packet;
-  void *data_context;
   uint32_t *packet_data_size_ptr;
   uint32_t packet_size;
   PRINT_VVDEBUG("cRosMessagePreparePublicationPacket()\n");
@@ -502,36 +508,12 @@ cRosErrCodePack cRosMessagePreparePublicationPacket( CrosNode *node, int server_
   dynBufferPushBackUInt32( packet, 0 ); // Placeholder for packet size
 
   pub_node = &node->pubs[pub_idx];
-  data_context = pub_node->context;
-  ret_err = pub_node->callback( packet, server_proc->send_msg_now, data_context);
+
+  ret_err = cRosNodeSerializeOutgoingMessage(packet, pub_node->context);
 
   packet_size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
   packet_data_size_ptr = (uint32_t *)dynBufferGetData(packet);
   *packet_data_size_ptr = packet_size;
-
-  // The following code block manages the logic of non-periodic msg sending
-  if(server_proc->send_msg_now != 0) // A non-periodic msg has just been requested to be sent
-  {
-    int srv_proc_ind, all_proc_sent;
-    server_proc->send_msg_now = 0; // Indicate that the current msg does not have to been sent anymore
-    // Check if all processes of this topic publisher have already sent the first msg in the queue. If so,
-    // delete msg from queue and activate the sending process again if more messages remain in the queue
-    all_proc_sent = 1; // Flag indicating that all processes sent the first queue message
-    for(srv_proc_ind=0;srv_proc_ind<CN_MAX_TCPROS_SERVER_CONNECTIONS && all_proc_sent == 1;srv_proc_ind++)
-      if(node->tcpros_server_proc[srv_proc_ind].topic_idx == pub_idx && node->tcpros_server_proc[srv_proc_ind].send_msg_now != 0) // for this process the msg is pending to be sent?
-        all_proc_sent = 0; // Some process has not sent the first message yet, exit loop
-
-    if(all_proc_sent == 1) // All processes sent the first queue msg
-    {
-      cRosMessageQueueRemove(&pub_node->msg_queue); // Remove first msg from queue
-      if(cRosMessageQueueUsage(&pub_node->msg_queue) > 0) // More messages in queue, restart the sending process
-      {
-        for(srv_proc_ind=0;srv_proc_ind<CN_MAX_TCPROS_SERVER_CONNECTIONS;srv_proc_ind++)
-          if(node->tcpros_server_proc[srv_proc_ind].topic_idx == pub_idx)
-            node->tcpros_server_proc[srv_proc_ind].send_msg_now = 1;
-      }
-    }
-  }
 
   return ret_err;
 }
@@ -951,10 +933,8 @@ cRosErrCodePack cRosMessagePrepareServiceCallPacket( CrosNode *n, int client_idx
   DynBuffer *packet = &(client_proc->packet);
   dynBufferPushBackUInt32( packet, 0 ); // Placehoder for packet size
 
-
   void* data_context = n->service_callers[svc_idx].context;
-  ret_err = n->service_callers[svc_idx].callback( packet, NULL, 0, data_context);
-  client_proc->send_msg_now = 0; // End of service call
+  ret_err = cRosNodeSerializeOutgoingMessage(packet, data_context); // Serialize the call outgoing message into the outgoing packet
 
   uint32_t data_size = (uint32_t)dynBufferGetSize(packet) - sizeof(uint32_t);
   uint32_t *packet_data_size_ptr = (uint32_t *)dynBufferGetData(packet);
@@ -973,7 +953,11 @@ cRosErrCodePack cRosMessageParseServiceResponsePacket( CrosNode *n, int client_i
   {
     int svc_idx = client_proc->service_idx;
     void* data_context = n->service_callers[svc_idx].context;
-    ret_err = n->service_callers[svc_idx].callback(NULL, packet, 1, data_context);
+
+    ret_err = cRosNodeDeserializeIncomingPacket(packet, data_context); // Deserialize the message response
+
+    if(ret_err == CROS_SUCCESS_ERR_PACK)
+      ret_err = n->service_callers[svc_idx].callback(1, data_context);
   }
   else
   {
@@ -1030,7 +1014,18 @@ cRosErrCodePack cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server
   DynBuffer service_response;
   dynBufferInit(&service_response);
 
-  ret_err = n->service_providers[srv_idx].callback(packet, &service_response, service_context);
+  ret_err = cRosNodeDeserializeIncomingPacket(packet, service_context); // prepare the context incoming message used by the user callback function
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+    ret_err = n->service_providers[srv_idx].callback(service_context);
+  else
+    cRosPrintErrCodePack(ret_err, "cRosMessagePrepareServiceResponsePacket() failed decoding the received packet");
+
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    ret_err =  cRosNodeSerializeOutgoingMessage(&service_response, service_context); // Create the output packet from outgoing message in the context
+    if(ret_err != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(ret_err, "cRosNodeServiceProviderCallback() failed encoding the packet to send");
+  }
 
   dynBufferClear(packet); // clear packet buffer
 

@@ -141,6 +141,7 @@ cRosMessage *cRosLogToMessage(CrosNode* node, CrosLog* log)
 
     cRosMessageField* topics = cRosMessageGetField(message, "topics"); // topic names that the node publishes
 
+    cRosMessageFieldArrayClear(topics);
     for(pub_ind = 0; pub_ind < log->n_pubs; pub_ind++)
       cRosMessageFieldArrayPushBackString(topics, log->pubs[pub_ind]);
   }

@@ -71,7 +71,7 @@
 #define CN_MAX_RPCROS_CLIENT_CONNECTIONS CN_MAX_SERVICE_CALLERS
 
 /*! Node automatic XMLRPC ping cycle period (in msec) */
-#define CN_PING_LOOP_PERIOD 10000
+#define CN_PING_LOOP_PERIOD 1000
 
 /*! Maximum I/O operations timeout (in msec) */
 #define CN_IO_TIMEOUT 3000
@@ -109,46 +109,46 @@ typedef struct CrosNodeStatusUsr
   XmlrpcParam *parameter_value;
 } CrosNodeStatusUsr;
 
-/*! \brief Callback to communicate publisher or subscriber status
- */
+/*! \brief Callback to communicate publisher or subscriber status */
 typedef void (*NodeStatusCallback)(CrosNodeStatusUsr *status, void* context);
 
-typedef cRosErrCodePack (*PublisherCallback)(DynBuffer *buffer, int send_queue_msg, void* context);
+/*! \brief Internal library callback which in turn calls the user publisher callback */
+typedef cRosErrCodePack (*PublisherCallback)(void* context);
 
 /*! Structure that define a published topic */
 struct PublisherNode
 {
-  char *topic_name;                         //! The published topic name
-  char *topic_type;                         //! The published topic data type (e.g., std_msgs/String, ...)
-  char *md5sum;                             //! The MD5 sum of the message type
-  char *message_definition;                 //! Full text of message definition (output of gendeps --cat)
-  int   client_tcpros_id;
+  char *topic_name;                   //! The published topic name
+  char *topic_type;                   //! The published topic data type (e.g., std_msgs/String, ...)
+  char *md5sum;                       //! The MD5 sum of the message type
+  char *message_definition;           //! Full text of message definition (output of gendeps --cat)
+  int   tcpros_id_list[CN_MAX_TCPROS_SERVER_CONNECTIONS+1]; //! List of node->tcpros_server_proc IDs allocated for this publisher. The last element of the list is always -1 (sentinel)
   void *context;
-  PublisherCallback callback;               //! The callback called to generate the (raw) packet data of type topic_type
-  NodeStatusCallback status_callback;
-  int loop_period;                          //! Period (in msec) for publication cycle
-  cRosMessageQueue msg_queue;               //! Messages on this topic wait in this queue to be send for every process
+  PublisherCallback callback;         //! The callback called to generate the (raw) packet data of type topic_type
+  NodeStatusCallback status_callback; //! The callback function called when the state of the publisher has chnaged
+  int loop_period;                    //! Period (in msec) for publication cycle
+  uint64_t wake_up_time;              //! The time for the next automatic message publication (in msec, since the Epoch)
+  cRosMessageQueue msg_queue;         //! Messages on this topic wait in this queue to be send for every process
 };
 
-typedef cRosErrCodePack (*SubscriberCallback)(DynBuffer *buffer,  void* context);
+typedef cRosErrCodePack (*SubscriberCallback)(void* context);
 
-/*! Structure that define a subscribed topic
- */
+/*! Structure that define a subscribed topic */
 struct SubscriberNode
 {
-  char *message_definition;                 //! Full text of message definition (output of gendeps --cat)
-  char *topic_name;                         //! The subscribed topic name
-  char *topic_type;                         //! The subscribed topic data type (e.g., std_msgs/String, ...)
-  char *md5sum;                             //! The MD5 sum of the message type
-  unsigned char tcp_nodelay;                //! If 1, the publisher should set TCP_NODELAY on the socket, if possible
-  void *context;
-  SubscriberCallback callback;
+  char *message_definition;           //! Full text of message definition (output of gendeps --cat)
+  char *topic_name;                   //! The subscribed topic name
+  char *topic_type;                   //! The subscribed topic data type (e.g., std_msgs/String, ...)
+  char *md5sum;                       //! The MD5 sum of the message type
+  unsigned char tcp_nodelay;          //! If 1, the publisher should set TCP_NODELAY on the socket, if possible
+  void *context;                      //! Pointer to an internal library structure that stores received messages and its type
+  SubscriberCallback callback;        //! Pointer to an internal library function that handles each receibed message
   NodeStatusCallback status_callback;
-  cRosMessageQueue msg_queue;               //! Each time a message on this topic is received it is queued here
-  unsigned char msg_queue_overflow;         //! If 1, the subscriber tried to insert a message in the queue but it was full
+  cRosMessageQueue msg_queue;         //! Each time a message on this topic is received it is queued here
+  unsigned char msg_queue_overflow;   //! If 1, the subscriber tried to insert a message in the queue but it was full
 };
 
-typedef cRosErrCodePack (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
+typedef cRosErrCodePack (*ServiceProviderCallback)(void* context);
 
 struct ServiceProviderNode
 {
@@ -162,7 +162,7 @@ struct ServiceProviderNode
   NodeStatusCallback status_callback;
 };
 
-typedef cRosErrCodePack (*ServiceCallerCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, int call_resp_flag, void* context);
+typedef cRosErrCodePack (*ServiceCallerCallback)(int call_resp_flag, void* context);
 
 struct ServiceCallerNode
 {
@@ -171,17 +171,18 @@ struct ServiceCallerNode
   char *servicerequest_type;
   char *serviceresponse_type;
   char *md5sum;
-  char *message_definition;                 //! Full text of message definition (output of gendeps --cat)
-  int   client_rpcros_id;
-  char *service_host;                       //! The hostname of the service provider.
-  int   service_port;                       //! The host port of the the service provider.
-  unsigned char persistent;                 //! If 1, the service RPCROS connection should be kept open for multiple requests
-  unsigned char tcp_nodelay;                //! If 1, the service caller should set TCP_NODELAY on the socket, if possible
+  char *message_definition;           //! Full text of message definition (output of gendeps --cat)
+  int   rpcros_id;                    //! Index of the node->service_callers allocated for this ServiceCallerNode
+  char *service_host;                 //! The hostname of the service provider.
+  int   service_port;                 //! The host port of the the service provider.
+  unsigned char persistent;           //! If 1, the service RPCROS connection should be kept open for multiple requests
+  unsigned char tcp_nodelay;          //! If 1, the service caller should set TCP_NODELAY on the socket, if possible
   void *context;
   ServiceCallerCallback callback;
   NodeStatusCallback status_callback;
-  int loop_period;                          //! Period (in msec) for service-call cycle
-  cRosMessageQueue msg_queue;               //! Service requests and service responses for this service wait in this queue to be send
+  int loop_period;                    //! Period (in msec) for service-call cycle
+  uint64_t wake_up_time;              //! The time for the next automatic service call (in msec, since the Epoch)
+  cRosMessageQueue msg_queue;         //! Service requests and service responses for this service wait in this queue to be send
 };
 
 struct ParameterSubscription
@@ -192,8 +193,7 @@ struct ParameterSubscription
   NodeStatusCallback status_callback;
 };
 
-/*! \brief CrosNode object. Don't modify its internal members: use
- *         the related functions instead */
+/*! \brief CrosNode object. Don't modify its internal members: use the related functions instead */
 typedef struct CrosNode CrosNode;
 struct CrosNode
 {
@@ -216,7 +216,7 @@ struct CrosNode
 
   uint64_t xmlrpc_master_wake_up_time; //! The time (in msec, since the Epoch) for the next automatic operation cycle of the xmlrpc_client_proc[0] (xmlrpc master-node client proc)
 
-  uint32_t log_last_id;
+  uint32_t log_last_id;         //! Sequence number of the last transmitted rosout log message
 
   unsigned int next_call_id;
   ApiCallQueue master_api_queue;
@@ -291,7 +291,7 @@ cRosErrCodePack cRosNodeDestroy( CrosNode *n );
 /*! \brief Perform a loop of the cROS node main cycle
  *
  *  \param n A pointer to a CrosNode object (e.g., created with cRosNodeCreate())
- *  \param timeout Maximum time in milliseconds that this function will take to finish (it may finish before).
+ *  \param max_timeout Maximum time in milliseconds that this function will take to finish (it may finish before).
  *
  *  cRosNodeDoEventsLoop() perform a file-based event loop: check the read and write operation availability
  *  for considered sockets, start new write and read actions, open new connections, close dropped connections,
@@ -306,7 +306,7 @@ cRosErrCodePack cRosNodeDestroy( CrosNode *n );
  *  }
  *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
-cRosErrCodePack cRosNodeDoEventsLoop( CrosNode *n, uint64_t timeout );
+cRosErrCodePack cRosNodeDoEventsLoop( CrosNode *n, uint64_t max_timeout );
 
 /*! \brief Run the cROS node for a specific time while the exit flag provided by the user is 0
  *

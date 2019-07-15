@@ -305,6 +305,11 @@ typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *request, cRo
 typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void *context);
 typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void *context);
 
+// Transfer data from message buffer (context_) of the Publisher/Service caller to the output ROS packet buffer (buffer)
+cRosErrCodePack cRosNodeSerializeOutgoingMessage(DynBuffer *buffer, void *context_);
+// Transfer data from packet buffer (buffer) of the Service caller to the input mesage buffer (context_)
+cRosErrCodePack cRosNodeDeserializeIncomingPacket(DynBuffer *buffer, void *context_);
+
 // Master api: register/unregister methods
 cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period, ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr);
 void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx);

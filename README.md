@@ -54,6 +54,9 @@ $ make docs
 You'll find the html documentation inside the *docs/html* directory. To browse
 the documentation, open with a web browser the index.html file.
 
+On Windows cROS can be compiled opening the solution file msvs_projects/cros.sln with
+Microsoft Visual Studio and building the solution.
+
 ### Licensing
 
 cROS is licensed under the BSD license. For more

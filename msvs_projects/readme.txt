@@ -1,4 +1,4 @@
-This is the readme file for the cros solution of MS Visual Studio.
+This is the readme file for the cROS solution of MS Visual Studio.
 ------------------------------------------------------------------
 
 This solution comprises the following projects:

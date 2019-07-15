@@ -40,6 +40,8 @@
 
 #define PRINT_ERROR(...) fprintf(cRosOutStreamGet(), __VA_ARGS__)
 
+#define FLUSH_PRINT() fflush(cRosOutStreamGet())
+
 // macros for detecting and converting endianness
 
 // We ignore the existence of mixed endianness

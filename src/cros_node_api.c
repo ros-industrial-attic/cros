@@ -268,7 +268,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
         int srvcalleridx = call->provider_idx;
         ServiceCallerNode* requesting_service_caller = &(n->service_callers[srvcalleridx]);
 
-        TcprosProcess* rpcros_proc = &n->rpcros_client_proc[requesting_service_caller->client_rpcros_id];
+        TcprosProcess* rpcros_proc = &n->rpcros_client_proc[requesting_service_caller->rpcros_id];
         rpcros_proc->service_idx = call->provider_idx;
 
         if(checkResponseValue( &client_proc->response ) == 1)
@@ -636,18 +636,22 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       }
       else
       {
-        int array_size = xmlrpcParamArrayGetSize( publishers_param );
+        int array_size;
+        char *topic_name_param;
         XmlrpcParam *uri;
         int sub_idx = -1;
         int uri_found = 0;
-
         int i;
+
+        topic_name_param = xmlrpcParamGetString( topic_param );
+        array_size = xmlrpcParamArrayGetSize( publishers_param );
+
         for(i = 0; i < n->n_subs; i++)
         {
           if (n->subs[i].topic_name == NULL)
             continue;
 
-          if( strcmp( xmlrpcParamGetString( topic_param ), n->subs[i].topic_name ) == 0)
+          if( strcmp( topic_name_param, n->subs[i].topic_name ) == 0)
           {
             sub_idx = i;
             break;
@@ -727,9 +731,9 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         else
         {
           if(sub_idx == -1)
-            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Unknown topic name\n" );
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Unknown topic name in call: %s\n", topic_name_param );
           else
-            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Host not found\n" );
+            PRINT_ERROR ( "cRosApiParseRequestPrepareResponse() : Host parameter not found\n" );
 
           xmlrpcParamVectorPushBackString( &params, "Unknown topic in publisherUpdate(), host not found or more than one publisher per topic" );
         }
