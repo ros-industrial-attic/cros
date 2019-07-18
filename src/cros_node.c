@@ -2519,7 +2519,7 @@ int cRosNodeUnregisterServiceProvider(CrosNode *node, int serviceidx)
     return 0;
 }
 
-cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context, int *paramsubidx_ptr)
+cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusApiCallback callback, void *context, int *paramsubidx_ptr)
 {
   PRINT_VVDEBUG ( "cRosApiSubscribeParam()\n" );
   PRINT_INFO ( "Subscribing to parameter %s\n", key);

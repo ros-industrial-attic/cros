@@ -73,7 +73,7 @@ typedef struct ProviderContext
   char *message_definition;
   char *md5sum;
   void *api_callback; //! The application-defined callback function called to generate outgoing data or to handle the received data
-  NodeStatusCallback status_callback; //! The application-defined callback function called when the state of the role has chnaged
+  NodeStatusApiCallback status_callback; //! The application-defined callback function called when the state of the role has chnaged
   cRosMessageQueue *msg_queue; // It is just a reference to the queue declared in node. For the publisher: it is msgs to send. For the subscriber: it is msgs received. For the svc caller: it is first svc request and then svc response
   void *context;
 } ProviderContext;
@@ -326,7 +326,7 @@ void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
 }
 
 cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period,
-                                   ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr)
+                                   ServiceCallerApiCallback callback, NodeStatusApiCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr)
 {
   cRosErrCodePack ret_err;
   char path[OS_MAX_PATH];
@@ -365,7 +365,7 @@ void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx)
 }
 
 cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
-                                   ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context, int *svcidx_ptr)
+                                   ServiceProviderApiCallback callback, NodeStatusApiCallback status_callback, void *context, int *svcidx_ptr)
 {
   cRosErrCodePack ret_err;
   char path[OS_MAX_PATH];
@@ -417,7 +417,7 @@ void cRosApiReleaseServiceProvider(CrosNode *node, int svcidx)
 }
 
 cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type,
-                              SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr)
+                              SubscriberApiCallback callback, NodeStatusApiCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr)
 {
   cRosErrCodePack ret_err;
   char path[OS_MAX_PATH];
@@ -471,7 +471,7 @@ void cRosApiReleaseSubscriber(CrosNode *node, int subidx)
 }
 
 cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period,
-                             PublisherApiCallback callback, NodeStatusCallback status_callback, void *context, int *pubidx_ptr)
+                             PublisherApiCallback callback, NodeStatusApiCallback status_callback, void *context, int *pubidx_ptr)
 {
   cRosErrCodePack ret_err;
   char path[OS_MAX_PATH];

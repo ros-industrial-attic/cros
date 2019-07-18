@@ -303,6 +303,7 @@ typedef uint8_t CallbackResponse;
 typedef CallbackResponse (*ServiceCallerApiCallback)(cRosMessage *request, cRosMessage *response, int call_resp_flag, void *context);
 typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *request, cRosMessage *response, void *context);
 typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void *context);
+/*! \brief Application-defined callback function which is called by the library */
 typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void *context);
 
 // Transfer data from message buffer (context_) of the Publisher/Service caller to the output ROS packet buffer (buffer)
@@ -319,15 +320,15 @@ cRosErrCodePack cRosNodeServiceProviderCallback(void *context_);
 void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_);
 
 // Master api: register/unregister methods
-cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period, ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr);
+cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period, ServiceCallerApiCallback callback, NodeStatusApiCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr);
 void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx);
-cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context, int *svcidx_ptr);
+cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, NodeStatusApiCallback status_callback, void *context, int *svcidx_ptr);
 cRosErrCodePack cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx);
 void cRosApiReleaseServiceProvider(CrosNode *node, int svcidx);
-cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr);
+cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusApiCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr);
 cRosErrCodePack cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
 void cRosApiReleaseSubscriber(CrosNode *node, int subidx);
-cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context, int *pubidx_ptr);
+cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period, PublisherApiCallback callback, NodeStatusApiCallback status_callback, void *context, int *pubidx_ptr);
 cRosErrCodePack cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
 void cRosApiReleasePublisher(CrosNode *node, int pubidx);
 
@@ -384,7 +385,7 @@ cRosErrCodePack cRosApiGetSubscriptions(CrosNode *node, const char* host, int po
 cRosErrCodePack cRosApiGetPublications(CrosNode *node, const char* host, int port, GetSubscriptionsCallback callback, void *context, int *caller_id_ptr);
 
 // Parameter Server API: subscribe/unsubscribe params
-cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context, int *paramsubidx_ptr);
+cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusApiCallback callback, void *context, int *paramsubidx_ptr);
 cRosErrCodePack cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx);
 
 // Parameter Server API: other methods

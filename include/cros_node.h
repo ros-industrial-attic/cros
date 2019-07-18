@@ -110,10 +110,7 @@ typedef struct CrosNodeStatusUsr
 } CrosNodeStatusUsr;
 
 /*! \brief Callback to communicate publisher or subscriber status */
-typedef void (*NodeStatusCallback)(CrosNodeStatusUsr *status, void* context);
-
-/*! \brief Internal library callback which in turn calls the user publisher callback */
-typedef cRosErrCodePack (*PublisherCallback)(void* context);
+typedef void (*NodeStatusApiCallback)(CrosNodeStatusUsr *status, void* context);
 
 /*! Structure that define a published topic */
 struct PublisherNode
@@ -129,8 +126,6 @@ struct PublisherNode
   cRosMessageQueue msg_queue;         //! Messages on this topic wait in this queue to be send for every process
 };
 
-typedef cRosErrCodePack (*SubscriberCallback)(void* context);
-
 /*! Structure that define a subscribed topic */
 struct SubscriberNode
 {
@@ -144,8 +139,6 @@ struct SubscriberNode
   unsigned char msg_queue_overflow;   //! If 1, the subscriber tried to insert a message in the queue but it was full
 };
 
-typedef cRosErrCodePack (*ServiceProviderCallback)(void* context);
-
 struct ServiceProviderNode
 {
   char *service_name;
@@ -155,8 +148,6 @@ struct ServiceProviderNode
   char *md5sum;
   void *context;
 };
-
-typedef cRosErrCodePack (*ServiceCallerCallback)(int call_resp_flag, void* context);
 
 struct ServiceCallerNode
 {
@@ -182,7 +173,7 @@ struct ParameterSubscription
   char *parameter_key;
   XmlrpcParam parameter_value;
   void *context;
-  NodeStatusCallback status_callback;
+  NodeStatusApiCallback status_callback;
 };
 
 /*! \brief CrosNode object. Don't modify its internal members: use the related functions instead */
