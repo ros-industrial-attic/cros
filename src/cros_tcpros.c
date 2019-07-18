@@ -459,7 +459,7 @@ cRosErrCodePack cRosMessageParsePublicationPacket( CrosNode *n, int client_idx )
 
   ret_err = cRosNodeDeserializeIncomingPacket(packet, data_context);
   if(ret_err == CROS_SUCCESS_ERR_PACK)
-    ret_err = sub_node->callback(data_context);
+    ret_err = cRosNodeSubscriberCallback(data_context); // Calls the subscriber application-defined callback
   else
     cRosPrintErrCodePack(ret_err, "cRosNodeSubscriberCallback() failed decoding the received packet");
 
@@ -957,7 +957,7 @@ cRosErrCodePack cRosMessageParseServiceResponsePacket( CrosNode *n, int client_i
     ret_err = cRosNodeDeserializeIncomingPacket(packet, data_context); // Deserialize the message response
 
     if(ret_err == CROS_SUCCESS_ERR_PACK)
-      ret_err = n->service_callers[svc_idx].callback(1, data_context);
+      ret_err = cRosNodeServiceCallerCallback(1, data_context); // Call the service-caller application-defined callback function to process the service response
   }
   else
   {
@@ -1016,7 +1016,7 @@ cRosErrCodePack cRosMessagePrepareServiceResponsePacket( CrosNode *n, int server
 
   ret_err = cRosNodeDeserializeIncomingPacket(packet, service_context); // prepare the context incoming message used by the user callback function
   if(ret_err == CROS_SUCCESS_ERR_PACK)
-    ret_err = n->service_providers[srv_idx].callback(service_context);
+    ret_err = cRosNodeServiceProviderCallback(service_context); // calls the service-provider application-defined callback function
   else
     cRosPrintErrCodePack(ret_err, "cRosMessagePrepareServiceResponsePacket() failed decoding the received packet");
 

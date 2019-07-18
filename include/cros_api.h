@@ -310,6 +310,14 @@ cRosErrCodePack cRosNodeSerializeOutgoingMessage(DynBuffer *buffer, void *contex
 // Transfer data from packet buffer (buffer) of the Service caller to the input mesage buffer (context_)
 cRosErrCodePack cRosNodeDeserializeIncomingPacket(DynBuffer *buffer, void *context_);
 
+// Intermediary functions that call the user callback functions
+// context is a structure (object) opaque for the caller function
+cRosErrCodePack cRosNodeSubscriberCallback(void *context_);
+cRosErrCodePack cRosNodePublisherCallback(void *context_);
+cRosErrCodePack cRosNodeServiceCallerCallback(int call_resp_flag, void* contex_);
+cRosErrCodePack cRosNodeServiceProviderCallback(void *context_);
+void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_);
+
 // Master api: register/unregister methods
 cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period, ServiceCallerApiCallback callback, NodeStatusCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr);
 void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx);

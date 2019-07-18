@@ -352,16 +352,14 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
             break;
 
           subscription = &n->paramsubs[paramsubidx];
-          if (subscription->status_callback != NULL)
-          {
-            CrosNodeStatusUsr status;
-            initCrosNodeStatus(&status);
-            status.state = CROS_STATUS_PARAM_SUBSCRIBED;
-            status.provider_idx = paramsubidx;
-            status.parameter_key = subscription->parameter_key;
-            status.parameter_value = value;
-            subscription->status_callback(&status, subscription->context);
-          }
+
+          CrosNodeStatusUsr status;
+          initCrosNodeStatus(&status);
+          status.state = CROS_STATUS_PARAM_SUBSCRIBED;
+          status.provider_idx = paramsubidx;
+          status.parameter_key = subscription->parameter_key;
+          status.parameter_value = value;
+          cRosNodeStatusCallback(&status, subscription->context); // calls the parameter-subscriber application-defined status callback function (if specified when creating the publisher).
 
           ret = 0;
           xmlrpcParamRelease(&subscription->parameter_value);
@@ -772,13 +770,13 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
           if( strcmp( xmlrpcParamGetString( topic_param ), pub->topic_name ) == 0)
           {
             topic_found = 1;
-            if (pub->status_callback != NULL && strlen(server_proc->host) != 0)
+            if (strlen(server_proc->host) != 0)
             {
               CrosNodeStatusUsr status;
               initCrosNodeStatus(&status);
               status.xmlrpc_host = server_proc->host;
               status.xmlrpc_port = server_proc->port;
-              pub->status_callback(&status, pub->context);
+              cRosNodeStatusCallback(&status, pub->context); // calls the publisher-status application-defined callback function (if specified when creating the publisher). Undocumented status callback?
             }
 
             break;
@@ -967,16 +965,13 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
       if (paramsubidx != -1)
       {
         subscription = &n->paramsubs[it];
-        if (subscription->status_callback != NULL)
-        {
-          CrosNodeStatusUsr status;
-          initCrosNodeStatus(&status);
-          status.state = CROS_STATUS_PARAM_UPDATE;
-          status.provider_idx = it;
-          status.parameter_key = parameter_key;
-          status.parameter_value = value_param;
-          subscription->status_callback(&status, subscription->context);
-        }
+        CrosNodeStatusUsr status;
+        initCrosNodeStatus(&status);
+        status.state = CROS_STATUS_PARAM_UPDATE;
+        status.provider_idx = it;
+        status.parameter_key = parameter_key;
+        status.parameter_value = value_param;
+        cRosNodeStatusCallback(&status, subscription->context); // calls the parameter-subscriber-status application-defined callback function (if specified when creating the subscriber).
 
         XmlrpcParam param;
         int rc = xmlrpcParamCopy(&param, value_param);

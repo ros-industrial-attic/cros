@@ -72,9 +72,9 @@ typedef struct ProviderContext
   cRosMessage *outgoing;
   char *message_definition;
   char *md5sum;
-  NodeStatusCallback status_callback;
-  void *api_callback;
-  cRosMessageQueue *msg_queue; // It is just a reference to the queue declared in node. For the publisher: msgs to send. For the subscriber: msgs received. For the svc caller: first svc request and then svc response
+  void *api_callback; //! The application-defined callback function called to generate outgoing data or to handle the received data
+  NodeStatusCallback status_callback; //! The application-defined callback function called when the state of the role has chnaged
+  cRosMessageQueue *msg_queue; // It is just a reference to the queue declared in node. For the publisher: it is msgs to send. For the subscriber: it is msgs received. For the svc caller: it is first svc request and then svc response
   void *context;
 } ProviderContext;
 
@@ -187,7 +187,7 @@ cRosErrCodePack cRosNodeDeserializeIncomingPacket(DynBuffer *buffer, void *conte
   return(ret_err);
 }
 
-static cRosErrCodePack cRosNodePublisherCallback(void *context_)
+cRosErrCodePack cRosNodePublisherCallback(void *context_)
 {
   cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)context_;
@@ -219,7 +219,7 @@ static cRosErrCodePack cRosNodePublisherCallback(void *context_)
   return ret_err;
 }
 
-static cRosErrCodePack cRosNodeSubscriberCallback(void *context_)
+cRosErrCodePack cRosNodeSubscriberCallback(void *context_)
 {
   cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)context_;
@@ -241,7 +241,7 @@ static cRosErrCodePack cRosNodeSubscriberCallback(void *context_)
   return ret_err;
 }
 
-static cRosErrCodePack cRosNodeServiceCallerCallback(int call_resp_flag, void* contex_)
+cRosErrCodePack cRosNodeServiceCallerCallback(int call_resp_flag, void* contex_)
 {
   cRosErrCodePack ret_err;
   CallbackResponse ret_cb;
@@ -302,7 +302,7 @@ static cRosErrCodePack cRosNodeServiceCallerCallback(int call_resp_flag, void* c
   return ret_err;
 }
 
-static cRosErrCodePack cRosNodeServiceProviderCallback(void *context_)
+cRosErrCodePack cRosNodeServiceProviderCallback(void *context_)
 {
   cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)context_;
@@ -318,10 +318,11 @@ static cRosErrCodePack cRosNodeServiceProviderCallback(void *context_)
   return ret_err;
 }
 
-static void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
+void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
 {
   ProviderContext *context = (ProviderContext *)context_;
-  context->status_callback(status, context->context);
+  if(context->status_callback != NULL) // If the application defined a status callback function, call it
+    context->status_callback(status, context->context);
 }
 
 cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period,
@@ -342,8 +343,7 @@ cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service
 
     // NB: Pass the private ProviderContext to the private api, not the user context
     svcidx = cRosNodeRegisterServiceCaller(node, nodeContext->message_definition, service_name, service_type, nodeContext->md5sum,
-                                           loop_period, cRosNodeServiceCallerCallback, status_callback == NULL ? NULL : cRosNodeStatusCallback,
-                                           nodeContext, persistent, tcp_nodelay);
+                                           loop_period, nodeContext, persistent, tcp_nodelay);
     if(svcidx >= 0) // Success
     {
       if(svcidx_ptr != NULL)
@@ -381,8 +381,7 @@ cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *servi
     nodeContext->context = context;
 
     // NB: Pass the private ProviderContext to the private api, not the user context
-    svcidx = cRosNodeRegisterServiceProvider(node, service_name, service_type, nodeContext->md5sum, cRosNodeServiceProviderCallback,
-                                              status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
+    svcidx = cRosNodeRegisterServiceProvider(node, service_name, service_type, nodeContext->md5sum, nodeContext);
     if(svcidx >= 0) // Success
     {
         if(svcidx_ptr != NULL)
@@ -435,8 +434,7 @@ cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name
 
   // NB: Pass the private ProviderContext to the private api, not the user context
     subidx = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
-                                  nodeContext->md5sum, cRosNodeSubscriberCallback,
-                                  status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext, tcp_nodelay);
+                                  nodeContext->md5sum, nodeContext, tcp_nodelay);
     if(subidx >= 0) // Success
     {
       nodeContext->msg_queue = &node->subs[subidx].msg_queue; // Allow the callback functions to access the msg queue
@@ -490,8 +488,7 @@ cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name,
 
     // NB: Pass the private ProviderContext to the private api, not the user context
     pubidx = cRosNodeRegisterPublisher(node, nodeContext->message_definition, topic_name, topic_type,
-                                  nodeContext->md5sum, loop_period, cRosNodePublisherCallback,
-                                  status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
+                                  nodeContext->md5sum, loop_period, nodeContext);
     if(pubidx >= 0) // Success
     {
       // Allow the callback functions to access the msg queue and send-now flag

@@ -211,7 +211,7 @@ int main(int argc, char **argv)
   strncat(path, DIR_SEPARATOR_STR"rosdb", sizeof(path) - strlen(path) - 1);
   node = cRosNodeCreate(node_name, node_host, roscore_host, roscore_port, path);
 
-  err_cod = cRosApiSubscribeParam(node,"/testparam", getNodeStatusCallback, NULL, NULL);
+  err_cod = cRosApiSubscribeParam(node, "/testparam", getNodeStatusCallback, NULL, NULL);
   if (err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosApiSubscribeParam() failed");

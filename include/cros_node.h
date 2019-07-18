@@ -124,8 +124,6 @@ struct PublisherNode
   char *message_definition;           //! Full text of message definition (output of gendeps --cat)
   int   tcpros_id_list[CN_MAX_TCPROS_SERVER_CONNECTIONS+1]; //! List of node->tcpros_server_proc IDs allocated for this publisher. The last element of the list is always -1 (sentinel)
   void *context;
-  PublisherCallback callback;         //! The callback called to generate the (raw) packet data of type topic_type
-  NodeStatusCallback status_callback; //! The callback function called when the state of the publisher has chnaged
   int loop_period;                    //! Period (in msec) for publication cycle
   uint64_t wake_up_time;              //! The time for the next automatic message publication (in msec, since the Epoch)
   cRosMessageQueue msg_queue;         //! Messages on this topic wait in this queue to be send for every process
@@ -142,8 +140,6 @@ struct SubscriberNode
   char *md5sum;                       //! The MD5 sum of the message type
   unsigned char tcp_nodelay;          //! If 1, the publisher should set TCP_NODELAY on the socket, if possible
   void *context;                      //! Pointer to an internal library structure that stores received messages and its type
-  SubscriberCallback callback;        //! Pointer to an internal library function that handles each receibed message
-  NodeStatusCallback status_callback;
   cRosMessageQueue msg_queue;         //! Each time a message on this topic is received it is queued here
   unsigned char msg_queue_overflow;   //! If 1, the subscriber tried to insert a message in the queue but it was full
 };
@@ -158,8 +154,6 @@ struct ServiceProviderNode
   char *serviceresponse_type;
   char *md5sum;
   void *context;
-  ServiceProviderCallback callback;
-  NodeStatusCallback status_callback;
 };
 
 typedef cRosErrCodePack (*ServiceCallerCallback)(int call_resp_flag, void* context);
@@ -178,8 +172,6 @@ struct ServiceCallerNode
   unsigned char persistent;           //! If 1, the service RPCROS connection should be kept open for multiple requests
   unsigned char tcp_nodelay;          //! If 1, the service caller should set TCP_NODELAY on the socket, if possible
   void *context;
-  ServiceCallerCallback callback;
-  NodeStatusCallback status_callback;
   int loop_period;                    //! Period (in msec) for service-call cycle
   uint64_t wake_up_time;              //! The time for the next automatic service call (in msec, since the Epoch)
   cRosMessageQueue msg_queue;         //! Service requests and service responses for this service wait in this queue to be send

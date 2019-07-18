@@ -168,6 +168,11 @@ static void closeXmlrpcProcess(XmlrpcProcess *process)
 // is requested
 static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
 {
+  CrosNodeStatusUsr status;
+
+  initCrosNodeStatus(&status);
+  status.provider_idx = call->provider_idx;
+
   switch(call->method)
   {
     case CROS_API_UNREGISTER_PUBLISHER:
@@ -176,13 +181,8 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
         break;
 
       PublisherNode *pub = &node->pubs[call->provider_idx];
-      NodeStatusCallback callback = pub->status_callback;
-      if (callback != NULL)
-      {
-        CrosNodeStatusUsr status;
-        initCrosNodeStatus(&status);
-        callback(&status, pub->context);
-      }
+      status.state = CROS_STATUS_PUBLISHER_UNREGISTERED;
+      cRosNodeStatusCallback(&status, pub->context); // calls the publisher application-defined callback function (if specified when creating the publisher)
 
       // Finally release publisher
       cRosApiReleasePublisher(node, call->provider_idx);
@@ -196,13 +196,8 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
         break;
 
       SubscriberNode *sub = &node->subs[call->provider_idx];
-      NodeStatusCallback callback = sub->status_callback;
-      if (callback != NULL)
-      {
-        CrosNodeStatusUsr status;
-        initCrosNodeStatus(&status);
-        callback(&status, sub->context);
-      }
+      status.state = CROS_STATUS_SUBSCRIBER_UNREGISTERED;
+      cRosNodeStatusCallback(&status, sub->context);
 
       // Finally release subscriber
       cRosApiReleaseSubscriber(node, call->provider_idx);
@@ -216,13 +211,8 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
         break;
 
       ServiceProviderNode *service = &node->service_providers[call->provider_idx];
-      NodeStatusCallback callback = service->status_callback;
-      if (callback != NULL)
-      {
-        CrosNodeStatusUsr status;
-        initCrosNodeStatus(&status);
-        callback(&status, service->context);
-      }
+      status.state = CROS_STATUS_SERVICE_PROVIDER_UNREGISTERED;
+      cRosNodeStatusCallback(&status, service->context);
 
       // Finally release service provider
       cRosApiReleaseServiceProvider(node, call->provider_idx);
@@ -236,16 +226,9 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
         break;
 
       ParameterSubscription *subscription = &node->paramsubs[call->provider_idx];
-      NodeStatusCallback callback = subscription->status_callback;
-      if (callback != NULL)
-      {
-        CrosNodeStatusUsr status;
-        initCrosNodeStatus(&status);
-        status.state = CROS_STATUS_PARAM_UNSUBSCRIBED;
-        status.provider_idx = call->provider_idx;
-        status.parameter_key = subscription->parameter_key;
-        callback(&status, subscription->context);
-      }
+      status.state = CROS_STATUS_PARAM_UNSUBSCRIBED;
+      status.parameter_key = subscription->parameter_key;
+      cRosNodeStatusCallback(&status, subscription->context);
 
       // Finally release parameter subscription
       cRosNodeReleaseParameterSubscrition(subscription);
@@ -1988,7 +1971,6 @@ void cRosNodePauseAllCallersPublishers(CrosNode *n)
       n->service_callers[i].loop_period = -1;
 }
 
-
 cRosErrCodePack cRosNodeUnregisterAll(CrosNode *n)
 {
   int i;
@@ -2079,9 +2061,8 @@ cRosErrCodePack cRosNodeDestroy ( CrosNode *n )
   return ret_err;
 }
 
-int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
-                               const char *topic_name, const char *topic_type, const char *md5sum, int loop_period,
-                               PublisherCallback callback, NodeStatusCallback status_callback, void *data_context)
+  int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition, const char *topic_name,
+                               const char *topic_type, const char *md5sum, int loop_period, void *data_context)
 {
   PRINT_VVDEBUG ( "cRosNodeRegisterPublisher()\n" );
 
@@ -2129,8 +2110,6 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
 
   pub->loop_period = loop_period;
   pub->wake_up_time = 0;
-  pub->callback = callback;
-  pub->status_callback = status_callback;
   pub->context = data_context;
   cRosMessageQueueClear(&pub->msg_queue);
 
@@ -2144,9 +2123,7 @@ int cRosNodeRegisterPublisher (CrosNode *node, const char *message_definition,
 }
 
 int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
-                                    const char *service_type, const char *md5sum,
-                                    ServiceProviderCallback callback, NodeStatusCallback status_callback,
-                                    void *data_context)
+                                    const char *service_type, const char *md5sum, void *data_context)
 {
   PRINT_VVDEBUG ( "cRosNodeRegisterServiceProvider()\n" );
 
@@ -2197,8 +2174,6 @@ int cRosNodeRegisterServiceProvider(CrosNode *node, const char *service_name,
   service->servicerequest_type = srv_servicerequest_type;
   service->serviceresponse_type = srv_serviceresponse_type;
   service->md5sum = srv_md5sum;
-  service->callback = callback;
-  service->status_callback = status_callback;
   service->context = data_context;
 
   node->n_service_providers++;
@@ -2254,9 +2229,8 @@ int cRosNodeFindFirstTcprosClientProc(CrosNode *node, int subidx, const char *tc
   return ret;
 }
 
-int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
-                               const char *topic_name, const char *topic_type, const char *md5sum,
-                               SubscriberCallback callback, NodeStatusCallback status_callback, void *data_context, int tcp_nodelay)
+int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition, const char *topic_name,
+                               const char *topic_type, const char *md5sum, void *data_context, int tcp_nodelay)
 {
   PRINT_VVDEBUG ( "cRosNodeRegisterSubscriber()\n" );
 
@@ -2301,8 +2275,6 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
   sub->topic_name = pub_topic_name;
   sub->topic_type = pub_topic_type;
   sub->md5sum = pub_md5sum;
-  sub->status_callback = status_callback;
-  sub->callback = callback;
   sub->context = data_context;
   sub->tcp_nodelay = (unsigned char)tcp_nodelay;
   sub->msg_queue_overflow = 0;
@@ -2319,7 +2291,6 @@ int cRosNodeRegisterSubscriber(CrosNode *node, const char *message_definition,
 
 int cRosNodeRegisterServiceCaller(CrosNode *node, const char *message_definition, const char *service_name,
                                     const char *service_type, const char *md5sum, int loop_period,
-                                    ServiceCallerCallback callback, NodeStatusCallback status_callback,
                                     void *data_context, int persistent, int tcp_nodelay)
 {
   PRINT_VVDEBUG ( "cRosNodeRegisterServiceCaller()\n" );
@@ -2373,8 +2344,6 @@ int cRosNodeRegisterServiceCaller(CrosNode *node, const char *message_definition
   service->servicerequest_type = srv_servicerequest_type;
   service->serviceresponse_type = srv_serviceresponse_type;
   service->md5sum = srv_md5sum;
-  service->callback = callback;
-  service->status_callback = status_callback;
   service->context = data_context;
   service->loop_period = loop_period;
   service->wake_up_time = 0; // cRosClockGetTimeMs() + 10;
@@ -2659,7 +2628,7 @@ cRosErrCodePack cRosNodeTriggerPublishersWriting( CrosNode *n, uint64_t cur_time
             cur_pub->wake_up_time = cur_time + cur_pub->loop_period;
 
           // The next function will store the next message to be sent in cur_pub->context->outgoing
-          ret_err = cur_pub->callback(cur_pub->context); // calling cRosNodePublisherCallback(void *context_)
+          ret_err = cRosNodePublisherCallback(cur_pub->context); // Calls the publisher application-defined callback
 
           // Make all the waiting processes start writing
           for(list_elem=0;cur_pub->tcpros_id_list[list_elem]!=-1;list_elem++)
@@ -2698,7 +2667,7 @@ cRosErrCodePack cRosNodeTriggerServiceCallersWriting( CrosNode *n, uint64_t cur_
             cur_caller->wake_up_time = cur_time + cur_caller->loop_period;
 
           // Now the service-call parameters are stored in cur_caller->context->outgoing
-          ret_err = cur_caller->callback( 0, cur_caller->context); // calling cRosNodeServiceCallerCallback(int call_resp_flag, void *contex_)
+          ret_err = cRosNodeServiceCallerCallback( 0, cur_caller->context); // calls the service-caller application-defined callback function to generate the service request
 
           //if(caller_proc->state == TCPROS_PROCESS_STATE_WAIT_FOR_WRITING)
           {
@@ -3725,14 +3694,13 @@ int enqueueRequestTopic(CrosNode *node, int subidx, const char *host, int port)
   call->method = CROS_API_REQUEST_TOPIC;
 
   SubscriberNode *sub = &node->subs[subidx];
-  if (sub->status_callback != NULL)
-  {
-    CrosNodeStatusUsr status;
-    initCrosNodeStatus(&status);
-    status.xmlrpc_host = strdup(host);
-    status.xmlrpc_port = port;
-    sub->status_callback(&status, sub->context);
-  }
+
+  CrosNodeStatusUsr status;
+  initCrosNodeStatus(&status);
+  status.provider_idx = subidx;
+  status.xmlrpc_host = host;
+  status.xmlrpc_port = port;
+  cRosNodeStatusCallback(&status, sub->context); // calls the subscriber-status application-defined callback function (if specified when creating the subscriber). Undocumented status callback?
 
   xmlrpcParamVectorPushBackString(&call->params, node->name );
   xmlrpcParamVectorPushBackString(&call->params, sub->topic_name );
@@ -3778,8 +3746,6 @@ void initPublisherNode(PublisherNode *pub)
   pub->topic_name = NULL;
   pub->topic_type = NULL;
   pub->md5sum = NULL;
-  pub->callback = NULL;
-  pub->status_callback = NULL;
   pub->context = NULL;
   pub->tcpros_id_list[0] = -1; // Empty list of TcprosProcess indices
   pub->loop_period = -1; // Publication paused
@@ -3793,8 +3759,6 @@ void initSubscriberNode(SubscriberNode *sub)
   sub->topic_name = NULL;
   sub->topic_type = NULL;
   sub->md5sum = NULL;
-  sub->callback = NULL;
-  sub->status_callback = NULL;
   sub->context = NULL;
   sub->tcp_nodelay = 0;
   sub->msg_queue_overflow = 0;
@@ -3806,8 +3770,6 @@ void initServiceProviderNode(ServiceProviderNode *srv_prov)
   srv_prov->service_name = NULL;
   srv_prov->service_type = NULL;
   srv_prov->md5sum = NULL;
-  srv_prov->callback = NULL;
-  srv_prov->status_callback = NULL;
   srv_prov->context = NULL;
   srv_prov->servicerequest_type = NULL;
   srv_prov->serviceresponse_type = NULL;
@@ -3822,8 +3784,6 @@ void initServiceCallerNode(ServiceCallerNode *srv_caller)
   srv_caller->md5sum = NULL;
   srv_caller->message_definition = NULL;
   srv_caller->rpcros_id = -1;
-  srv_caller->callback = NULL;
-  srv_caller->status_callback = NULL;
   srv_caller->context = NULL;
   srv_caller->servicerequest_type = NULL;
   srv_caller->serviceresponse_type = NULL;
