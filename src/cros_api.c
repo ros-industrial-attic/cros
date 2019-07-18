@@ -67,15 +67,15 @@ typedef enum ProviderType
 
 typedef struct ProviderContext
 {
-  ProviderType type;
-  cRosMessage *incoming;
-  cRosMessage *outgoing;
+  ProviderType type; //! Type of role: provider, subscriber, service provider or service caller
+  cRosMessage *incoming; //! Message that has been received
+  cRosMessage *outgoing; //! Message that will be sent
   char *message_definition;
   char *md5sum;
   void *api_callback; //! The application-defined callback function called to generate outgoing data or to handle the received data
-  NodeStatusApiCallback status_callback; //! The application-defined callback function called when the state of the role has chnaged
-  cRosMessageQueue *msg_queue; // It is just a reference to the queue declared in node. For the publisher: it is msgs to send. For the subscriber: it is msgs received. For the svc caller: it is first svc request and then svc response
-  void *context;
+  NodeStatusApiCallback status_api_callback; //! The application-defined callback function called when the state of the role has chnaged
+  cRosMessageQueue *msg_queue; //! It is just a reference to the queue declared in node. For the publisher: it is msgs to send. For the subscriber: it is msgs received. For the svc caller: it is first svc request and then svc response
+  void *context; //! Context parameter specified by the application and that will be passed to the application-defined callback functions
 } ProviderContext;
 
 static void initProviderContext(ProviderContext *context)
@@ -85,7 +85,7 @@ static void initProviderContext(ProviderContext *context)
   context->outgoing=NULL;
   context->message_definition=NULL;
   context->md5sum=NULL;
-  context->status_callback=NULL;
+  context->status_api_callback=NULL;
   context->api_callback=NULL;
   context->msg_queue=NULL;
   context->context=NULL;
@@ -321,8 +321,8 @@ cRosErrCodePack cRosNodeServiceProviderCallback(void *context_)
 void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
 {
   ProviderContext *context = (ProviderContext *)context_;
-  if(context->status_callback != NULL) // If the application defined a status callback function, call it
-    context->status_callback(status, context->context);
+  if(context->status_api_callback != NULL) // If the application defined a status callback function, call it
+    context->status_api_callback(status, context->context);
 }
 
 cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period,
@@ -333,12 +333,15 @@ cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service
   ProviderContext *nodeContext = NULL;
   int svcidx;
 
+  if(loop_period >= 0 && callback == NULL)
+    return CROS_BAD_PARAM_ERR;
+
   getSrvFilePath(node, path, OS_MAX_PATH, service_type);
   ret_err = newProviderContext(path, CROS_SERVICE_CALLER, &nodeContext);
   if (ret_err == CROS_SUCCESS_ERR_PACK)
   {
     nodeContext->api_callback = callback;
-    nodeContext->status_callback = status_callback;
+    nodeContext->status_api_callback = status_callback;
     nodeContext->context = context;
 
     // NB: Pass the private ProviderContext to the private api, not the user context
@@ -372,12 +375,15 @@ cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *servi
   ProviderContext *nodeContext = NULL;
   int svcidx;
 
+  if (callback == NULL)
+    return CROS_BAD_PARAM_ERR;
+
   getSrvFilePath(node, path, OS_MAX_PATH, service_type);
   ret_err = newProviderContext(path, CROS_SERVICE_PROVIDER, &nodeContext);
   if (ret_err == CROS_SUCCESS_ERR_PACK)
   {
     nodeContext->api_callback = callback;
-    nodeContext->status_callback = status_callback;
+    nodeContext->status_api_callback = status_callback;
     nodeContext->context = context;
 
     // NB: Pass the private ProviderContext to the private api, not the user context
@@ -429,7 +435,7 @@ cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name
   if (ret_err == CROS_SUCCESS_ERR_PACK)
   {
     nodeContext->api_callback = callback;
-    nodeContext->status_callback = status_callback;
+    nodeContext->status_api_callback = status_callback;
     nodeContext->context = context;
 
   // NB: Pass the private ProviderContext to the private api, not the user context
@@ -478,12 +484,15 @@ cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name,
   ProviderContext *nodeContext = NULL;
   int pubidx;
 
+  if(loop_period >= 0 && callback == NULL)
+    return CROS_BAD_PARAM_ERR;
+
   cRosGetMsgFilePath(node, path, OS_MAX_PATH, topic_type);
   ret_err = newProviderContext(path, CROS_PUBLISHER, &nodeContext);
   if (ret_err == CROS_SUCCESS_ERR_PACK)
   {
     nodeContext->api_callback = callback;
-    nodeContext->status_callback = status_callback;
+    nodeContext->status_api_callback = status_callback;
     nodeContext->context = context;
 
     // NB: Pass the private ProviderContext to the private api, not the user context

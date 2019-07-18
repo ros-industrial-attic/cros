@@ -173,7 +173,7 @@ struct ParameterSubscription
   char *parameter_key;
   XmlrpcParam parameter_value;
   void *context;
-  NodeStatusApiCallback status_callback;
+  NodeStatusApiCallback status_api_callback;
 };
 
 /*! \brief CrosNode object. Don't modify its internal members: use the related functions instead */

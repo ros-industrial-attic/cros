@@ -2554,7 +2554,7 @@ cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatu
   ParameterSubscription *sub = &node->paramsubs[paramsubidx];
   sub->parameter_key = parameter_key;
   sub->context = context;
-  sub->status_callback = callback;
+  sub->status_api_callback = callback;
 
   node->n_paramsubs++;
 
@@ -3798,7 +3798,7 @@ void initParameterSubscrition(ParameterSubscription *subscription)
 {
   subscription->parameter_key = NULL;
   xmlrpcParamInit(&subscription->parameter_value);
-  subscription->status_callback = NULL;
+  subscription->status_api_callback = NULL;
   subscription->context = NULL;
 }
 
