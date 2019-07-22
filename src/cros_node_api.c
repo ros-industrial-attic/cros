@@ -359,7 +359,7 @@ int cRosApiParseResponse( CrosNode *n, int client_idx )
           status.provider_idx = paramsubidx;
           status.parameter_key = subscription->parameter_key;
           status.parameter_value = value;
-          cRosNodeStatusCallback(&status, subscription->context); // calls the parameter-subscriber application-defined status callback function (if specified when creating the publisher).
+          subscription->status_api_callback(&status, subscription->context); // calls the parameter-subscriber application-defined status callback function (if specified when creating the publisher).
 
           ret = 0;
           xmlrpcParamRelease(&subscription->parameter_value);
@@ -971,7 +971,7 @@ int cRosApiParseRequestPrepareResponse( CrosNode *n, int server_idx )
         status.provider_idx = it;
         status.parameter_key = parameter_key;
         status.parameter_value = value_param;
-        cRosNodeStatusCallback(&status, subscription->context); // calls the parameter-subscriber-status application-defined callback function (if specified when creating the subscriber).
+        subscription->status_api_callback(&status, subscription->context); // calls the parameter-subscriber-status application-defined callback function (if specified when creating the subscriber).
 
         XmlrpcParam param;
         int rc = xmlrpcParamCopy(&param, value_param);

@@ -228,7 +228,7 @@ static void handleApiCallAttempt(CrosNode *node, RosApiCall *call)
       ParameterSubscription *subscription = &node->paramsubs[call->provider_idx];
       status.state = CROS_STATUS_PARAM_UNSUBSCRIBED;
       status.parameter_key = subscription->parameter_key;
-      cRosNodeStatusCallback(&status, subscription->context);
+      subscription->status_api_callback(&status, subscription->context);
 
       // Finally release parameter subscription
       cRosNodeReleaseParameterSubscrition(subscription);
@@ -2566,8 +2566,10 @@ cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatu
     node->n_paramsubs--;
     return CROS_MEM_ALLOC_ERR;
   }
+
   if(paramsubidx_ptr != NULL)
     *paramsubidx_ptr = paramsubidx;
+
   return CROS_SUCCESS_ERR_PACK;
 }
 
