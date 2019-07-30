@@ -31,17 +31,20 @@
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS-node state variables
 static unsigned char exit_flag = 0; //! ROS-node loop exit flag. When set to 1 the cRosNodeStart() function exits
 
-#define MAX_TIME_STAMPS 20
-#define MAX_REPS 30
+#define MAX_TIME_STAMPS 5
+#define MAX_REPS 100000
+#define MAX_MSG_SIZE (1024*1024*100)
 
 double sub_time_stamps[MAX_TIME_STAMPS][MAX_REPS];
 size_t n_sub_time_stamps = 0;
 size_t n_sub_reps = 0;
+size_t Msg_sizes[]={1, 1024/10, 1024*10, 1024*1024, 1024*1024*100};
+size_t Msg_reps[]={100000, 100000, 100000, 1000, 100};
 
-void array_diff(double *values, size_t n_values, double *diffs)
+void array_diff(double *values, size_t n_input_values, double *diffs)
 {
   size_t n_val;
-  for (n_val = 0; n_val+1 < n_values; n_val++)
+  for (n_val = 0; n_val+1 < n_input_values; n_val++)
   {
     diffs[n_val] = values[n_val+1] - values[n_val];
   }
@@ -95,8 +98,8 @@ int store_times(const char *output_file_name)
   {
     for (n_stamp = 0; n_stamp < n_sub_time_stamps; n_stamp++)
     {
-      array_diff(sub_time_stamps[n_stamp], MAX_REPS, time_stamp_diffs); // We meause time MAX_REPS times
-      print_array(fd, time_stamp_diffs, MAX_REPS-1);
+      array_diff(sub_time_stamps[n_stamp], Msg_reps[n_stamp], time_stamp_diffs); // We meause time MAX_REPS times
+      print_array(fd, time_stamp_diffs, Msg_reps[n_stamp]-1);
     }
     fclose(fd);
     ret=0;
@@ -124,25 +127,32 @@ void compute_times(void)
   printf("\n");
 }
 
+//// CALLBACKS ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // This callback will be invoked when the subscriber receives a message
 static CallbackResponse callback_sub(cRosMessage *message, void *data_context)
 {
-  sub_time_stamps[n_sub_time_stamps][n_sub_reps++] = cRosClockTimeStampToUSec(cRosClockGetTimeStamp());
-  if(n_sub_reps >= MAX_REPS)
-  {
-    n_sub_reps=0;
-    n_sub_time_stamps++;
-  }
+  sub_time_stamps[n_sub_time_stamps][n_sub_reps] = cRosClockTimeStampToUSec(cRosClockGetTimeStamp());
 
   cRosMessageField *data_field = cRosMessageGetField(message, "data");
   if (data_field != NULL)
   {
-    printf("Heard %lu\n",strlen(data_field->data.as_string));
+    //printf("Heard %lu\n",strlen(data_field->data.as_string));
     //ROS_INFO(node, "I heard: [%s]\n", data_field->data.as_string);
+  }
+
+  n_sub_reps++;
+
+  if(n_sub_reps >= Msg_reps[n_sub_time_stamps])
+  {
+    n_sub_reps=0;
+    n_sub_time_stamps++;
+    //printf("*** %lu **\n", n_sub_time_stamps);
   }
 
   if(n_sub_time_stamps>=MAX_TIME_STAMPS)
     exit_flag = 1;
+
   return 0; // 0=success
 }
 
@@ -168,31 +178,23 @@ static CallbackResponse callback_pub(cRosMessage *message, void *data_context)
 }
 
 // This callback will be invoked when the service provider receives a service call
-static CallbackResponse callback_provider_add_two_ints(cRosMessage *request, cRosMessage *response, void* data_context)
+static CallbackResponse callback_service_provider(cRosMessage *request, cRosMessage *response, void* data_context)
 {
   sub_time_stamps[n_sub_time_stamps][n_sub_reps++] = cRosClockTimeStampToUSec(cRosClockGetTimeStamp());
-  if(n_sub_reps >= MAX_REPS)
+  if(n_sub_reps >= Msg_reps[n_sub_time_stamps])
   {
     n_sub_reps=0;
     n_sub_time_stamps++;
   }
 
-  cRosMessageField *a_field = cRosMessageGetField(request, "a");
-  cRosMessageField *b_field = cRosMessageGetField(request, "b");
-  //cRosMessageFieldsPrint(request, 0);
-
-  if(a_field != NULL && a_field != NULL)
+  cRosMessageField *name_field = cRosMessageGetField(request, "name");
+  if(name_field != NULL)
   {
-    int64_t a = a_field->data.as_int64;
-    int64_t b = b_field->data.as_int64;
-
-    int64_t response_val = a+b;
-
-    cRosMessageField *sum_field = cRosMessageGetField(response, "sum");
-    if(sum_field != NULL)
+    cRosMessageField *ok_field = cRosMessageGetField(response, "ok");
+    if(ok_field != NULL)
     {
-      sum_field->data.as_int64 = response_val;
-      //ROS_INFO(node,"Service add 2 ints. Args: {a: %lld, b: %lld}. Resp: %lld\n", (long long)a, (long long)b, (long long)response_val);
+      ok_field->data.as_uint8 = 1;
+      //ROS_INFO(node,"Service Resp: %hu\n", (unsigned short)ok_field->data.as_uint8);
     }
   }
 
@@ -202,7 +204,7 @@ static CallbackResponse callback_provider_add_two_ints(cRosMessage *request, cRo
   return 0; // 0=success
 }
 
-static CallbackResponse callback_caller_add_two_ints(cRosMessage *request, cRosMessage *response, int call_resp_flag, void* context)
+static CallbackResponse callback_service_caller(cRosMessage *request, cRosMessage *response, int call_resp_flag, void* context)
 {
   static int call_count = 0;
 
@@ -312,7 +314,7 @@ static int set_signal_handler(void)
 
 int main(int argc, char **argv)
 {
-  char path[4097]; // We need to tell our node where to find the .msg files that we'll be using
+  char path[4097]; // We need to tell our node where to find the .msg files that it will be using
   const char *node_name;
   int subidx, pubidx, calleridx; // Index (identifier) of the subscriber, publisher and service caller to be created
 
@@ -336,7 +338,7 @@ int main(int argc, char **argv)
     node_name = "/node_caller";
   else
   {
-    printf("Invalid option");
+    printf("Invalid option\n");
     return EXIT_FAILURE;
   }
 
@@ -379,8 +381,8 @@ int main(int argc, char **argv)
   }
   else if (op_mode == 'r')
   {
-    // Create a service provider named /sum of type "roscpp_tutorials/TwoInts" and supply a callback for received calls
-    err_cod = cRosApiRegisterServiceProvider(node,"/sum","roscpp_tutorials/TwoInts", callback_provider_add_two_ints, NULL, NULL, NULL);
+    // Create a service provider named /bulk of type "controller_manager_msgs/LoadController.srv" and supply a callback for received calls
+    err_cod = cRosApiRegisterServiceProvider(node,"/bulk","controller_manager_msgs/LoadController", callback_service_provider, NULL, NULL, NULL);
     if(err_cod != CROS_SUCCESS_ERR_PACK)
     {
       cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceProvider() failed; did you run this program one directory above 'rosdb'?");
@@ -413,45 +415,56 @@ int main(int argc, char **argv)
     data_field = cRosMessageGetField(msg, "data");
     if (data_field != NULL)
     {
-      char buf[1024*MAX_TIME_STAMPS+1]={0};
+      static char buf[MAX_MSG_SIZE+1];
       int pub_count;
 
+      memset(buf,' ',MAX_MSG_SIZE+1);
+      for (pub_count = 0; pub_count < MAX_TIME_STAMPS; pub_count++)
+        buf[Msg_sizes[pub_count]]='\0'; // Previously set end of string for all message sizes
+
+
+
+      data_field->data.as_string = buf;
+
       printf("Publishing strings...\n");
-      cRosMessageSetFieldValueString(data_field, buf);
+      //cRosMessageSetFieldValueString(data_field, buf);
       err_cod = cRosNodeStart( node, 200, &exit_flag );
       for (pub_count = 0; pub_count < MAX_TIME_STAMPS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; pub_count++)
       {
         int rep_count;
-        //snprintf(buf, sizeof(buf), "hello world %d", pub_count);
-        memset(buf+1024*pub_count,' ',1024);
-        cRosMessageSetFieldValueString(data_field, buf);
-        for(rep_count=0;rep_count<MAX_REPS && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
+        printf("Publishing %lu bytes %lu times\n", strlen(buf),Msg_reps[pub_count]);
+        //cRosMessageSetFieldValueString(data_field, buf);
+        for(rep_count=0;rep_count<Msg_reps[pub_count] && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
         {
           err_cod = cRosNodeSendTopicMsg(node, pubidx, msg, 1000);
           if (err_cod == CROS_SUCCESS_ERR_PACK)
           {
-            printf("Published string %d\n", pub_count);
+            //printf("Published string %d\n", pub_count);
             //err_cod = cRosNodeStart( node, 400, &exit_flag );
           }
           else
             cRosPrintErrCodePack(err_cod, "cRosNodeSendTopicMsg() failed: message not sent");
         }
+        buf[Msg_sizes[pub_count]]=' ';
       }
       printf("End of message publication.\n");
+      data_field->data.as_string = NULL; // Prevent cRosMessageFree from trying to free the char array
 
     }
     else
       printf("Error accessing message fields\n");
 
     cRosMessageFree(msg);
+    cRosNodeStart( node, 20000, &exit_flag );
+
   }
   else if (op_mode == 'c')
   {
     cRosMessage *msg_req, msg_res;
-    cRosMessageField *a_field, *b_field;
+    cRosMessageField *name_field;
 
-    // Create a service caller named /sum of type "roscpp_tutorials/TwoInts" and request that the associated callback be invoked every 200ms (5Hz)
-    err_cod = cRosApiRegisterServiceCaller(node,"/sum","roscpp_tutorials/TwoInts", -1, NULL, NULL, NULL, 1, 1, &calleridx); // callback_caller_add_two_ints
+    // Create a service caller named /bulk of type "controller_manager_msgs/LoadController.srv" and request that the associated callback
+    err_cod = cRosApiRegisterServiceCaller(node,"/bulk","controller_manager_msgs/LoadController", -1, NULL, NULL, NULL, 1, 1, &calleridx);
     if(err_cod != CROS_SUCCESS_ERR_PACK)
     {
       cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceCaller() failed; did you run this program one directory above 'rosdb'?");
@@ -463,11 +476,10 @@ int main(int argc, char **argv)
     msg_req = cRosApiCreateServiceCallerRequest(node, calleridx);
     cRosMessageInit(&msg_res);
 
-    a_field = cRosMessageGetField(msg_req, "a");
-    b_field = cRosMessageGetField(msg_req, "b");
-    if (a_field != NULL && b_field != NULL)
+    name_field = cRosMessageGetField(msg_req, "name");
+    if (name_field != NULL)
     {
-      char buf[1024*MAX_TIME_STAMPS+1]={0};
+      static char buf[MAX_MSG_SIZE+1]={0};
       int call_count = 0;
 
       printf("Calling service...\n");
@@ -477,17 +489,18 @@ int main(int argc, char **argv)
       {
         int rep_count;
         //snprintf(buf, sizeof(buf), "hello world %d", call_count);
-        memset(buf+1024*call_count,' ',1024);
+        memset(buf,' ',Msg_sizes[call_count]);
 
-        a_field->data.as_int64 = call_count;
-        b_field->data.as_int64 = 10;
+        cRosMessageSetFieldValueString(name_field, buf);
 
         for(rep_count=0;rep_count<MAX_REPS && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
         {
           err_cod = cRosNodeServiceCall(node, calleridx, msg_req, &msg_res, 5000);
           if (err_cod == CROS_SUCCESS_ERR_PACK)
           {
-            printf("Called service %d\n", call_count);
+            cRosMessageField *ok_field;
+            ok_field = cRosMessageGetField(msg_req, "name");
+            printf("Called service %d: %i\n", call_count, ok_field->data.as_uint8);
             //err_cod = cRosNodeStart( node, 1000, &exit_flag );
           }
           else
@@ -525,7 +538,7 @@ int main(int argc, char **argv)
 
   if(op_mode == 's' || op_mode == 'r')
   {
-    compute_times();
+    //compute_times();
     store_times("times.txt");
   }
 
