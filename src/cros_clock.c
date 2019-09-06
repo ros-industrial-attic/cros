@@ -97,7 +97,7 @@ int64_t cRosClockGetTimeStamp(void)
   int fn_ret_val;
   fn_ret_val = clock_gettime(CLOCK_MONOTONIC, &time_stamp_init);
   if (fn_ret_val == 0) // clock_gettime success
-    time_stamp_ret = time_stamp_init.tv_sec * 1000000000L + time_stamp_init.tv_nsec;
+    time_stamp_ret = time_stamp_init.tv_sec * 1000000000LL + time_stamp_init.tv_nsec;
   else
     time_stamp_ret = 0;
 #endif

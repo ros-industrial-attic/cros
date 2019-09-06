@@ -1,4 +1,4 @@
-/*! \file listener.c
+/*! \file performance-tesp.cpp
  *  \brief This file implements a cROS program for measuring the performance of the cROS library.
  *
  *  To exit safely press Ctrl-C or 'kill' the process once. If this actions are repeated, the process
@@ -31,15 +31,40 @@
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS-node state variables
 static unsigned char exit_flag = 0; //! ROS-node loop exit flag. When set to 1 the cRosNodeStart() function exits
 
-#define MAX_TIME_STAMPS 5
-#define MAX_REPS 100000
+#define MAX_TIME_STAMPS 6
+#define MAX_REPS 1000000
 #define MAX_MSG_SIZE (1024*1024*100)
 
-double sub_time_stamps[MAX_TIME_STAMPS][MAX_REPS];
+double **sub_time_stamps;
 size_t n_sub_time_stamps = 0;
 size_t n_sub_reps = 0;
-size_t Msg_sizes[]={1, 1024/10, 1024*10, 1024*1024, 1024*1024*100};
-size_t Msg_reps[]={100000, 100000, 100000, 1000, 100};
+size_t Msg_sizes[]={1, 1, 1024/10, 1024*10, 1024*1024, 1024*1024*100};
+size_t Msg_reps[]={1000000, 1000000, 100000, 100000, 1000, 100};
+
+double **allocate_heterogeneous_2d_array(size_t n_sub_arrays, size_t *sub_array_sizes)
+{
+  double **array_2d;
+  size_t n_total_elems, cur_sub_array_ind;
+
+  n_total_elems=0;
+  for(cur_sub_array_ind=0;cur_sub_array_ind<n_sub_arrays;cur_sub_array_ind++)
+    n_total_elems+=sub_array_sizes[cur_sub_array_ind];
+
+  array_2d = (double **)malloc(sizeof(double *)*n_sub_arrays + sizeof(double)*n_total_elems);
+  if(array_2d != NULL)
+  {
+    double *cur_sub_array_pos;
+
+    cur_sub_array_pos = (double *)(array_2d+n_sub_arrays);
+    for(cur_sub_array_ind=0;cur_sub_array_ind<n_sub_arrays;cur_sub_array_ind++)
+    {
+      array_2d[cur_sub_array_ind] = cur_sub_array_pos;
+      cur_sub_array_pos += sub_array_sizes[cur_sub_array_ind];
+    }
+  }
+
+  return array_2d;
+}
 
 void array_diff(double *values, size_t n_input_values, double *diffs)
 {
@@ -98,7 +123,7 @@ int store_times(const char *output_file_name)
   {
     for (n_stamp = 0; n_stamp < n_sub_time_stamps; n_stamp++)
     {
-      array_diff(sub_time_stamps[n_stamp], Msg_reps[n_stamp], time_stamp_diffs); // We meause time MAX_REPS times
+      array_diff(sub_time_stamps[n_stamp], Msg_reps[n_stamp], time_stamp_diffs); // We measure time MAX_REPS times
       print_array(fd, time_stamp_diffs, Msg_reps[n_stamp]-1);
     }
     fclose(fd);
@@ -312,16 +337,210 @@ static int set_signal_handler(void)
   }
 #endif
 
+cRosErrCodePack run_topic_subscriber(void)
+{
+  cRosErrCodePack err_cod;
+  int subidx; // Index (identifier) of the subscriber to be created
+
+  // Create a subscriber to topic /chatter of type "std_msgs/String" and supply a callback for received messages (callback_sub)
+  err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, &subidx);
+  if (err_cod == CROS_SUCCESS_ERR_PACK)
+  {
+    // Run the main loop until exit_flag is 1
+    err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
+    if(err_cod != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
+  }
+  else
+  {
+    cRosPrintErrCodePack(err_cod, "cRosApiRegisterSubscriber() failed.");
+  }
+  return err_cod;
+}
+
+cRosErrCodePack run_service_provider(void)
+{
+  cRosErrCodePack err_cod;
+
+  // Create a service provider named /bulk of type "controller_manager_msgs/LoadController.srv" and supply a callback for received calls
+  err_cod = cRosApiRegisterServiceProvider(node,"/bulk","controller_manager_msgs/LoadController", callback_service_provider, NULL, NULL, NULL);
+  if(err_cod == CROS_SUCCESS_ERR_PACK)
+  {
+    // Run the main loop until exit_flag is 1
+    err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
+    if(err_cod != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
+  }
+  else
+  {
+    cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceProvider() failed; did you run this program one directory above 'rosdb'?");
+  }
+
+  return err_cod;
+}
+
+cRosErrCodePack run_topic_publisher(void)
+{
+  cRosErrCodePack err_cod;
+  cRosMessage *msg;
+  cRosMessageField *data_field;
+  int pubidx; // Index (identifier) of the publisher to be created
+
+  // Create a publisher to topic /chatter of type "std_msgs/String"
+  err_cod = cRosApiRegisterPublisher(node, "/chatter", "std_msgs/String", -1, NULL, NULL, NULL, &pubidx); // callback_pub
+  if (err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "cRosApiRegisterPublisher() failed; did you run this program one directory above 'rosdb'?");
+    cRosNodeDestroy(node);
+    return err_cod;
+  }
+
+  msg = cRosApiCreatePublisherMessage(node, pubidx);
+  // Popullate msg
+  data_field = cRosMessageGetField(msg, "data");
+  if (data_field != NULL)
+  {
+    static char buf[MAX_MSG_SIZE+1];
+    int pub_count;
+
+    memset(buf,' ',MAX_MSG_SIZE+1);
+    for (pub_count = 0; pub_count < MAX_TIME_STAMPS; pub_count++)
+      buf[Msg_sizes[pub_count]]='\0'; // Previously set end of string for all message sizes
+
+
+
+    data_field->data.as_string = buf;
+
+    printf("Publishing strings...\n");
+    //cRosMessageSetFieldValueString(data_field, buf);
+    err_cod = cRosNodeStart( node, 200, &exit_flag );
+    for (pub_count = 0; pub_count < MAX_TIME_STAMPS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; pub_count++)
+    {
+      int rep_count;
+      printf("Publishing %lu bytes %lu times\n", strlen(buf),Msg_reps[pub_count]);
+      //cRosMessageSetFieldValueString(data_field, buf);
+      for(rep_count=0;rep_count<Msg_reps[pub_count] && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
+      {
+        err_cod = cRosNodeSendTopicMsg(node, pubidx, msg, 1000);
+        if (err_cod == CROS_SUCCESS_ERR_PACK)
+        {
+          //printf("Published string %d\n", pub_count);
+          //err_cod = cRosNodeStart( node, 400, &exit_flag );
+        }
+        else
+          cRosPrintErrCodePack(err_cod, "cRosNodeSendTopicMsg() failed: message not sent");
+      }
+      if(pub_count+1 < MAX_TIME_STAMPS && Msg_sizes[pub_count] < Msg_sizes[pub_count+1])
+        buf[Msg_sizes[pub_count]]=' ';
+    }
+    printf("End of message publication.\n");
+    data_field->data.as_string = NULL; // Prevent cRosMessageFree from trying to free the char array
+
+  }
+  else
+    printf("Error accessing message fields\n");
+
+  cRosMessageFree(msg);
+
+  if (err_cod == CROS_SUCCESS_ERR_PACK)
+  {
+    err_cod = cRosNodeStart( node, 20000, &exit_flag );
+    if(err_cod != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
+  }
+
+  return err_cod;
+}
+
+cRosErrCodePack run_service_caller(void)
+{
+  cRosErrCodePack err_cod;
+  cRosMessage *msg_req, msg_res;
+  cRosMessageField *name_field;
+  int calleridx; // Index (identifier) of the service caller to be created
+
+
+  // Create a service caller named /bulk of type "controller_manager_msgs/LoadController.srv" and request that the associated callback
+  err_cod = cRosApiRegisterServiceCaller(node,"/bulk","controller_manager_msgs/LoadController", -1, NULL, NULL, NULL, 1, 1, &calleridx);
+  if(err_cod != CROS_SUCCESS_ERR_PACK)
+  {
+    cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceCaller() failed; did you run this program one directory above 'rosdb'?");
+    cRosNodeDestroy( node );
+    return err_cod;
+  }
+
+
+  msg_req = cRosApiCreateServiceCallerRequest(node, calleridx);
+  cRosMessageInit(&msg_res);
+
+  name_field = cRosMessageGetField(msg_req, "name");
+  if (name_field != NULL)
+  {
+    static char buf[MAX_MSG_SIZE+1]={0};
+    int call_count = 0;
+
+    printf("Calling service...\n");
+
+    err_cod = cRosNodeStart( node, 200, &exit_flag );
+    for (call_count = 0; call_count < MAX_TIME_STAMPS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; call_count++)
+    {
+      int rep_count;
+      //snprintf(buf, sizeof(buf), "hello world %d", call_count);
+      memset(buf,' ',Msg_sizes[call_count]);
+
+      cRosMessageSetFieldValueString(name_field, buf);
+
+      for(rep_count=0;rep_count<MAX_REPS && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
+      {
+        err_cod = cRosNodeServiceCall(node, calleridx, msg_req, &msg_res, 5000);
+        if (err_cod == CROS_SUCCESS_ERR_PACK)
+        {
+          cRosMessageField *ok_field;
+          ok_field = cRosMessageGetField(msg_req, "name");
+          printf("Called service %d: %i\n", call_count, ok_field->data.as_uint8);
+          //err_cod = cRosNodeStart( node, 1000, &exit_flag );
+        }
+        else
+          cRosPrintErrCodePack(err_cod, "cRosNodeServiceCall() failed: service call not made");
+      }
+    }
+
+  }
+  else
+    printf("Error accessing message fields\n");
+
+
+  cRosMessageFree(msg_req);
+  cRosMessageRelease(&msg_res);
+
+  printf("End of service call.\n");
+
+  // Run the main loop until exit_flag is 1
+  if (err_cod == CROS_SUCCESS_ERR_PACK)
+  {
+    err_cod = cRosNodeStart( node, 200, &exit_flag );
+    if(err_cod != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
+  }
+
+  return err_cod;
+}
+
+
 int main(int argc, char **argv)
 {
   char path[4097]; // We need to tell our node where to find the .msg files that it will be using
   const char *node_name;
-  int subidx, pubidx, calleridx; // Index (identifier) of the subscriber, publisher and service caller to be created
 
   cRosErrCodePack err_cod;
   int op_mode;
 
-  getcwd(path, sizeof(path));
+  if(getcwd(path, sizeof(path)) == NULL)
+  {
+    perror("Could not get current directory");
+    return EXIT_FAILURE;
+  }
+
   strncat(path, DIR_SEPARATOR_STR"rosdb", sizeof(path) - strlen(path) - 1);
 
   printf("PATH ROSDB: %s\n", path);
@@ -342,11 +561,19 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
+  sub_time_stamps = allocate_heterogeneous_2d_array(MAX_TIME_STAMPS, Msg_reps);
+  if(sub_time_stamps == NULL)
+  {
+    printf("Cannot allocate memory for the time stamps\n");
+    return EXIT_FAILURE;
+  }
+
   // Create a new node and tell it to connect to roscore in the usual place
   node = cRosNodeCreate(node_name, "127.0.0.1", ROS_MASTER_ADDRESS, ROS_MASTER_PORT, path);
   if( node == NULL )
   {
     printf("cRosNodeCreate() failed; is this program already being run?");
+    free(sub_time_stamps);
     return EXIT_FAILURE;
   }
 
@@ -354,6 +581,7 @@ int main(int argc, char **argv)
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "Port %s:%hu cannot be opened: ROS Master does not seems to be running", ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
+    free(sub_time_stamps);
     return EXIT_FAILURE;
   }
 
@@ -364,164 +592,19 @@ int main(int argc, char **argv)
 
   if (op_mode == 's')
   {
-    // Create a subscriber to topic /chatter of type "std_msgs/String" and supply a callback for received messages (callback_sub)
-    err_cod = cRosApiRegisterSubscriber(node, "/chatter", "std_msgs/String", callback_sub, NULL, NULL, 0, &subidx);
-    if (err_cod != CROS_SUCCESS_ERR_PACK)
-    {
-      cRosPrintErrCodePack(err_cod, "cRosApiRegisterSubscriber() failed; did you run this program one directory above 'rosdb'?");
-      cRosNodeDestroy(node);
-      return EXIT_FAILURE;
-    }
-
-    // Run the main loop until exit_flag is 1
-    err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
-    if(err_cod != CROS_SUCCESS_ERR_PACK)
-      cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
-
+    err_cod = run_topic_subscriber();
   }
   else if (op_mode == 'r')
   {
-    // Create a service provider named /bulk of type "controller_manager_msgs/LoadController.srv" and supply a callback for received calls
-    err_cod = cRosApiRegisterServiceProvider(node,"/bulk","controller_manager_msgs/LoadController", callback_service_provider, NULL, NULL, NULL);
-    if(err_cod != CROS_SUCCESS_ERR_PACK)
-    {
-      cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceProvider() failed; did you run this program one directory above 'rosdb'?");
-      cRosNodeDestroy( node );
-      return EXIT_FAILURE;
-    }
-
-    // Run the main loop until exit_flag is 1
-    err_cod = cRosNodeStart( node, CROS_INFINITE_TIMEOUT, &exit_flag );
-    if(err_cod != CROS_SUCCESS_ERR_PACK)
-      cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
-
+    err_cod = run_service_provider();
   }
   else if (op_mode == 'p')
   {
-    cRosMessage *msg;
-    cRosMessageField *data_field;
-
-    // Create a publisher to topic /chatter of type "std_msgs/String"
-    err_cod = cRosApiRegisterPublisher(node, "/chatter", "std_msgs/String", -1, NULL, NULL, NULL, &pubidx); // callback_pub
-    if (err_cod != CROS_SUCCESS_ERR_PACK)
-    {
-      cRosPrintErrCodePack(err_cod, "cRosApiRegisterPublisher() failed; did you run this program one directory above 'rosdb'?");
-      cRosNodeDestroy(node);
-      return EXIT_FAILURE;
-    }
-
-    msg = cRosApiCreatePublisherMessage(node, pubidx);
-    // Popullate msg
-    data_field = cRosMessageGetField(msg, "data");
-    if (data_field != NULL)
-    {
-      static char buf[MAX_MSG_SIZE+1];
-      int pub_count;
-
-      memset(buf,' ',MAX_MSG_SIZE+1);
-      for (pub_count = 0; pub_count < MAX_TIME_STAMPS; pub_count++)
-        buf[Msg_sizes[pub_count]]='\0'; // Previously set end of string for all message sizes
-
-
-
-      data_field->data.as_string = buf;
-
-      printf("Publishing strings...\n");
-      //cRosMessageSetFieldValueString(data_field, buf);
-      err_cod = cRosNodeStart( node, 200, &exit_flag );
-      for (pub_count = 0; pub_count < MAX_TIME_STAMPS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; pub_count++)
-      {
-        int rep_count;
-        printf("Publishing %lu bytes %lu times\n", strlen(buf),Msg_reps[pub_count]);
-        //cRosMessageSetFieldValueString(data_field, buf);
-        for(rep_count=0;rep_count<Msg_reps[pub_count] && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
-        {
-          err_cod = cRosNodeSendTopicMsg(node, pubidx, msg, 1000);
-          if (err_cod == CROS_SUCCESS_ERR_PACK)
-          {
-            //printf("Published string %d\n", pub_count);
-            //err_cod = cRosNodeStart( node, 400, &exit_flag );
-          }
-          else
-            cRosPrintErrCodePack(err_cod, "cRosNodeSendTopicMsg() failed: message not sent");
-        }
-        buf[Msg_sizes[pub_count]]=' ';
-      }
-      printf("End of message publication.\n");
-      data_field->data.as_string = NULL; // Prevent cRosMessageFree from trying to free the char array
-
-    }
-    else
-      printf("Error accessing message fields\n");
-
-    cRosMessageFree(msg);
-    cRosNodeStart( node, 20000, &exit_flag );
-
+    err_cod = run_topic_publisher();
   }
   else if (op_mode == 'c')
   {
-    cRosMessage *msg_req, msg_res;
-    cRosMessageField *name_field;
-
-    // Create a service caller named /bulk of type "controller_manager_msgs/LoadController.srv" and request that the associated callback
-    err_cod = cRosApiRegisterServiceCaller(node,"/bulk","controller_manager_msgs/LoadController", -1, NULL, NULL, NULL, 1, 1, &calleridx);
-    if(err_cod != CROS_SUCCESS_ERR_PACK)
-    {
-      cRosPrintErrCodePack(err_cod, "cRosApiRegisterServiceCaller() failed; did you run this program one directory above 'rosdb'?");
-      cRosNodeDestroy( node );
-      return EXIT_FAILURE;
-    }
-
-
-    msg_req = cRosApiCreateServiceCallerRequest(node, calleridx);
-    cRosMessageInit(&msg_res);
-
-    name_field = cRosMessageGetField(msg_req, "name");
-    if (name_field != NULL)
-    {
-      static char buf[MAX_MSG_SIZE+1]={0};
-      int call_count = 0;
-
-      printf("Calling service...\n");
-
-      err_cod = cRosNodeStart( node, 200, &exit_flag );
-      for (call_count = 0; call_count < MAX_TIME_STAMPS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; call_count++)
-      {
-        int rep_count;
-        //snprintf(buf, sizeof(buf), "hello world %d", call_count);
-        memset(buf,' ',Msg_sizes[call_count]);
-
-        cRosMessageSetFieldValueString(name_field, buf);
-
-        for(rep_count=0;rep_count<MAX_REPS && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
-        {
-          err_cod = cRosNodeServiceCall(node, calleridx, msg_req, &msg_res, 5000);
-          if (err_cod == CROS_SUCCESS_ERR_PACK)
-          {
-            cRosMessageField *ok_field;
-            ok_field = cRosMessageGetField(msg_req, "name");
-            printf("Called service %d: %i\n", call_count, ok_field->data.as_uint8);
-            //err_cod = cRosNodeStart( node, 1000, &exit_flag );
-          }
-          else
-            cRosPrintErrCodePack(err_cod, "cRosNodeServiceCall() failed: service call not made");
-        }
-      }
-
-    }
-    else
-      printf("Error accessing message fields\n");
-
-
-    cRosMessageFree(msg_req);
-    cRosMessageRelease(&msg_res);
-
-    printf("End of service call.\n");
-
-    // Run the main loop until exit_flag is 1
-    err_cod = cRosNodeStart( node, 200, &exit_flag );
-    if(err_cod != CROS_SUCCESS_ERR_PACK)
-      cRosPrintErrCodePack(err_cod, "cRosNodeStart() returned an error code");
+    err_cod = run_service_caller();
   }
 
 
@@ -531,6 +614,7 @@ int main(int argc, char **argv)
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unregistering from ROS master");
+    free(sub_time_stamps);
     return EXIT_FAILURE;
   }
 
@@ -542,5 +626,6 @@ int main(int argc, char **argv)
     store_times("times.txt");
   }
 
+  free(sub_time_stamps);
   return EXIT_SUCCESS;
 }
