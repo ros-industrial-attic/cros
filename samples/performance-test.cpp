@@ -31,17 +31,17 @@
 CrosNode *node; //! Pointer to object storing the ROS node. This object includes all the ROS-node state variables
 static unsigned char exit_flag = 0; //! ROS-node loop exit flag. When set to 1 the cRosNodeStart() function exits
 
-#define MAX_TIME_STAMPS 6
-#define MAX_REPS 1000000
+double **Time_stamps;
+size_t N_measure_exper = 0;
+size_t N_measure_rep = 0;
+size_t Msg_sizes[]={1, 1, 1024/10, 1024*10, 1024*1024, 1024*1024*100};
+size_t Measure_reps[]={1000000, 1000000, 100000, 100000, 1000, 100};
+
+#define TOTAL_MEASURE_EXPERS (sizeof(Measure_reps)/sizeof(size_t))
+#define MAX_MEASURE_REPS 1000000
 #define MAX_MSG_SIZE (1024*1024*100)
 
-double **sub_time_stamps;
-size_t n_sub_time_stamps = 0;
-size_t n_sub_reps = 0;
-size_t Msg_sizes[]={1, 1, 1024/10, 1024*10, 1024*1024, 1024*1024*100};
-size_t Msg_reps[]={1000000, 1000000, 100000, 100000, 1000, 100};
-
-double **allocate_heterogeneous_2d_array(size_t n_sub_arrays, size_t *sub_array_sizes)
+double **allocate_heter_2d_array(size_t n_sub_arrays, const size_t *sub_array_sizes)
 {
   double **array_2d;
   size_t n_total_elems, cur_sub_array_ind;
@@ -66,16 +66,12 @@ double **allocate_heterogeneous_2d_array(size_t n_sub_arrays, size_t *sub_array_
   return array_2d;
 }
 
-void array_diff(double *values, size_t n_input_values, double *diffs)
+void free_heter_2d_array(double **array_2d)
 {
-  size_t n_val;
-  for (n_val = 0; n_val+1 < n_input_values; n_val++)
-  {
-    diffs[n_val] = values[n_val+1] - values[n_val];
-  }
+  free(array_2d);
 }
 
-int print_array(FILE *out_fd, double *values, size_t n_values)
+int print_array(FILE *out_fd, const double *values, size_t n_values)
 {
   size_t n_val;
   int tot_chars;
@@ -88,44 +84,18 @@ int print_array(FILE *out_fd, double *values, size_t n_values)
   return(tot_chars);
 }
 
-double array_mean(double *values, size_t n_values)
+int store_heter_2d_array(const char *output_file_name, const double * const *array_2d, size_t n_sub_arrays, const size_t *sub_array_sizes)
 {
-  size_t n_val;
-  double val_sum=0.0;
-  for (n_val = 0; n_val < n_values; n_val++)
-    val_sum+=values[n_val];
-  return(val_sum/n_values);
-}
-
-// corrected = 1 for a Corrected sample standard deviation or =0 for a Uncorrected sample standard deviation
-double array_std_dev(double *values, size_t n_values, int corrected)
-{
-  size_t n_val;
-  double sq_sum=0.0;
-  double mean = array_mean(values, n_values);
-  for (n_val = 0; n_val < n_values; n_val++)
-  {
-    double val_diff = values[n_val]-mean;
-    sq_sum+=val_diff*val_diff;
-  }
-  return( sqrt(sq_sum/(n_values-corrected)) );
-}
-
-int store_times(const char *output_file_name)
-{
-  size_t n_stamp;
   FILE *fd;
   int ret;
-  double time_stamp_diffs[MAX_REPS-1];
 
   fd=fopen(output_file_name, "wt");
   if(fd != NULL)
   {
-    for (n_stamp = 0; n_stamp < n_sub_time_stamps; n_stamp++)
-    {
-      array_diff(sub_time_stamps[n_stamp], Msg_reps[n_stamp], time_stamp_diffs); // We measure time MAX_REPS times
-      print_array(fd, time_stamp_diffs, Msg_reps[n_stamp]-1);
-    }
+    size_t n_sub_array;
+    for (n_sub_array = 0; n_sub_array < n_sub_arrays; n_sub_array++)
+      print_array(fd, array_2d[n_sub_array], sub_array_sizes[n_sub_array]);
+
     fclose(fd);
     ret=0;
   }
@@ -134,30 +104,13 @@ int store_times(const char *output_file_name)
   return(ret);
 }
 
-void compute_times(void)
-{
-  size_t n_stamp;
-  double time_stamp_diffs[MAX_REPS-1];
-  printf("Mean and std.dev. pairs of time differences between reception times: ");
-  for (n_stamp = 0; n_stamp < n_sub_time_stamps; n_stamp++)
-  {
-    double mean, std_dev;
-    array_diff(sub_time_stamps[n_stamp], MAX_REPS, time_stamp_diffs); // We meause time MAX_REPS times
-    mean = array_mean(time_stamp_diffs, MAX_REPS-1); // So, we only have MAX_REPS-1 time differences to average
-
-    std_dev = array_std_dev(time_stamp_diffs, MAX_REPS-1, 1); // 1 for corrected sample standard deviation
-
-    printf("%f %f   ", mean, std_dev);
-  }
-  printf("\n");
-}
 
 //// CALLBACKS ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // This callback will be invoked when the subscriber receives a message
 static CallbackResponse callback_sub(cRosMessage *message, void *data_context)
 {
-  sub_time_stamps[n_sub_time_stamps][n_sub_reps] = cRosClockTimeStampToUSec(cRosClockGetTimeStamp());
+  Time_stamps[N_measure_exper][N_measure_rep] = cRosClockTimeStampToUSec(cRosClockGetTimeStamp());
 
   cRosMessageField *data_field = cRosMessageGetField(message, "data");
   if (data_field != NULL)
@@ -166,16 +119,16 @@ static CallbackResponse callback_sub(cRosMessage *message, void *data_context)
     //ROS_INFO(node, "I heard: [%s]\n", data_field->data.as_string);
   }
 
-  n_sub_reps++;
+  N_measure_rep++;
 
-  if(n_sub_reps >= Msg_reps[n_sub_time_stamps])
+  if(N_measure_rep >= Measure_reps[N_measure_exper])
   {
-    n_sub_reps=0;
-    n_sub_time_stamps++;
-    //printf("*** %lu **\n", n_sub_time_stamps);
+    N_measure_rep=0;
+    N_measure_exper++;
+    //printf("*** %lu **\n", N_measure_exper);
   }
 
-  if(n_sub_time_stamps>=MAX_TIME_STAMPS)
+  if(N_measure_exper>=TOTAL_MEASURE_EXPERS)
     exit_flag = 1;
 
   return 0; // 0=success
@@ -205,11 +158,11 @@ static CallbackResponse callback_pub(cRosMessage *message, void *data_context)
 // This callback will be invoked when the service provider receives a service call
 static CallbackResponse callback_service_provider(cRosMessage *request, cRosMessage *response, void* data_context)
 {
-  sub_time_stamps[n_sub_time_stamps][n_sub_reps++] = cRosClockTimeStampToUSec(cRosClockGetTimeStamp());
-  if(n_sub_reps >= Msg_reps[n_sub_time_stamps])
+  Time_stamps[N_measure_exper][N_measure_rep++] = cRosClockTimeStampToUSec(cRosClockGetTimeStamp());
+  if(N_measure_rep >= Measure_reps[N_measure_exper])
   {
-    n_sub_reps=0;
-    n_sub_time_stamps++;
+    N_measure_rep=0;
+    N_measure_exper++;
   }
 
   cRosMessageField *name_field = cRosMessageGetField(request, "name");
@@ -223,7 +176,7 @@ static CallbackResponse callback_service_provider(cRosMessage *request, cRosMess
     }
   }
 
-  if(n_sub_time_stamps>=MAX_TIME_STAMPS)
+  if(N_measure_exper>=TOTAL_MEASURE_EXPERS)
   exit_flag = 1;
 
   return 0; // 0=success
@@ -404,7 +357,7 @@ cRosErrCodePack run_topic_publisher(void)
     int pub_count;
 
     memset(buf,' ',MAX_MSG_SIZE+1);
-    for (pub_count = 0; pub_count < MAX_TIME_STAMPS; pub_count++)
+    for (pub_count = 0; pub_count < TOTAL_MEASURE_EXPERS; pub_count++)
       buf[Msg_sizes[pub_count]]='\0'; // Previously set end of string for all message sizes
 
 
@@ -414,12 +367,12 @@ cRosErrCodePack run_topic_publisher(void)
     printf("Publishing strings...\n");
     //cRosMessageSetFieldValueString(data_field, buf);
     err_cod = cRosNodeStart( node, 200, &exit_flag );
-    for (pub_count = 0; pub_count < MAX_TIME_STAMPS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; pub_count++)
+    for (pub_count = 0; pub_count < TOTAL_MEASURE_EXPERS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; pub_count++)
     {
       int rep_count;
-      printf("Publishing %lu bytes %lu times\n", strlen(buf),Msg_reps[pub_count]);
+      printf("Publishing %lu bytes %lu times\n", strlen(buf),Measure_reps[pub_count]);
       //cRosMessageSetFieldValueString(data_field, buf);
-      for(rep_count=0;rep_count<Msg_reps[pub_count] && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
+      for(rep_count=0;rep_count<Measure_reps[pub_count] && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
       {
         err_cod = cRosNodeSendTopicMsg(node, pubidx, msg, 1000);
         if (err_cod == CROS_SUCCESS_ERR_PACK)
@@ -430,7 +383,7 @@ cRosErrCodePack run_topic_publisher(void)
         else
           cRosPrintErrCodePack(err_cod, "cRosNodeSendTopicMsg() failed: message not sent");
       }
-      if(pub_count+1 < MAX_TIME_STAMPS && Msg_sizes[pub_count] < Msg_sizes[pub_count+1])
+      if(pub_count+1 < TOTAL_MEASURE_EXPERS && Msg_sizes[pub_count] < Msg_sizes[pub_count+1])
         buf[Msg_sizes[pub_count]]=' ';
     }
     printf("End of message publication.\n");
@@ -482,7 +435,7 @@ cRosErrCodePack run_service_caller(void)
     printf("Calling service...\n");
 
     err_cod = cRosNodeStart( node, 200, &exit_flag );
-    for (call_count = 0; call_count < MAX_TIME_STAMPS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; call_count++)
+    for (call_count = 0; call_count < TOTAL_MEASURE_EXPERS && err_cod == CROS_SUCCESS_ERR_PACK && exit_flag == 0; call_count++)
     {
       int rep_count;
       //snprintf(buf, sizeof(buf), "hello world %d", call_count);
@@ -490,7 +443,7 @@ cRosErrCodePack run_service_caller(void)
 
       cRosMessageSetFieldValueString(name_field, buf);
 
-      for(rep_count=0;rep_count<MAX_REPS && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
+      for(rep_count=0;rep_count<MAX_MEASURE_REPS && err_cod == CROS_SUCCESS_ERR_PACK;rep_count++)
       {
         err_cod = cRosNodeServiceCall(node, calleridx, msg_req, &msg_res, 5000);
         if (err_cod == CROS_SUCCESS_ERR_PACK)
@@ -561,8 +514,8 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  sub_time_stamps = allocate_heterogeneous_2d_array(MAX_TIME_STAMPS, Msg_reps);
-  if(sub_time_stamps == NULL)
+  Time_stamps = allocate_heter_2d_array(TOTAL_MEASURE_EXPERS, Measure_reps);
+  if(Time_stamps == NULL)
   {
     printf("Cannot allocate memory for the time stamps\n");
     return EXIT_FAILURE;
@@ -573,7 +526,7 @@ int main(int argc, char **argv)
   if( node == NULL )
   {
     printf("cRosNodeCreate() failed; is this program already being run?");
-    free(sub_time_stamps);
+    free_heter_2d_array(Time_stamps);
     return EXIT_FAILURE;
   }
 
@@ -581,7 +534,7 @@ int main(int argc, char **argv)
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "Port %s:%hu cannot be opened: ROS Master does not seems to be running", ROS_MASTER_ADDRESS, ROS_MASTER_PORT);
-    free(sub_time_stamps);
+    free_heter_2d_array(Time_stamps);
     return EXIT_FAILURE;
   }
 
@@ -614,18 +567,17 @@ int main(int argc, char **argv)
   if(err_cod != CROS_SUCCESS_ERR_PACK)
   {
     cRosPrintErrCodePack(err_cod, "cRosNodeDestroy() failed; Error unregistering from ROS master");
-    free(sub_time_stamps);
+    free_heter_2d_array(Time_stamps);
     return EXIT_FAILURE;
   }
 
-  printf("Node end. Current n_sub_time_stamps: %lu n_sub_reps: %lu.\n", n_sub_time_stamps, n_sub_reps);
+  printf("Node end. Current N_measure_exper: %lu N_measure_rep: %lu.\n", N_measure_exper, N_measure_rep);
 
   if(op_mode == 's' || op_mode == 'r')
   {
-    //compute_times();
-    store_times("times.txt");
+    store_heter_2d_array("times.txt", Time_stamps, TOTAL_MEASURE_EXPERS, Measure_reps);
   }
 
-  free(sub_time_stamps);
+  free_heter_2d_array(Time_stamps);
   return EXIT_SUCCESS;
 }
