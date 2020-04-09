@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "cros_gentools.h"
 #include "cros_message.h"
 #include "cros_message_internal.h"
@@ -10,19 +11,25 @@
 
 char* cRosGentoolsMD5(char* filename)
 {
-	char* filename_tokenized = (char*)malloc(strlen(filename)+1);
+	char* filename_tokenized = (char *)malloc(strlen(filename)+1);
 	strcpy(filename_tokenized, filename);
 	strtok(filename_tokenized, ".");
 	char* file_ext = strtok(NULL,".");
 
 	if(strcmp(file_ext,FILEEXT_MSG) == 0)
 	{
-	  cRosMessage msg;
-	  cRosMessageInit(&msg);
-	  cRosMessageBuild(&msg,filename);
-	  char *md5sum = calloc(strlen(msg.md5sum)+1,sizeof(char));
-	  strcpy(md5sum,msg.md5sum);
-	  cRosMessageRelease(&msg);
+	  char *md5sum;
+	  cRosMessage *msg=NULL;
+	  cRosMessageNewBuild(NULL, filename, &msg);
+	  if(msg != NULL)
+      {
+	    md5sum = (char *)calloc(strlen(msg->md5sum)+1,sizeof(char));
+	    if(md5sum != NULL)
+  	      strcpy(md5sum,msg->md5sum);
+        cRosMessageFree(msg);
+      }
+      else
+        md5sum=NULL;
 	  return md5sum;
 	}
 
@@ -31,8 +38,9 @@ char* cRosGentoolsMD5(char* filename)
       cRosService srv;
       cRosServiceInit(&srv);
       cRosServiceBuild(&srv,filename);
-      char *md5sum = calloc(strlen(srv.md5sum)+1,sizeof(char));
-      strcpy(md5sum,srv.md5sum);
+      char *md5sum = (char *)calloc(strlen(srv.md5sum)+1,sizeof(char));
+      if(md5sum != NULL)
+        strcpy(md5sum,srv.md5sum);
       cRosServiceRelease(&srv);
       return md5sum;
 	}
@@ -52,7 +60,7 @@ int cRosGentoolsFulltext(char* filename)
 {
 	char* full_text = NULL;;
 
-	char* filename_tokenized = (char*)malloc(strlen(filename)+1);
+	char* filename_tokenized = (char *)malloc(strlen(filename)+1);
 	strcpy(filename_tokenized, filename);
 	strtok(filename_tokenized, ".");
 	char* file_ext = strtok(NULL,".");

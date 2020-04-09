@@ -7,14 +7,14 @@ cmake_policy(SET CMP0015 NEW)
 execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion
                 OUTPUT_VARIABLE GCC_VERSION)
 
-set(CMAKE_C_FLAGS "-Wall -Wno-unused -Wno-strict-aliasing -Wno-unused-but-set-variable")
+set(CMAKE_C_FLAGS "-Wall -Wno-unused")
 if (GCC_VERSION VERSION_GREATER 4.8 OR GCC_VERSION VERSION_EQUAL 4.8)
-  set(CMAKE_C_FLAGS_DEBUG "-g -pg -DDEBUG -fsanitize=address")
+  set(CMAKE_C_FLAGS_DEBUG "-g -pg -DDEBUG -fsanitize=address -static-libasan")
 else()
   set(CMAKE_C_FLAGS_DEBUG "-g -pg -DDEBUG")
 endif()
 
-set(LINK_FLAGS_DEBUG_DEBUG "-pg")
+set(LINK_FLAGS_DEBUG "-pg")
 set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG -O1")
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin) 
 

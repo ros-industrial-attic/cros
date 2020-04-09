@@ -1,11 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "cros_api_call.h"
 #include "cros_defs.h"
 
-RosApiCall * newRosApiCall()
+RosApiCall * newRosApiCall(void)
 {
   RosApiCall *ret = (RosApiCall *)malloc(sizeof(RosApiCall));
   ret->id = -1;
@@ -46,7 +45,7 @@ RosApiCall * peekApiCallQueue(ApiCallQueue *queue)
 
 int enqueueApiCall(ApiCallQueue *queue, RosApiCall* apiCall)
 {
-  ApiCallNode* node = malloc(sizeof(ApiCallNode));
+  ApiCallNode *node = (ApiCallNode *)malloc(sizeof(ApiCallNode));
 
   if(node == NULL)
   {

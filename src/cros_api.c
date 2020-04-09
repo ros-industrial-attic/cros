@@ -1,7 +1,6 @@
 #include <stdlib.h>
-
-#include <assert.h>
 #include <string.h>
+#include <limits.h> // for PATH_MAX
 
 #include "cros_defs.h"
 #include "cros_api.h"
@@ -9,7 +8,14 @@
 #include "cros_message_internal.h"
 #include "cros_service.h"
 #include "cros_service_internal.h"
+#include "cros_message_queue.h"
 #include "xmlrpc_process.h"
+
+#ifdef _WIN32
+#  define OS_MAX_PATH _MAX_PATH
+#else
+#  define OS_MAX_PATH PATH_MAX
+#endif
 
 static LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response);
 static GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *response);
@@ -55,242 +61,487 @@ typedef enum ProviderType
 {
   CROS_SUBSCRIBER,
   CROS_PUBLISHER,
+  CROS_SERVICE_CALLER,
   CROS_SERVICE_PROVIDER
 } ProviderType;
 
 typedef struct ProviderContext
 {
-  ProviderType type;
-  cRosMessage *incoming;
-  cRosMessage *outgoing;
+  ProviderType type; //! Type of role: provider, subscriber, service provider or service caller
+  cRosMessage *incoming; //! Message that has been received
+  cRosMessage *outgoing; //! Message that will be sent
   char *message_definition;
   char *md5sum;
-  NodeStatusCallback status_callback;
-  void *api_callback;
-  void *context;
-  int unregistering;
+  void *api_callback; //! The application-defined callback function called to generate outgoing data or to handle the received data
+  NodeStatusApiCallback status_api_callback; //! The application-defined callback function called when the state of the role has chnaged
+  cRosMessageQueue *msg_queue; //! It is just a reference to the queue declared in node. For the publisher: it is msgs to send. For the subscriber: it is msgs received. For the svc caller: it is first svc request and then svc response
+  void *context; //! Context parameter specified by the application and that will be passed to the application-defined callback functions
 } ProviderContext;
+
+static void initProviderContext(ProviderContext *context)
+{
+  context->type=-1;
+  context->incoming=NULL;
+  context->outgoing=NULL;
+  context->message_definition=NULL;
+  context->md5sum=NULL;
+  context->status_api_callback=NULL;
+  context->api_callback=NULL;
+  context->msg_queue=NULL;
+  context->context=NULL;
+}
 
 static void freeProviderContext(ProviderContext *context)
 {
-  cRosMessageFree(context->incoming);
-  cRosMessageFree(context->outgoing);
-  free(context->md5sum);
-  free(context);
+  if(context != NULL)
+  {
+    cRosMessageFree(context->incoming);
+    cRosMessageFree(context->outgoing);
+    free(context->message_definition);
+    free(context->md5sum);
+    free(context);
+  }
 }
 
-static ProviderContext * newProviderContext(const char *provider_path, ProviderType type)
+static cRosErrCodePack newProviderContext(const char *provider_path, ProviderType type, ProviderContext **context_ptr)
 {
-  ProviderContext *context = (ProviderContext *)calloc(1, sizeof(ProviderContext));
+  cRosErrCodePack ret_err;
+
+  ret_err = CROS_SUCCESS_ERR_PACK; // Default return value: success
+
+  ProviderContext *context = (ProviderContext *)malloc(sizeof(ProviderContext));
   if (context == NULL)
-    goto clean;
+    return CROS_MEM_ALLOC_ERR;
 
+  initProviderContext(context);
   context->type = type;
-  context->md5sum = (char*) calloc(1, 33);// 32 chars + '\0';
+  context->md5sum = (char *)calloc(sizeof(char), 33);// 32 chars + '\0';
   if (context->md5sum == NULL)
-    goto clean;
+  {
+    free(context);
+    return CROS_MEM_ALLOC_ERR;
+  }
 
-  int rc;
   switch(type)
   {
     case CROS_SUBSCRIBER:
     {
-      context->incoming = cRosMessageNew();
-      if (context->incoming == NULL)
-        goto clean;
-
-      rc = cRosMessageBuild(context->incoming, provider_path);
-      if (rc != 0)
-        goto clean;
-
-      strcpy(context->md5sum, context->incoming->md5sum);
-      context->message_definition = context->incoming->msgDef->plain_text;
+      ret_err = cRosMessageNewBuild(NULL, provider_path, &context->incoming);
+      if (ret_err == CROS_SUCCESS_ERR_PACK)
+      {
+        strcpy(context->md5sum, context->incoming->md5sum);
+        context->message_definition = strdup(context->incoming->msgDef->plain_text); // Alloc new mem so that it can be freed independently
+      }
       break;
     }
     case CROS_PUBLISHER:
     {
-      context->outgoing = cRosMessageNew();
-      if (context->outgoing == NULL)
-        goto clean;
-
-      rc = cRosMessageBuild(context->outgoing, provider_path);
-      if (rc != 0)
-        goto clean;
-
-      strcpy(context->md5sum, context->outgoing->md5sum);
-      context->message_definition = context->outgoing->msgDef->plain_text;
+      ret_err = cRosMessageNewBuild(NULL, provider_path, &context->outgoing);
+      if (ret_err == CROS_SUCCESS_ERR_PACK)
+      {
+        strcpy(context->md5sum, context->outgoing->md5sum);
+        context->message_definition = strdup(context->outgoing->msgDef->plain_text);
+      }
       break;
     }
     case CROS_SERVICE_PROVIDER:
     {
-      context->incoming = cRosMessageNew();
-      if (context->incoming == NULL)
-        goto clean;
-      context->outgoing = cRosMessageNew();
-      if (context->outgoing == NULL)
-        goto clean;
-
-      rc = cRosServiceBuildInner(context->incoming, context->outgoing, context->md5sum, provider_path);
-      if (rc != 0)
-        goto clean;
-
+      ret_err = cRosServiceBuildInner(&context->incoming, &context->outgoing, NULL, context->md5sum, provider_path);
+      break;
+    }
+    case CROS_SERVICE_CALLER:
+    {
+      ret_err = cRosServiceBuildInner(&context->outgoing, &context->incoming, &context->message_definition, context->md5sum, provider_path);
       break;
     }
     default:
-      assert(0);
+    {
+      PRINT_ERROR ( "newProviderContext() : Unknown ProviderType specified\n" );
+      ret_err = CROS_BAD_PARAM_ERR;
+    }
   }
 
-  return context;
+  if(ret_err == CROS_SUCCESS_ERR_PACK)
+    *context_ptr = context; // No error occurred: return the created context
+  else
+    freeProviderContext(context); // An error occurred: free the allocated memory and return the error code
 
-clean:
-  freeProviderContext(context);
-  return NULL;
+  return ret_err;
 }
 
-static CallbackResponse cRosNodePublisherCallback(DynBuffer *buffer, void* context_)
+cRosErrCodePack cRosNodeSerializeOutgoingMessage(DynBuffer *buffer, void *context_)
 {
+  cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)context_;
 
-  // Cast to the appropriate public api callback and invoke it on the user context
-  PublisherApiCallback publisherApiCallback = (SubscriberApiCallback)context->api_callback;
-  CallbackResponse rc = publisherApiCallback(context->outgoing, context->context);
-
-  cRosMessageSerialize(context->outgoing, buffer);
-
-  return rc;
+  ret_err = cRosMessageSerialize(context->outgoing, buffer);
+  return(ret_err);
 }
 
-static CallbackResponse cRosNodeSubscriberCallback(DynBuffer *buffer, void* context_)
+cRosErrCodePack cRosNodeDeserializeIncomingPacket(DynBuffer *buffer, void *context_)
 {
+  cRosErrCodePack ret_err;
   ProviderContext *context = (ProviderContext *)context_;
-  cRosMessageDeserialize(context->incoming, buffer);
 
-  // Cast to the appropriate public api callback and invoke it on the user context
-  SubscriberApiCallback subscriberApiCallback = (SubscriberApiCallback)context->api_callback;
-  return subscriberApiCallback(context->incoming, context->context);
+  ret_err = cRosMessageDeserialize(context->incoming, buffer);
+  return(ret_err);
 }
 
-static CallbackResponse cRosNodeServiceProviderCallback(DynBuffer *request, DynBuffer *response, void* contex_)
+cRosErrCodePack cRosNodePublisherCallback(void *context_)
 {
+  cRosErrCodePack ret_err;
+  ProviderContext *context = (ProviderContext *)context_;
+
+  ret_err = CROS_SUCCESS_ERR_PACK; // Default return value
+
+  if(cRosMessageQueueUsage(context->msg_queue) > 0) // An inmediate message is waiting to be sent
+  {
+    if(cRosMessageQueueExtract(context->msg_queue, context->outgoing) != 0)
+      ret_err = CROS_EXTRACT_MSG_INT_ERR;
+  }
+  else // It is time to send a periodic message
+  {
+    CallbackResponse ret_cb;
+
+    // Cast to the appropriate public api callback and invoke it on the user context
+    PublisherApiCallback publisher_user_callback = (PublisherApiCallback)context->api_callback;
+    if(publisher_user_callback != NULL)
+    {
+      ret_cb = publisher_user_callback(context->outgoing, context->context); // Use the callback if it is available and no msg is waiting in the queue
+      if(ret_cb != 0)
+        ret_err = CROS_TOP_PUB_CALLBACK_ERR;
+    }
+  }
+
+  if(ret_err != CROS_SUCCESS_ERR_PACK)
+    cRosPrintErrCodePack(ret_err, "cRosNodePublisherCallback() failed encoding the packet to send");
+
+  return ret_err;
+}
+
+cRosErrCodePack cRosNodeSubscriberCallback(void *context_)
+{
+  cRosErrCodePack ret_err;
+  ProviderContext *context = (ProviderContext *)context_;
+  cRosMessageQueueAdd(context->msg_queue, context->incoming);
+
+  // Cast to the appropriate public api callback and invoke it on the user context
+  SubscriberApiCallback subs_user_callback_fn = (SubscriberApiCallback)context->api_callback;
+  if(subs_user_callback_fn != NULL)
+  {
+    CallbackResponse ret_cb = subs_user_callback_fn(context->incoming, context->context);
+    if(ret_cb == 0)
+      ret_err = CROS_SUCCESS_ERR_PACK;
+    else
+      ret_err = CROS_TOP_SUB_CALLBACK_ERR;
+  }
+  else
+    ret_err = CROS_SUCCESS_ERR_PACK;
+
+  return ret_err;
+}
+
+cRosErrCodePack cRosNodeServiceCallerCallback(int call_resp_flag, void* contex_)
+{
+  cRosErrCodePack ret_err;
+  CallbackResponse ret_cb;
+  ServiceCallerApiCallback svc_call_user_callback_fn;
   ProviderContext *context = (ProviderContext *)contex_;
-  cRosMessageDeserialize(context->incoming, request);
+
+  svc_call_user_callback_fn = (ServiceCallerApiCallback)context->api_callback;
+
+  if(call_resp_flag) // Process service response
+  {
+    // If msg_queue is empty, this is a periodic call (send msg response to callback fn), otherwise this is a non-periodic call (put msg response in the queue)
+    if(cRosMessageQueueUsage(context->msg_queue) == 0) // Periodic service call
+    {
+      if(svc_call_user_callback_fn != NULL)
+      {
+        ret_cb = svc_call_user_callback_fn(context->outgoing, context->incoming, call_resp_flag, context->context);
+        if(ret_cb != 0) // The callback indicated and error in the return value when processing the service response
+          ret_err=CROS_SVC_RES_CALLBACK_ERR;
+        else
+          ret_err = CROS_SUCCESS_ERR_PACK;
+      }
+      else
+        ret_err = CROS_SUCCESS_ERR_PACK;
+    }
+    else // Non-periodic service call
+    {
+      if(cRosMessageQueueAdd(context->msg_queue, context->incoming) == 0) // Add response msg to the queue (in case the svc was called non periodically)
+        ret_err = CROS_SUCCESS_ERR_PACK; // A new message has been aded to the queue to later store the received response
+      else
+        ret_err = CROS_MEM_ALLOC_ERR;
+    }
+    if(ret_err != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(ret_err, "cRosNodeServiceCallerCallback() failed decoding the received service response packet");
+  }
+  else // Generate service request
+  {
+    // If msg_queue is empty, this is a periodic call (get the msg request from the callback fn), otherwise this is a non-periodic call (get msg request from the queue)
+    if(cRosMessageQueueUsage(context->msg_queue) == 0) // Periodic service call
+    {
+      if(svc_call_user_callback_fn != NULL)
+      {
+        ret_cb = svc_call_user_callback_fn(context->outgoing, context->incoming, call_resp_flag, context->context);
+        if(ret_cb == 0) // The callback returned success when generating the service request: send the service request
+          ret_err = CROS_SUCCESS_ERR_PACK;
+        else // The callback indicated and error in the return value when generating the service request
+          ret_err = CROS_SVC_REQ_CALLBACK_ERR;
+      }
+      else
+        ret_err = CROS_SUCCESS_ERR_PACK;
+    }
+    else // Non-periodic service call
+      ret_err = (cRosMessageQueueGet(context->msg_queue, context->outgoing) == 0)?CROS_SUCCESS_ERR_PACK:CROS_EXTRACT_MSG_INT_ERR; // Copy the message request from the queue msg
+
+    if(ret_err != CROS_SUCCESS_ERR_PACK)
+      cRosPrintErrCodePack(ret_err, "cRosNodeServiceCallerCallback() failed getting the service request packet");
+  }
+
+  return ret_err;
+}
+
+cRosErrCodePack cRosNodeServiceProviderCallback(void *context_)
+{
+  cRosErrCodePack ret_err;
+  ProviderContext *context = (ProviderContext *)context_;
 
   ServiceProviderApiCallback serviceProviderApiCallback = (ServiceProviderApiCallback)context->api_callback;
-  CallbackResponse rc = serviceProviderApiCallback(context->incoming, context->outgoing, context->context);
+  CallbackResponse ret_cb = serviceProviderApiCallback(context->incoming, context->outgoing, context->context);
 
-  cRosMessageSerialize(context->outgoing, response);
+  if(ret_cb == 0)
+    ret_err = CROS_SUCCESS_ERR_PACK;
+  else
+    ret_err = CROS_SVC_SER_CALLBACK_ERR;
 
-  return rc;
+  return ret_err;
 }
 
-static void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
+void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_)
 {
   ProviderContext *context = (ProviderContext *)context_;
-  context->status_callback(status, context->context);
-  if (context->unregistering)
-    freeProviderContext(context);
+  if(context->status_api_callback != NULL) // If the application defined a status callback function, call it
+    context->status_api_callback(status, context->context);
 }
 
-int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
-                                   ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context)
+cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period,
+                                   ServiceCallerApiCallback callback, NodeStatusApiCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr)
 {
-  char path[256];
-  getSrvFilePath(node, path, 256, service_type);
-  ProviderContext *nodeContext = newProviderContext(path, CROS_SERVICE_PROVIDER);
-  if (nodeContext == NULL)
-    return -1;
+  cRosErrCodePack ret_err;
+  char path[OS_MAX_PATH];
+  ProviderContext *nodeContext = NULL;
+  int svcidx;
 
-  nodeContext->api_callback = callback;
-  nodeContext->status_callback = status_callback;
-  nodeContext->context = context;
+  if(loop_period >= 0 && callback == NULL)
+    return CROS_BAD_PARAM_ERR;
+
+  getSrvFilePath(node, path, OS_MAX_PATH, service_type);
+  ret_err = newProviderContext(path, CROS_SERVICE_CALLER, &nodeContext);
+  if (ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    nodeContext->api_callback = callback;
+    nodeContext->status_api_callback = status_callback;
+    nodeContext->context = context;
+
+    // NB: Pass the private ProviderContext to the private api, not the user context
+    svcidx = cRosNodeRegisterServiceCaller(node, nodeContext->message_definition, service_name, service_type, nodeContext->md5sum,
+                                           loop_period, nodeContext, persistent, tcp_nodelay);
+    if(svcidx >= 0) // Success
+    {
+      if(svcidx_ptr != NULL)
+        *svcidx_ptr = svcidx; // Return the index of the created service caller
+      nodeContext->msg_queue = &node->service_callers[svcidx].msg_queue;
+    }
+    else
+      ret_err=CROS_MEM_ALLOC_ERR;
+  }
+  return ret_err;
+}
+
+void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx)
+{
+  ServiceCallerNode *svc = &node->service_callers[svcidx];
+  ProviderContext *context = (ProviderContext *)svc->context;
+  freeProviderContext(context);
+  cRosNodeReleaseServiceCaller(svc);
+}
+
+cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type,
+                                   ServiceProviderApiCallback callback, NodeStatusApiCallback status_callback, void *context, int *svcidx_ptr)
+{
+  cRosErrCodePack ret_err;
+  char path[OS_MAX_PATH];
+  ProviderContext *nodeContext = NULL;
+  int svcidx;
+
+  if (callback == NULL)
+    return CROS_BAD_PARAM_ERR;
+
+  getSrvFilePath(node, path, OS_MAX_PATH, service_type);
+  ret_err = newProviderContext(path, CROS_SERVICE_PROVIDER, &nodeContext);
+  if (ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    nodeContext->api_callback = callback;
+    nodeContext->status_api_callback = status_callback;
+    nodeContext->context = context;
+
+    // NB: Pass the private ProviderContext to the private api, not the user context
+    svcidx = cRosNodeRegisterServiceProvider(node, service_name, service_type, nodeContext->md5sum, nodeContext);
+    if(svcidx >= 0) // Success
+    {
+        if(svcidx_ptr != NULL)
+            *svcidx_ptr = svcidx; // Return the index of the created service provider
+    }
+    else
+        ret_err=CROS_MEM_ALLOC_ERR;
+  }
+  return ret_err;
+}
+
+cRosErrCodePack cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx)
+{
+  int ret_err;
+  if (svcidx < 0 || svcidx >= CN_MAX_SERVICE_PROVIDERS)
+    return CROS_BAD_PARAM_ERR;
+
+  ServiceProviderNode *service = &node->service_providers[svcidx];
+  if (service->service_name == NULL)
+    return CROS_TOPIC_SUB_IND_ERR;
+
+  ret_err = cRosNodeUnregisterServiceProvider(node, svcidx);
+
+  return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;
+}
+
+void cRosApiReleaseServiceProvider(CrosNode *node, int svcidx)
+{
+  ServiceProviderNode *svc = &node->service_providers[svcidx];
+  ProviderContext *context = (ProviderContext *)svc->context;
+  freeProviderContext(context);
+  cRosNodeReleaseServiceProvider(svc);
+}
+
+cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type,
+                              SubscriberApiCallback callback, NodeStatusApiCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr)
+{
+  cRosErrCodePack ret_err;
+  char path[OS_MAX_PATH];
+  ProviderContext *nodeContext = NULL;
+  int subidx;
+
+  cRosGetMsgFilePath(node, path, OS_MAX_PATH, topic_type);
+  ret_err = newProviderContext(path, CROS_SUBSCRIBER, &nodeContext);
+  if (ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    nodeContext->api_callback = callback;
+    nodeContext->status_api_callback = status_callback;
+    nodeContext->context = context;
 
   // NB: Pass the private ProviderContext to the private api, not the user context
-  int rc = cRosNodeRegisterServiceProvider(node, service_name, service_type, nodeContext->md5sum,
-                                           cRosNodeServiceProviderCallback, cRosNodeStatusCallback,
-                                           nodeContext);
-  return rc;
+    subidx = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
+                                  nodeContext->md5sum, nodeContext, tcp_nodelay);
+    if(subidx >= 0) // Success
+    {
+      nodeContext->msg_queue = &node->subs[subidx].msg_queue; // Allow the callback functions to access the msg queue
+      if(subidx_ptr != NULL)
+        *subidx_ptr = subidx; // Return the index of the created service caller
+    }
+    else
+      ret_err=CROS_MEM_ALLOC_ERR;
+  }
+  return ret_err;
 }
 
-int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx)
+cRosErrCodePack cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
 {
-  ServiceProviderNode *service = &node->services[svcidx];
-  ProviderContext *context = (ProviderContext *)service->context;
-  int rc = cRosNodeUnregisterSubscriber(node, svcidx);
-  if (rc != -1)
-    context->unregistering = 1;
+  int ret_err;
+  if (subidx < 0 || subidx >= CN_MAX_SUBSCRIBED_TOPICS)
+    return CROS_BAD_PARAM_ERR;
 
-  return rc;
+  SubscriberNode *sub = &node->subs[subidx];
+  if (sub->topic_name == NULL)
+    return CROS_TOPIC_SUB_IND_ERR;
+
+  ret_err = cRosNodeUnregisterSubscriber(node, subidx);
+
+  return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;
 }
 
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type,
-                              SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context)
-{
-  char path[256];
-  cRosGetMsgFilePath(node, path, 256, topic_type);
-  ProviderContext *nodeContext = newProviderContext(path, CROS_SUBSCRIBER);
-  if (nodeContext == NULL)
-    return -1;
-
-  nodeContext->api_callback = callback;
-  nodeContext->status_callback = status_callback;
-  nodeContext->context = context;
-
-  // NB: Pass the private ProviderContext to the private api, not the user context
-  int rc = cRosNodeRegisterSubscriber(node, nodeContext->message_definition, topic_name, topic_type,
-                                  nodeContext->md5sum, cRosNodeSubscriberCallback,
-                                  status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
-  return rc;
-}
-
-int cRosApiUnregisterSubscriber(CrosNode *node, int subidx)
+void cRosApiReleaseSubscriber(CrosNode *node, int subidx)
 {
   SubscriberNode *sub = &node->subs[subidx];
   ProviderContext *context = (ProviderContext *)sub->context;
-  int rc = cRosNodeUnregisterSubscriber(node, subidx);
-  if (rc != -1)
-    context->unregistering = 1;
-
-  return rc;
+  freeProviderContext(context);
+  cRosNodeReleaseSubscriber(sub);
 }
 
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period,
-                             PublisherApiCallback callback, NodeStatusCallback status_callback, void *context)
+cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period,
+                             PublisherApiCallback callback, NodeStatusApiCallback status_callback, void *context, int *pubidx_ptr)
 {
-  char path[256];
-  cRosGetMsgFilePath(node, path, 256, topic_type);
-  ProviderContext *nodeContext = newProviderContext(path, CROS_PUBLISHER);
-  if (nodeContext == NULL)
-    return -1;
+  cRosErrCodePack ret_err;
+  char path[OS_MAX_PATH];
+  ProviderContext *nodeContext = NULL;
+  int pubidx;
 
-  nodeContext->api_callback = callback;
-  nodeContext->status_callback = status_callback;
-  nodeContext->context = context;
+  if(loop_period >= 0 && callback == NULL)
+    return CROS_BAD_PARAM_ERR;
 
-  // NB: Pass the private ProviderContext to the private api, not the user context
-  int rc = cRosNodeRegisterPublisher(node, nodeContext->message_definition, topic_name, topic_type,
-                                  nodeContext->md5sum, loop_period, cRosNodePublisherCallback,
-                                  status_callback == NULL ? NULL : cRosNodeStatusCallback, nodeContext);
-  return rc;
+  cRosGetMsgFilePath(node, path, OS_MAX_PATH, topic_type);
+  ret_err = newProviderContext(path, CROS_PUBLISHER, &nodeContext);
+  if (ret_err == CROS_SUCCESS_ERR_PACK)
+  {
+    nodeContext->api_callback = callback;
+    nodeContext->status_api_callback = status_callback;
+    nodeContext->context = context;
+
+    // NB: Pass the private ProviderContext to the private api, not the user context
+    pubidx = cRosNodeRegisterPublisher(node, nodeContext->message_definition, topic_name, topic_type,
+                                  nodeContext->md5sum, loop_period, nodeContext);
+    if(pubidx >= 0) // Success
+    {
+      // Allow the callback functions to access the msg queue and send-now flag
+      nodeContext->msg_queue = &node->pubs[pubidx].msg_queue;
+      if(pubidx_ptr != NULL)
+        *pubidx_ptr = pubidx; // Return the index of the created service caller
+    }
+    else
+      ret_err=CROS_MEM_ALLOC_ERR;
+  }
+  return ret_err;
 }
 
-int cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
+cRosErrCodePack cRosApiUnregisterPublisher(CrosNode *node, int pubidx)
+{
+  int ret_err;
+  if (pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
+    return CROS_BAD_PARAM_ERR;
+
+  PublisherNode *pub = &node->pubs[pubidx];
+  if (pub->topic_name == NULL)
+    return CROS_TOPIC_PUB_IND_ERR;
+
+  ret_err = cRosNodeUnregisterPublisher(node, pubidx);
+
+  return (ret_err != -1)? CROS_SUCCESS_ERR_PACK: CROS_UNSPECIFIED_ERR;
+}
+
+void cRosApiReleasePublisher(CrosNode *node, int pubidx)
 {
   PublisherNode *pub = &node->pubs[pubidx];
   ProviderContext *context = (ProviderContext *)pub->context;
-  int rc = cRosNodeUnregisterSubscriber(node, pubidx);
-  if (rc != -1)
-    context->unregistering = 1;
-
-  return rc;
+  freeProviderContext(context);
+  cRosNodeReleasePublisher(pub);
 }
 
-int cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback callback, void *context)
+cRosErrCodePack cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApicRosApiLookupNode() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_LOOKUP_NODE;
@@ -302,16 +553,21 @@ int cRosApicRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCa
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, node_name);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback callback, void *context)
+cRosErrCodePack cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetPublishedTopics() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_PUBLISHED_TOPICS;
@@ -323,16 +579,21 @@ int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublished
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, subgraph == NULL ? "" : subgraph);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback callback, void *context)
+cRosErrCodePack cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetTopicTypes() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_TOPIC_TYPES;
@@ -343,16 +604,21 @@ int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback callback, void *c
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback callback, void *context)
+cRosErrCodePack cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetSystemState() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_SYSTEM_STATE;
@@ -363,16 +629,21 @@ int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback callback, void 
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetUri(CrosNode *node, GetUriCallback callback, void *context)
+cRosErrCodePack cRosApiGetUri(CrosNode *node, GetUriCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetUri() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_URI;
@@ -383,16 +654,21 @@ int cRosApiGetUri(CrosNode *node, GetUriCallback callback, void *context)
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback callback, void *context)
+cRosErrCodePack cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiLookupService() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_LOOKUP_SERVICE;
@@ -404,17 +680,22 @@ int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallb
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, service);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetBusStats(CrosNode *node, const char* host, int port,
-                       GetBusStatsCallback callback, void *context)
+cRosErrCodePack cRosApiGetBusStats(CrosNode *node, const char* host, int port,
+                       GetBusStatsCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetBusStats() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_BUS_STATS;
@@ -425,17 +706,22 @@ int cRosApiGetBusStats(CrosNode *node, const char* host, int port,
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueSlaveApiCall(node, call, host, port);
+  caller_id = enqueueSlaveApiCall(node, call, host, port);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetBusInfo(CrosNode *node, const char* host, int port,
-                      GetBusInfoCallback callback, void *context)
+cRosErrCodePack cRosApiGetBusInfo(CrosNode *node, const char* host, int port,
+                      GetBusInfoCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetBusInfo() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_BUS_INFO;
@@ -446,17 +732,22 @@ int cRosApiGetBusInfo(CrosNode *node, const char* host, int port,
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueSlaveApiCall(node, call, host, port);
+  caller_id = enqueueSlaveApiCall(node, call, host, port);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetMasterUri(CrosNode *node, const char* host, int port,
-                        GetMasterUriCallback callback, void *context)
+cRosErrCodePack cRosApiGetMasterUri(CrosNode *node, const char* host, int port,
+                        GetMasterUriCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_MASTER_URI;
@@ -467,17 +758,22 @@ int cRosApiGetMasterUri(CrosNode *node, const char* host, int port,
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueSlaveApiCall(node, call, host, port);
+  caller_id = enqueueSlaveApiCall(node, call, host, port);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiShutdown(CrosNode *node, const char* host, int port, const char *msg,
-                    GetMasterUriCallback callback, void *context)
+cRosErrCodePack cRosApiShutdown(CrosNode *node, const char* host, int port, const char *msg,
+                    GetMasterUriCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiShutdown() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_SHUTDOWN;
@@ -489,17 +785,22 @@ int cRosApiShutdown(CrosNode *node, const char* host, int port, const char *msg,
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, msg == NULL ? "" : msg);
 
-  return enqueueSlaveApiCall(node, call, host, port);
+  caller_id = enqueueSlaveApiCall(node, call, host, port);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetPid(CrosNode *node, const char* host, int port,
-                  GetPidCallback callback, void *context)
+cRosErrCodePack cRosApiGetPid(CrosNode *node, const char* host, int port,
+                  GetPidCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetPid() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_PID;
@@ -510,17 +811,22 @@ int cRosApiGetPid(CrosNode *node, const char* host, int port,
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueSlaveApiCall(node, call, host, port);
+  caller_id = enqueueSlaveApiCall(node, call, host, port);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetSubscriptions(CrosNode *node, const char* host, int port,
-                            GetSubscriptionsCallback callback, void *context)
+cRosErrCodePack cRosApiGetSubscriptions(CrosNode *node, const char* host, int port,
+                            GetSubscriptionsCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosNodeRegisterSubscriber() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_SUBSCRIPTIONS;
@@ -531,17 +837,22 @@ int cRosApiGetSubscriptions(CrosNode *node, const char* host, int port,
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueSlaveApiCall(node, call, host, port);
+  caller_id = enqueueSlaveApiCall(node, call, host, port);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetPublications(CrosNode *node, const char* host, int port,
-                    GetSubscriptionsCallback callback, void *context)
+cRosErrCodePack cRosApiGetPublications(CrosNode *node, const char* host, int port,
+                    GetSubscriptionsCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetPublications() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_PUBLICATIONS;
@@ -552,16 +863,22 @@ int cRosApiGetPublications(CrosNode *node, const char* host, int port,
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueSlaveApiCall(node, call, host, port);
+  caller_id = enqueueSlaveApiCall(node, call, host, port);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context)
+cRosErrCodePack cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiDeleteParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_DELETE_PARAM;
@@ -573,16 +890,22 @@ int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback call
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id=enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context)
+cRosErrCodePack cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id, vec_size;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiSetParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   XmlrpcParam param;
@@ -591,7 +914,7 @@ int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetPara
   {
     PRINT_ERROR ( "cRosApiSetParam() : Can't allocate memory\n");
     freeRosApiCall(call);
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_SET_PARAM;
@@ -602,24 +925,30 @@ int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetPara
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
-  rc = xmlrpcParamVectorPushBack(&call->params, &param);
-  if (rc == -1)
+  vec_size = xmlrpcParamVectorPushBack(&call->params, &param);
+  if (vec_size == -1)
   {
     freeRosApiCall(call);
     xmlrpcParamRelease(&param);
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
-  return enqueueMasterApiCall(node, call);
+  caller_id=enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context)
+cRosErrCodePack cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_PARAM;
@@ -631,16 +960,22 @@ int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context)
+cRosErrCodePack cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiSearchParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_SEARCH_PARAM;
@@ -652,16 +987,22 @@ int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback call
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context)
+cRosErrCodePack cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
+
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiHasParam() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_HAS_PARAM;
@@ -673,16 +1014,21 @@ int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
   xmlrpcParamVectorPushBackString(&call->params, key);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
 }
 
-int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context)
+cRosErrCodePack cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context, int *caller_id_ptr)
 {
+  int caller_id;
   RosApiCall *call = newRosApiCall();
   if (call == NULL)
   {
     PRINT_ERROR ( "cRosApiGetParamNames() : Can't allocate memory\n");
-    return -1;
+    return CROS_MEM_ALLOC_ERR;
   }
 
   call->method = CROS_API_GET_PARAM_NAMES;
@@ -693,7 +1039,56 @@ int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *c
 
   xmlrpcParamVectorPushBackString(&call->params, node->name);
 
-  return enqueueMasterApiCall(node, call);
+  caller_id = enqueueMasterApiCall(node, call);
+  if(caller_id_ptr != NULL)
+    *caller_id_ptr = caller_id;
+
+  return (caller_id != -1)? CROS_SUCCESS_ERR_PACK:CROS_MEM_ALLOC_ERR;
+}
+
+XmlrpcParam *GetMethodResponseStatus(XmlrpcParamVector *response, int *status_code, char **status_msg)
+{
+  XmlrpcParam *resp_param;
+
+  resp_param = xmlrpcParamVectorAt(response, 0);
+  if (resp_param != NULL)
+  {
+    XmlrpcParam *status_code_param;
+    status_code_param = xmlrpcParamArrayGetParamAt(resp_param, 0); // resp_param must be a vector or structure in order to be accessed by index
+    if (status_code_param != NULL)
+    {
+      if( status_code_param->type == XMLRPC_PARAM_INT )
+      {
+        XmlrpcParam *status_msg_param;
+
+        *status_code = status_code_param->data.as_int;
+        status_msg_param = xmlrpcParamArrayGetParamAt(resp_param, 1);
+        if (status_msg_param != NULL)
+        {
+          if( status_msg_param->type == XMLRPC_PARAM_STRING )
+            *status_msg = strdup(status_msg_param->data.as_string);
+          else
+            *status_msg = NULL; // status_msg = NULL: No human-readable string describing the returned status has been found
+        }
+        else
+          *status_msg = NULL; // The array or structure returned in the ROS master response does not contain a second element (the human-readable string describing the status)
+      }
+      else
+      {
+        PRINT_ERROR ( "GetMethodResponseStatus() : The status code integer cannot be found in the responsed returned by the ROS master.\n");
+        resp_param = NULL;
+      }
+    }
+    else
+    {
+      PRINT_ERROR ( "GetMethodResponseStatus() : The responsed returned by the ROS master does not contain a non-empty array or structure.\n");
+      resp_param = NULL;
+    }
+  }
+  else
+    PRINT_ERROR ( "GetMethodResponseStatus() : The ROS master returned an XML response with an unexpected format.\n");
+
+  return(resp_param);
 }
 
 LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)
@@ -702,42 +1097,52 @@ LookupNodeResult * fetchLookupNodeResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchLookupNodeResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeLookupNodeResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->uri = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret == NULL)
-    goto clean;
-  strcpy(ret->uri, uri->data.as_string);
+  ret->uri = strdup(uri->data.as_string);
+  if (ret->uri == NULL)
+  {
+    freeLookupNodeResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeLookupNodeResult(ret);
-  return NULL;
 }
 
 GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetPublishedTopicsResult *ret = (GetPublishedTopicsResult *)calloc(1, sizeof(GetPublishedTopicsResult));
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetPublishedTopicsResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetPublishedTopicsResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
   ret->topics = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
@@ -745,8 +1150,7 @@ GetPublishedTopicsResult * fetchGetPublishedTopicsResult(XmlrpcParamVector *resp
     goto clean;
   ret->topic_count = topics->array_n_elem;
 
-  int it = 0;
-  for (; it < topics->array_n_elem; it++)
+  for (it = 0; it < topics->array_n_elem; it++)
   {
     struct TopicTypePair *pair = &ret->topics[it];
     XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
@@ -772,18 +1176,25 @@ clean:
 
 GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetTopicTypesResult *ret = (GetTopicTypesResult *)calloc(1, sizeof(GetTopicTypesResult));
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetTopicTypesResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetTopicTypesResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
   ret->topics = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
@@ -791,8 +1202,7 @@ GetTopicTypesResult * fetchGetTopicTypesResult(XmlrpcParamVector *response)
     goto clean;
   ret->topic_count = topics->array_n_elem;
 
-  int it = 0;
-  for (; it < topics->array_n_elem; it++)
+  for (it = 0; it < topics->array_n_elem; it++)
   {
     struct TopicTypePair *pair = &ret->topics[it];
     XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
@@ -818,18 +1228,25 @@ clean:
 
 GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
 {
+  int it1;
+
   GetSystemStateResult *ret = (GetSystemStateResult *)calloc(1, sizeof(GetSystemStateResult));
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetSystemStateResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetSystemStateResult(ret);
+    return NULL;
+  }
 
   if (array->array_n_elem < 3)
     return ret;
@@ -840,9 +1257,10 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     goto clean;
   ret->pub_count = publishers->array_n_elem;
 
-  int it1;
   for (it1 = 0; it1 < publishers->array_n_elem; it1++)
   {
+    int it2;
+
     struct ProviderState *state = &ret->publishers[it1];
     XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(publishers, it1);
     XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
@@ -856,12 +1274,11 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     if (state->users == NULL)
       goto clean;
 
-    int it2 = 0;
-    for (; it2 < users_xml->array_n_elem; it2++)
+    for (it2 = 0; it2 < users_xml->array_n_elem; it2++)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
-      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      user = (char *)malloc(strlen(user_xml->data.as_string) + 1);
       if (user == NULL)
         goto clean;
       strcpy(user, user_xml->data.as_string);
@@ -879,6 +1296,8 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
 
   for (it1 = 0; it1 < subscribers->array_n_elem; it1++)
   {
+    int it2;
+
     struct ProviderState *state = &ret->subscribers[it1];
     XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(subscribers, it1);
     XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
@@ -892,12 +1311,11 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     if (state->users == NULL)
       goto clean;
 
-    int it2 = 0;
-    for (; it2 < users_xml->array_n_elem; it2++)
+    for (it2 = 0; it2 < users_xml->array_n_elem; it2++)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
-      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      user = (char *)malloc(strlen(user_xml->data.as_string) + 1);
       if (user == NULL)
         goto clean;
       strcpy(user, user_xml->data.as_string);
@@ -915,6 +1333,8 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
 
   for (it1 = 0; it1 < services->array_n_elem; it1++)
   {
+    int it2;
+
     struct ProviderState *state = &ret->service_providers[it1];
     XmlrpcParam* state_xml = xmlrpcParamArrayGetParamAt(services, it1);
     XmlrpcParam* name = xmlrpcParamArrayGetParamAt(state_xml, 0);
@@ -928,12 +1348,11 @@ GetSystemStateResult * fetchGetSystemStateResult(XmlrpcParamVector *response)
     if (state->users == NULL)
       goto clean;
 
-    int it2 = 0;
-    for (; it2 < users_xml->array_n_elem; it2++)
+    for (it2 = 0; it2 < users_xml->array_n_elem; it2++)
     {
       char *user = state->users[it2];
       XmlrpcParam* user_xml = xmlrpcParamArrayGetParamAt(users_xml, it2);
-      user = (char*)malloc(strlen(user_xml->data.as_string) + 1);
+      user = (char *)malloc(strlen(user_xml->data.as_string) + 1);
       if (user == NULL)
         goto clean;
       strcpy(user, user_xml->data.as_string);
@@ -953,26 +1372,29 @@ GetUriResult * fetchGetUriResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetUriResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetUriResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->master_uri = (char *)malloc(strlen(status->data.as_string) + 1);
+  ret->master_uri = strdup(uri->data.as_string);
   if (ret == NULL)
-    goto clean;
-  strcpy(ret->master_uri, uri->data.as_string);
+  {
+    freeGetUriResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeGetUriResult(ret);
-  return NULL;
 }
 
 LookupServiceResult * fetchLookupServiceResult(XmlrpcParamVector *response)
@@ -981,42 +1403,52 @@ LookupServiceResult * fetchLookupServiceResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchLookupServiceResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeLookupServiceResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* service = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->service_result = (char *)malloc(strlen(status->data.as_string) + 1);
+  ret->service_result = strdup(service->data.as_string);
   if (ret == NULL)
-    goto clean;
-  strcpy(ret->service_result, service->data.as_string);
+  {
+    freeLookupServiceResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeLookupServiceResult(ret);
-  return NULL;
 }
 
 GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
 {
+  int it1;
+
   GetBusStatsResult *ret = (GetBusStatsResult *)calloc(1, sizeof(GetBusStatsResult));
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetBusStatsResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetBusStatsResult(ret);
+    return NULL;
+  }
 
   if (array->array_n_elem < 3)
     return ret;
@@ -1027,9 +1459,10 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
     goto clean;
   ret->stats.pub_stats_count = pubs_stats->array_n_elem;
 
-  int it1;
   for (it1 = 0; it1 < pubs_stats->array_n_elem; it1++)
   {
+    int it2;
+
     struct TopicPubStats *pub_stats = &ret->stats.pub_stats[it1];
     XmlrpcParam* pub_stats_xml = xmlrpcParamArrayGetParamAt(pubs_stats, it1);
     if (pub_stats_xml->array_n_elem < 3)
@@ -1050,8 +1483,7 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
       goto clean;
     pub_stats->datas_count = pub_datas->array_n_elem;
 
-    int it2 = 0;
-    for (; it2 < pub_datas->array_n_elem; it2++)
+    for (it2 = 0; it2 < pub_datas->array_n_elem; it2++)
     {
       struct PubConnectionData *pub_data = &pub_stats->datas[it2];
       XmlrpcParam* pub_data_xml = xmlrpcParamArrayGetParamAt(pub_datas, it2);
@@ -1077,6 +1509,8 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
 
   for (it1 = 0; it1 < subs_stats->array_n_elem; it1++)
   {
+    int it2;
+
     struct TopicSubStats *sub_stats = &ret->stats.sub_stats[it1];
     XmlrpcParam *sub_stats_xml = xmlrpcParamArrayGetParamAt(subs_stats, it1);
     if (sub_stats_xml->array_n_elem < 3)
@@ -1094,8 +1528,7 @@ GetBusStatsResult * fetchGetBusStatsResult(XmlrpcParamVector *response)
       goto clean;
     sub_stats->datas_count = sub_datas->array_n_elem;
 
-    int it2 = 0;
-    for (; it2 < sub_datas->array_n_elem; it2++)
+    for (it2 = 0; it2 < sub_datas->array_n_elem; it2++)
     {
       struct SubConnectionData *sub_data = &sub_stats->datas[it2];
       XmlrpcParam *sub_data_xml = xmlrpcParamArrayGetParamAt(sub_datas, it2);
@@ -1131,18 +1564,25 @@ clean:
 
 GetBusInfoResult * fetchGetBusInfoResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetBusInfoResult *ret = (GetBusInfoResult *)calloc(1, sizeof(GetBusInfoResult));
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetBusInfoResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetBusInfoResult(ret);
+    return NULL;
+  }
 
   if (array->array_n_elem < 3)
     return ret;
@@ -1153,8 +1593,7 @@ GetBusInfoResult * fetchGetBusInfoResult(XmlrpcParamVector *response)
     goto clean;
   ret->bus_infos_count = businfos->array_n_elem;
 
-  int it = 0;
-  for (; it < businfos->array_n_elem; it++)
+  for (it = 0; it < businfos->array_n_elem; it++)
   {
     struct BusInfo *businfo = &ret->bus_infos[it];
     XmlrpcParam *businfo_xml = xmlrpcParamArrayGetParamAt(businfos, it);
@@ -1203,26 +1642,29 @@ GetMasterUriResult * fetchGetMasterUriResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return ret;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetMasterUriResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetMasterUriResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* uri = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->master_uri = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret == NULL)
-    goto clean;
-  strcpy(ret->master_uri, uri->data.as_string);
+  ret->master_uri = strdup(uri->data.as_string);
+  if (ret->master_uri == NULL)
+  {
+    freeGetMasterUriResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeGetMasterUriResult(ret);
-  return NULL;
 }
 
 ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response)
@@ -1231,23 +1673,31 @@ ShutdownResult * fetchShutdownResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchShutdownResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeShutdownResult(ret);
+    return NULL;
+  }
 
-  XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->ignore = ignore->data.as_bool;
+  XmlrpcParam *ignore = xmlrpcParamArrayGetParamAt(array, 2);
+  if(ignore != NULL)
+    ret->ignore = ignore->data.as_bool;
+  else
+  {
+    PRINT_ERROR ( "fetchShutdownResult() : The ROS master response does not contain the 'ignore' parameter.\n" );
+    freeShutdownResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeShutdownResult(ret);
-  return NULL;
 }
 
 GetPidResult * fetchGetPidResult(XmlrpcParamVector *response)
@@ -1256,38 +1706,54 @@ GetPidResult * fetchGetPidResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetPidResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetPidResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* roscore_pid_param = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->server_process_pid = roscore_pid_param->data.as_int;
-  return ret;
+  if(roscore_pid_param != NULL)
+    ret->server_process_pid = roscore_pid_param->data.as_int;
+  else
+  {
+    PRINT_ERROR ( "fetchGetPidResult() : The ROS master response does not contain the requested PID.\n" );
+    freeGetPidResult(ret);
+    return NULL;
+  }
 
-clean:
-  freeGetPidResult(ret);
-  return NULL;
+  return ret;
 }
 
 GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetSubscriptionsResult *ret = (GetSubscriptionsResult *)calloc(1, sizeof(GetSubscriptionsResult));
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetSubscriptionsResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetSubscriptionsResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
   ret->topic_list = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
@@ -1295,8 +1761,7 @@ GetSubscriptionsResult * fetchGetSubscriptionsResult(XmlrpcParamVector *response
     goto clean;
   ret->topic_count = topics->array_n_elem;
 
-  int it = 0;
-  for (; it < topics->array_n_elem; it++)
+  for (it = 0; it < topics->array_n_elem; it++)
   {
     struct TopicTypePair *pair = &ret->topic_list[it];
     XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
@@ -1322,18 +1787,25 @@ clean:
 
 GetPublicationsResult * fetchGetPublicationsResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetPublicationsResult *ret = (GetPublicationsResult *)calloc(1, sizeof(GetPublicationsResult));
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetPublicationsResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetPublicationsResult(ret);
+    return NULL;
+  }
 
   XmlrpcParam* topics = xmlrpcParamArrayGetParamAt(array, 2);
   ret->topic_list = (struct TopicTypePair *)calloc(topics->array_n_elem, sizeof(struct TopicTypePair));
@@ -1341,8 +1813,7 @@ GetPublicationsResult * fetchGetPublicationsResult(XmlrpcParamVector *response)
     goto clean;
   ret->topic_count = topics->array_n_elem;
 
-  int it = 0;
-  for (; it < topics->array_n_elem; it++)
+  for (it = 0; it < topics->array_n_elem; it++)
   {
     struct TopicTypePair *pair = &ret->topic_list[it];
     XmlrpcParam* pair_xml = xmlrpcParamArrayGetParamAt(topics, it);
@@ -1372,22 +1843,31 @@ static DeleteParamResult * fetchDeleteParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchDeleteParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeDeleteParamResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->ignore = ignore->data.as_bool;
+  if(ignore != NULL)
+    ret->ignore = ignore->data.as_bool;
+  else
+  {
+    PRINT_ERROR ( "fetchDeleteParamResult() : The ROS master response does not contain the 'ignore' parameter.\n" );
+    freeDeleteParamResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeDeleteParamResult(ret);
-  return NULL;
 }
 
 static SetParamResult * fetchSetParamResult(XmlrpcParamVector *response)
@@ -1396,22 +1876,31 @@ static SetParamResult * fetchSetParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchSetParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeSetParamResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->ignore = ignore->data.as_bool;
+  if(ignore != NULL)
+    ret->ignore = ignore->data.as_bool;
+  else
+  {
+    PRINT_ERROR ( "fetchSetParamResult() : The ROS master response does not contain the 'ignore' parameter.\n" );
+    freeSetParamResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeSetParamResult(ret);
-  return NULL;
 }
 
 static GetParamResult * fetchGetParamResult(XmlrpcParamVector *response)
@@ -1420,24 +1909,34 @@ static GetParamResult * fetchGetParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetParamResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* value = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->value = xmlrpcParamClone(value);
-  if (ret->status == NULL)
-    goto clean;
+  if( value != NULL )
+    ret->value = xmlrpcParamClone(value);
+  else
+  {
+    if(ret->code != 1) // Only if ret->code is not 1, parameterValue can be ignored.
+    {
+      PRINT_ERROR ( "fetchGetParamResult() : The ROS master response does not contain the 'parameterValue' parameter.\n" );
+      freeGetParamResult(ret);
+      return NULL;
+    }
+  }
 
   return ret;
-
-clean:
-  freeGetParamResult(ret);
-  return NULL;
 }
 
 static SearchParamResult * fetchSearchParamResult(XmlrpcParamVector *response)
@@ -1446,25 +1945,39 @@ static SearchParamResult * fetchSearchParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchSearchParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeSearchParamResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* found_key = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->found_key = (char *)malloc(strlen(found_key->data.as_string) + 1);
-  if (ret->found_key == NULL)
-    goto clean;
-  strcpy(ret->found_key, found_key->data.as_string);
+  if(found_key != NULL)
+  {
+    ret->found_key = strdup(found_key->data.as_string);
+    if(ret->found_key == NULL)
+    {
+      PRINT_ERROR ( "fetchSearchParamResult() : Error allocating memory for the 'foundKey' parameter.\n" );
+      freeSearchParamResult(ret);
+      return NULL;
+    }
+  }
+  else
+  {
+    PRINT_ERROR ( "fetchSearchParamResult() : The ROS master response does not contain the 'foundKey' parameter.\n" );
+    freeSearchParamResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeSearchParamResult(ret);
-  return NULL;
 }
 
 static HasParamResult * fetchHasParamResult(XmlrpcParamVector *response)
@@ -1473,47 +1986,63 @@ static HasParamResult * fetchHasParamResult(XmlrpcParamVector *response)
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
-  XmlrpcParam* ignore = xmlrpcParamArrayGetParamAt(array, 2);
-  ret->has_param = ignore->data.as_bool;
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchHasParamResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeHasParamResult(ret);
+    return NULL;
+  }
+
+  XmlrpcParam* has_param = xmlrpcParamArrayGetParamAt(array, 2);
+  if(has_param != NULL)
+    ret->has_param = has_param->data.as_bool;
+  else
+  {
+    PRINT_ERROR ( "fetchHasParamResult() : The ROS master response does not contain the 'has_param' parameter.\n" );
+    freeHasParamResult(ret);
+    return NULL;
+  }
 
   return ret;
-
-clean:
-  freeHasParamResult(ret);
-  return NULL;
 }
 
 static GetParamNamesResult * fetchGetParamNamesResult(XmlrpcParamVector *response)
 {
+  int it;
+
   GetParamNamesResult *ret = (GetParamNamesResult *)calloc(1, sizeof(GetParamNamesResult));
   if (ret == NULL)
     return NULL;
 
-  XmlrpcParam *array = xmlrpcParamVectorAt(response, 0);
-  XmlrpcParam* code = xmlrpcParamArrayGetParamAt(array, 0);
-  ret->code  = code->data.as_int;
-  XmlrpcParam* status = xmlrpcParamArrayGetParamAt(array, 1);
-  ret->status = (char *)malloc(strlen(status->data.as_string) + 1);
-  if (ret->status == NULL)
-    goto clean;
-  strcpy(ret->status, status->data.as_string);
+  XmlrpcParam *array;
+  array = GetMethodResponseStatus(response, &ret->code, &ret->status);
+  if (array == NULL)
+  {
+    free(ret);
+    return NULL;
+  }
+  if(ret->code == -1 || ret->code == 0)
+  {
+    PRINT_ERROR ( "fetchGetParamNamesResult() : The ROS master returned a (%s) %i status code.\n", (ret->code==-1)?"ERROR":"FAILURE" ,ret->code);
+    freeGetParamNamesResult(ret);
+    return NULL;
+  }
+
   XmlrpcParam* param_names = xmlrpcParamArrayGetParamAt(array, 2);
   ret->parameter_names = (char **)calloc(param_names->array_n_elem, sizeof(char *));
   if (ret->parameter_names== NULL)
     goto clean;
 
-  int it = 0;
-  for (; it < param_names->array_n_elem; it++)
+  for (it = 0; it < param_names->array_n_elem; it++)
   {
-    ret->parameter_names[it] = malloc(strlen(param_names->data.as_array[it].data.as_string) + 1);
+    ret->parameter_names[it] = (char *)malloc(strlen(param_names->data.as_array[it].data.as_string) + 1);
     if (ret->parameter_names[it] == NULL)
       goto clean;
 
@@ -1528,6 +2057,44 @@ clean:
   return NULL;
 }
 
+cRosMessage *cRosApiCreatePublisherMessage(CrosNode *node, int pubidx)
+{
+  cRosMessage *new_msg;
+  ProviderContext *pub_context;
+  PublisherNode *pub;
+
+  if (pubidx < 0 || pubidx >= CN_MAX_PUBLISHED_TOPICS)
+    return NULL;
+
+  pub = &node->pubs[pubidx];
+  if (pub->topic_name == NULL)
+    return NULL;
+
+  pub_context = pub->context;
+  new_msg = cRosMessageCopy(pub_context->outgoing);
+
+  return new_msg;
+}
+
+cRosMessage *cRosApiCreateServiceCallerRequest(CrosNode *node, int svcidx)
+{
+  cRosMessage *new_msg;
+  ServiceCallerNode *svc_caller;
+  ProviderContext *caller_context;
+
+  if (svcidx < 0 || svcidx >= CN_MAX_SERVICE_CALLERS)
+    return NULL;
+
+  svc_caller = &node->service_callers[svcidx];
+  if (svc_caller->service_name == NULL)
+    return NULL;
+
+  caller_context = svc_caller->context;
+  new_msg = cRosMessageCopy(caller_context->outgoing);
+
+  return new_msg;
+}
+
 
 void freeLookupNodeResult(LookupNodeResult *result)
 {
@@ -1538,9 +2105,10 @@ void freeLookupNodeResult(LookupNodeResult *result)
 
 void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result)
 {
+  size_t it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->topic_count; it++)
+  for (it = 0; it < result->topic_count; it++)
   {
     free(result->topics[it].topic);
     free(result->topics[it].type);
@@ -1551,9 +2119,10 @@ void freeGetPublishedTopicsResult(GetPublishedTopicsResult *result)
 
 void freeGetTopicTypesResult(GetTopicTypesResult *result)
 {
+  size_t it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->topic_count; it++)
+  for (it = 0; it < result->topic_count; it++)
   {
     free(result->topics[it].topic);
     free(result->topics[it].type);
@@ -1564,33 +2133,37 @@ void freeGetTopicTypesResult(GetTopicTypesResult *result)
 
 void freeGetSystemStateResult(GetSystemStateResult *result)
 {
+  size_t it1;
+
   free(result->status);
-  int it1 = 0;
-  for (; it1 < result->sub_count; it1++)
+  for (it1 = 0; it1 < result->sub_count; it1++)
   {
+    size_t it2;
+
     free(result->publishers[it1].provider_name);
-    int it2 = 0;
-    for (; it2 < result->publishers[it1].user_count; it2)
+    for (it2 = 0; it2 < result->publishers[it1].user_count; it2++)
       free(result->publishers[it1].users[it2]);
     free(result->publishers[it1].users);
   }
   free(result->publishers);
 
-  for (; it1 < result->sub_count; it1++)
+  for (it1 = 0; it1 < result->sub_count; it1++)
   {
+    size_t it2;
+
     free(result->subscribers[it1].provider_name);
-    int it2 = 0;
-    for (; it2 < result->subscribers[it1].user_count; it2)
+    for (it2 = 0; it2 < result->subscribers[it1].user_count; it2++)
       free(result->subscribers[it1].users[it2]);
     free(result->subscribers[it1].users);
   }
   free(result->subscribers);
 
-  for (; it1 < result->svc_count; it1++)
+  for (it1 = 0; it1 < result->svc_count; it1++)
   {
+    size_t it2;
+
     free(result->service_providers[it1].provider_name);
-    int it2 = 0;
-    for (; it2 < result->service_providers[it1].user_count; it2)
+    for (it2 = 0; it2 < result->service_providers[it1].user_count; it2++)
       free(result->service_providers[it1].users[it2]);
     free(result->service_providers[it1].users);
   }
@@ -1615,14 +2188,15 @@ void freeLookupServiceResult(LookupServiceResult *result)
 
 void freeGetBusStatsResult(GetBusStatsResult *result)
 {
+  size_t it1;
+
   free(result->status);
-  int it1 = 0;
-  for (; it1 < result->stats.pub_stats_count; it1++)
+  for (it1 = 0; it1 < result->stats.pub_stats_count; it1++)
     free(result->stats.pub_stats[it1].topic_name);
   free(result->stats.pub_stats);
 
-  for (; it1 < result->stats.sub_stats_count; it1++)
-    free(result->stats.pub_stats[it1].topic_name);
+  for (it1 = 0; it1 < result->stats.sub_stats_count; it1++)
+    free(result->stats.sub_stats[it1].topic_name);
   free(result->stats.sub_stats);
 
   free(result);
@@ -1630,9 +2204,10 @@ void freeGetBusStatsResult(GetBusStatsResult *result)
 
 void freeGetBusInfoResult(GetBusInfoResult *result)
 {
+  size_t it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->bus_infos_count; it++)
+  for (it = 0; it < result->bus_infos_count; it++)
     free(result->bus_infos[it].topic);
   free(result->bus_infos);
   free(result);
@@ -1659,9 +2234,10 @@ void freeGetPidResult(GetPidResult *result)
 
 void freeGetSubscriptionsResult(GetSubscriptionsResult *result)
 {
+  size_t it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->topic_count; it++)
+  for (it = 0; it < result->topic_count; it++)
   {
     free(result->topic_list[it].topic);
     free(result->topic_list[it].type);
@@ -1672,9 +2248,10 @@ void freeGetSubscriptionsResult(GetSubscriptionsResult *result)
 
 void freeGetPublicationsResult(GetPublicationsResult *result)
 {
+  size_t it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->topic_count; it++)
+  for (it = 0; it < result->topic_count; it++)
   {
     free(result->topic_list[it].topic);
     free(result->topic_list[it].type);
@@ -1717,9 +2294,10 @@ static void freeHasParamResult(HasParamResult *result)
 
 static void freeGetParamNamesResult(GetParamNamesResult *result)
 {
+  size_t it;
+
   free(result->status);
-  int it = 0;
-  for (; it < result->parameter_count; it++)
+  for (it = 0; it < result->parameter_count; it++)
     free(result->parameter_names[it]);
   free(result->parameter_names);
   free(result);

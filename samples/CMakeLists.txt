@@ -1,8 +1,5 @@
 file(COPY rosdb DESTINATION ${EXECUTABLE_OUTPUT_PATH})
 
-add_executable (raw-api-test raw-api-test.c)
-target_link_libraries(raw-api-test cros)
-
 add_executable(parameters-test parameters-test.c)
 target_link_libraries(parameters-test cros)
 
@@ -17,3 +14,6 @@ target_link_libraries(talker cros)
 
 add_executable(listener listener.c)
 target_link_libraries(listener cros)
+
+add_executable(performance-test performance-test.cpp)
+target_link_libraries(performance-test cros m)

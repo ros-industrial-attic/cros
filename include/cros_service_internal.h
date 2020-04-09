@@ -3,6 +3,7 @@
 
 #include "cros_message.h"
 #include "cros_message_internal.h"
+#include "cros_err_codes.h"
 
 static const char* FILEEXT_SRV = "srv";
 
@@ -21,10 +22,10 @@ struct t_srvDef
 
 typedef struct t_srvDef cRosSrvDef;
 
-int cRosServiceBuildInner(cRosMessage *request, cRosMessage *response, char *md5sum, const char* filepath);
-void initCrosSrv(cRosSrvDef* srv);
+cRosErrCodePack cRosServiceBuildInner(cRosMessage **request, cRosMessage **response, char **message_definition, char *md5sum, const char *srv_filepath);
+cRosErrCodePack initCrosSrv(cRosSrvDef* srv);
 
-int getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);
+cRosErrCodePack getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);
 
 //  Compute full text of service, including text of embedded
 //  types.  The text of the main srv is listed first. Embedded
@@ -33,6 +34,8 @@ int getFileDependenciesSrv(char* filename, cRosSrvDef* srv, msgDep* deps);
 //  the text of the embedded type.
 char* computeFullTextSrv(cRosSrvDef* srv, msgDep* deps);
 
-int loadFromFileSrv(char* filename, cRosSrvDef* srv);
+cRosErrCodePack loadFromFileSrv(const char *filename, cRosSrvDef* srv);
+
+void cRosServiceDefFree(cRosSrvDef* service_def);
 
 #endif // _CROS_SERVICE_INTERNAL_H_

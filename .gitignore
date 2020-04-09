@@ -11,7 +11,17 @@ cmake_install.cmake
 build/
 debug/
 release/
-docs/
+/docs/html
+/docs/latex
 gmon.out
 *~
 .idea/
+
+# Python byte-compiled code
+__pycache__/
+*.py[cod]
+
+# Microsoft Visual Studio
+.vs/
+x64/
+Win32/

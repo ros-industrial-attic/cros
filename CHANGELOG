@@ -1,3 +1,24 @@
+cROS 1.0-rc1 (21/12/2017)
+-------------------------
+Most significant changes of this second release:
+  * Now cROS compiles and works on OS X
+  * Fixed asynchronously connections management with select() function
+  * Added polling support for receiving topic messages, blocking message sending and blocking service call
+  * Fixed diverse bugs
+  * Improvements in message serialization/deserialization
+  * Added error checking and return error code to some principal functions
+  * Added some checks for the syntax the specified message and service definition files
+  * Fixed many memory leaks (and some double memory frees). So far no leaks are detecting when running the sample programs
+  * A signal handler has been implemented in several test program to allow the user to end the program safely by pressing Ctr-C
+  * Several segmentation faults have been fixed
+  * The return value of API functions has been changed from int to cRosErrCodePack (encoding pre-defined global error codes. See cros_err_codes.h)
+  * Some helper functions have been implemented to print the content of a cRosMessage, error code, copy messages, etc.
+  * A subscriber now supports receiving messages on the same topic from several publishers
+  * cRosNodeDestroy() automatically unregisters all topic publishers, topic subscribers, service providers and parameter subscribers in the ROS master
+  * The ROS node now supports the operation as a service caller (client)
+  * Added compatibility with MATLAB ROS toolbox (tested with MATLAB R2017a)
+  * Added cROS library manual in PDF
+
 cROS 0.9
 --------
   * First public release

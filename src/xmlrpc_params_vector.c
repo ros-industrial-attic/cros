@@ -1,5 +1,4 @@
-#include <malloc.h>
-#include <string.h>
+#include <stdlib.h>
 
 #include "xmlrpc_params_vector.h"
 #include "cros_defs.h"
@@ -9,7 +8,7 @@ enum { XMLRPC_VECTOR_INIT_SIZE = 4, XMLRPC_VECTOR_GROW_RATE = 2 };
 
 void xmlrpcParamVectorInit ( XmlrpcParamVector *p_vec )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorInit()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorInit()\n" );
 
   p_vec->data = NULL;
   p_vec->size = 0;
@@ -18,7 +17,7 @@ void xmlrpcParamVectorInit ( XmlrpcParamVector *p_vec )
 
 void xmlrpcParamVectorRelease ( XmlrpcParamVector *p_vec )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorRelease()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorRelease()\n" );
 
   if ( p_vec->data == NULL )
     return;
@@ -29,13 +28,13 @@ void xmlrpcParamVectorRelease ( XmlrpcParamVector *p_vec )
 
   free ( p_vec->data );
   p_vec->data = NULL;
-  
+
   p_vec->size = p_vec->max = 0;
 }
 
 int xmlrpcParamVectorPushBackBool ( XmlrpcParamVector *p_vec, int val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorPushBackBool()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorPushBackBool()\n" );
 
   XmlrpcParam param;
   xmlrpcParamInit(&param);
@@ -45,7 +44,7 @@ int xmlrpcParamVectorPushBackBool ( XmlrpcParamVector *p_vec, int val )
 
 int xmlrpcParamVectorPushBackInt ( XmlrpcParamVector *p_vec, int32_t val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorPushBackInt()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorPushBackInt()\n" );
 
   XmlrpcParam param;
   xmlrpcParamInit(&param);
@@ -55,7 +54,7 @@ int xmlrpcParamVectorPushBackInt ( XmlrpcParamVector *p_vec, int32_t val )
 
 int xmlrpcParamVectorPushBackDouble ( XmlrpcParamVector *p_vec, double val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorPushBackDouble()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorPushBackDouble()\n" );
 
   XmlrpcParam param;
   xmlrpcParamInit(&param);
@@ -65,7 +64,7 @@ int xmlrpcParamVectorPushBackDouble ( XmlrpcParamVector *p_vec, double val )
 
 int xmlrpcParamVectorPushBackString ( XmlrpcParamVector *p_vec, const char *val )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorPushBackString()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorPushBackString()\n" );
 
   XmlrpcParam param;
   xmlrpcParamInit(&param);
@@ -75,7 +74,7 @@ int xmlrpcParamVectorPushBackString ( XmlrpcParamVector *p_vec, const char *val 
 
 int xmlrpcParamVectorPushBackArray ( XmlrpcParamVector *p_vec )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorPushBackArray()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorPushBackArray()\n" );
 
   XmlrpcParam param;
   xmlrpcParamInit(&param);
@@ -85,7 +84,7 @@ int xmlrpcParamVectorPushBackArray ( XmlrpcParamVector *p_vec )
 
 int xmlrpcParamVectorPushBackStruct ( XmlrpcParamVector *p_vec )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorPushBackStruct()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorPushBackStruct()\n" );
 
   XmlrpcParam param;
   xmlrpcParamInit(&param);
@@ -95,7 +94,7 @@ int xmlrpcParamVectorPushBackStruct ( XmlrpcParamVector *p_vec )
 
 int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorPushBack()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorPushBack()\n" );
 
   if ( param == NULL )
   {
@@ -105,7 +104,7 @@ int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 
   if ( p_vec->data == NULL )
   {
-    PRINT_DEBUG ( "xmlrpcParamVectorPushBack() : allocate memory for the first time\n" );
+    PRINT_VVDEBUG ( "xmlrpcParamVectorPushBack() : allocate memory for the first time\n" );
     p_vec->data = ( XmlrpcParam * ) malloc ( XMLRPC_VECTOR_INIT_SIZE * sizeof ( XmlrpcParam ) );
 
     if ( p_vec->data == NULL )
@@ -120,7 +119,7 @@ int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 
   while ( p_vec->size == p_vec->max )
   {
-    PRINT_DEBUG ( "xmlrpcParamVectorPushBack() : reallocate memory\n" );
+    PRINT_VVDEBUG ( "xmlrpcParamVectorPushBack() : reallocate memory\n" );
     XmlrpcParam *new_p_vec = ( XmlrpcParam * ) realloc ( p_vec->data,
                              ( XMLRPC_VECTOR_GROW_RATE* p_vec->max ) * sizeof ( XmlrpcParam ) );
     if ( new_p_vec == NULL )
@@ -140,14 +139,14 @@ int xmlrpcParamVectorPushBack ( XmlrpcParamVector *p_vec, XmlrpcParam *param )
 
 int xmlrpcParamVectorGetSize ( XmlrpcParamVector *p_vec )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorGetSize()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorGetSize()\n" );
 
   return p_vec->size;
 }
 
 XmlrpcParam *xmlrpcParamVectorAt ( XmlrpcParamVector *p_vec, int pos )
 {
-  PRINT_VDEBUG ( "xmlrpcParamVectorAt()\n" );
+  PRINT_VVDEBUG ( "xmlrpcParamVectorAt()\n" );
 
   if ( pos < 0 || pos >= p_vec->size )
   {
@@ -160,8 +159,13 @@ XmlrpcParam *xmlrpcParamVectorAt ( XmlrpcParamVector *p_vec, int pos )
 
 void xmlrpcParamVectorPrint( XmlrpcParamVector *p_vec )
 {
-  printf("XMLRPC parameters vector size : %d\n", p_vec->size);
-  int i = 0;
-  for( ; i < p_vec->size; i++)
-    xmlrpcParamPrint( xmlrpcParamVectorAt( p_vec, i ) ); 
+  int elem_ind;
+
+  PRINT_VDEBUG ( "XMLRPC parameter vector (size : %d):\n", p_vec->size);
+
+  for(elem_ind = 0 ; elem_ind < p_vec->size; elem_ind++)
+  {
+    PRINT_VDEBUG ( "Vec. elem [%i]: ", elem_ind );
+    xmlrpcParamPrint( xmlrpcParamVectorAt( p_vec, elem_ind ) );
+  }
 }

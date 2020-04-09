@@ -1,6 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+
+#ifdef _WIN32
+#  define strtok_r strtok_s
+#  define strncasecmp _strnicmp // This is the POSIX verion of strnicmp
+#endif
 
 #include "xmlrpc_protocol.h"
 #include "xmlrpc_tags.h"
@@ -10,11 +16,12 @@
 static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int params_body_len,
     XmlrpcParamVector *params )
 {
-  PRINT_VDEBUG ( "parseXmlrpcMessageParams()\n" );
+  PRINT_VVDEBUG ( "parseXmlrpcMessageParams()\n" );
 
   int i = 0;
   const char *c = params_body;
   int found_params = 0;
+  int found_fault = 0;
 
   for ( ; i < params_body_len; i++, c++ )
   {
@@ -26,66 +33,112 @@ static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int
       found_params = 1;
       break;
     }
+    else
+    if ( params_body_len - i >= XMLRPC_FAULT_TAG.dim &&
+         strncmp ( c, XMLRPC_FAULT_TAG.str, XMLRPC_FAULT_TAG.dim ) == 0 )
+    {
+      c += XMLRPC_FAULT_TAG.dim;
+      i += XMLRPC_FAULT_TAG.dim;
+      found_fault = 1;
+      break;
+    }
   }
 
-  if ( !found_params )
+  if ( !found_params && !found_fault)
   {
-    PRINT_ERROR ( "parseXmlrpcMessageParams() : params not found\n" );
+    PRINT_ERROR ( "parseXmlrpcMessageParams() : neither <params> tag nor <fault> tag have been found in the ROS master XML response.\n" );
     return XMLRPC_PARSER_ERROR;
   }
 
-  DynString param_str;
-  dynStringInit ( &param_str );
-  int param_str_len = 0;
-  const char *param_init = NULL;
-
-  for ( ; i < params_body_len; i++, c++ )
+  if ( found_params )
   {
-    if ( params_body_len - i >= XMLRPC_PARAMS_ETAG.dim &&
-         strncmp ( c, XMLRPC_PARAMS_ETAG.str, XMLRPC_PARAMS_ETAG.dim ) == 0 )
-    {
-      c += XMLRPC_PARAMS_ETAG.dim;
-      i += XMLRPC_PARAMS_ETAG.dim;
-      break;
-    }
+    DynString param_str;
+    dynStringInit ( &param_str );
+    int param_str_len = 0;
+    const char *param_init = NULL;
 
-    if ( param_init == NULL )
+    for ( ; i < params_body_len; i++, c++ )
     {
-      if ( params_body_len - i >= XMLRPC_PARAM_TAG.dim &&
-           strncmp ( c, XMLRPC_PARAM_TAG.str, XMLRPC_PARAM_TAG.dim ) == 0 )
+      if ( params_body_len - i >= XMLRPC_PARAMS_ETAG.dim &&
+           strncmp ( c, XMLRPC_PARAMS_ETAG.str, XMLRPC_PARAMS_ETAG.dim ) == 0 )
       {
-        c += XMLRPC_PARAM_TAG.dim - 1;
-        i += XMLRPC_PARAM_TAG.dim - 1;
-        param_init = c + 1;
-        param_str_len = 0;
+        c += XMLRPC_PARAMS_ETAG.dim;
+        i += XMLRPC_PARAMS_ETAG.dim;
+        break;
+      }
+
+      if ( param_init == NULL )
+      {
+        if ( params_body_len - i >= XMLRPC_PARAM_TAG.dim &&
+             strncmp ( c, XMLRPC_PARAM_TAG.str, XMLRPC_PARAM_TAG.dim ) == 0 )
+        {
+          c += XMLRPC_PARAM_TAG.dim - 1;
+          i += XMLRPC_PARAM_TAG.dim - 1;
+          param_init = c + 1;
+          param_str_len = 0;
+        }
+      }
+      else
+      {
+        if ( params_body_len - i >= XMLRPC_PARAM_ETAG.dim &&
+             strncmp ( c, XMLRPC_PARAM_ETAG.str, XMLRPC_PARAM_ETAG.dim ) == 0 )
+        {
+          if ( param_str_len )
+          {
+            dynStringReplaceWithStrN ( &param_str, param_init, param_str_len );
+
+            XmlrpcParam param;
+            xmlrpcParamInit(&param);
+
+            if ( xmlrpcParamFromXml ( &param_str, &param ) == -1 ||
+                 xmlrpcParamVectorPushBack ( params, &param ) < 0 )
+              return XMLRPC_PARSER_ERROR;
+          }
+
+          c += XMLRPC_PARAM_ETAG.dim - 1;
+          i += XMLRPC_PARAM_ETAG.dim - 1;
+          param_init = NULL;
+          param_str_len = 0;
+        }
+        else
+          param_str_len++;
       }
     }
-    else
+    dynStringRelease ( &param_str );
+  }
+  else // Found <fault> tag
+  {
+    DynString fault_str;
+    dynStringInit ( &fault_str );
+    int fault_str_len = 0;
+    const char *fault_init = c;
+
+    for ( ; i < params_body_len; i++, c++ )
     {
-      if ( params_body_len - i >= XMLRPC_PARAM_ETAG.dim &&
-           strncmp ( c, XMLRPC_PARAM_ETAG.str, XMLRPC_PARAM_ETAG.dim ) == 0 )
+      if ( params_body_len - i >= XMLRPC_FAULT_ETAG.dim &&
+           strncmp ( c, XMLRPC_FAULT_ETAG.str, XMLRPC_FAULT_ETAG.dim ) == 0 )
       {
-        if ( param_str_len )
+        if ( fault_str_len )
         {
-          dynStringClear ( &param_str );
-          dynStringPushBackStrN ( &param_str, param_init, param_str_len );
+          dynStringReplaceWithStrN ( &fault_str, fault_init, fault_str_len );
 
           XmlrpcParam param;
           xmlrpcParamInit(&param);
 
-          if ( xmlrpcParamFromXml ( &param_str, &param ) == -1 ||
+          if ( xmlrpcParamFromXml ( &fault_str, &param ) == -1 ||
                xmlrpcParamVectorPushBack ( params, &param ) < 0 )
             return XMLRPC_PARSER_ERROR;
         }
 
-        c += XMLRPC_PARAM_ETAG.dim - 1;
-        i += XMLRPC_PARAM_ETAG.dim - 1;
-        param_init = NULL;
-        param_str_len = 0;
+        c += XMLRPC_FAULT_ETAG.dim - 1;
+        i += XMLRPC_FAULT_ETAG.dim - 1;
+        fault_init = NULL;
+        fault_str_len = 0;
       }
       else
-        param_str_len++;
+        fault_str_len++;
     }
+    dynStringRelease ( &fault_str );
   }
 
   return XMLRPC_PARSER_DONE;
@@ -94,7 +147,7 @@ static XmlrpcParserState parseXmlrpcMessageParams ( const char *params_body, int
 static XmlrpcParserState parseXmlrpcMessageBody ( const char *body, int body_len, XmlrpcMessageType *type,
     DynString *method, XmlrpcParamVector *params )
 {
-  PRINT_VDEBUG ( "parseXmlrpcMessageBody()\n" );
+  PRINT_VVDEBUG ( "parseXmlrpcMessageBody()\n" );
 
   *type = XMLRPC_MESSAGE_UNKNOWN;
   int i = 0;
@@ -171,19 +224,19 @@ static XmlrpcParserState parseXmlrpcMessageBody ( const char *body, int body_len
     if ( dynStringPushBackStrN(method, method_name_init, method_name_size ) < 0 )
       return XMLRPC_PARSER_ERROR;
   }
-  
+
   if( *type == XMLRPC_MESSAGE_REQUEST )
-    PRINT_DEBUG("Received request message, method : %s\n", dynStringGetData( method ));
+    PRINT_VDEBUG("Received request message, method : %s\n", dynStringGetData( method ));
   else if ( *type == XMLRPC_MESSAGE_RESPONSE )
-    PRINT_DEBUG("Received response message\n");
-  
+    PRINT_VDEBUG("Received response message\n");
+
   return parseXmlrpcMessageParams ( c, body_len - i, params );
 }
 
 void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessageType type,
                              const char *method, XmlrpcParamVector *params, DynString *message )
 {
-  PRINT_VDEBUG ( "generateXmlrpcMessage()\n" );
+  PRINT_VVDEBUG ( "generateXmlrpcMessage()\n" );
 
   dynStringClear ( message );
 
@@ -195,12 +248,14 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
     dynStringPushBackStr ( message, "User-Agent: " );
     dynStringPushBackStr ( message, XMLRPC_VERSION.str );
     dynStringPushBackStr ( message, "\r\nHost: " );
-    dynStringPushBackStr ( message, host );
-
-    char port_str[50];
-    snprintf ( port_str, 50, ":%d\r\n", port );
-
-    dynStringPushBackStr ( message, port_str );
+    if(host != NULL)
+    {
+      char port_str[50];
+      dynStringPushBackStr ( message, host );
+      snprintf ( port_str, 50, ":%d", port );
+      dynStringPushBackStr ( message, port_str );
+    }
+    dynStringPushBackStr ( message, "\r\n" );
   }
   else if( type == XMLRPC_MESSAGE_RESPONSE )
   {
@@ -213,12 +268,12 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   {
     PRINT_ERROR ( "generateXmlrpcMessage() : Unknown message type\n" );
   }
-  
+
   dynStringPushBackStr ( message, "Content-Type: text/xml\r\nContent-length: " );
 
   int content_len_init = dynStringGetLen ( message );
 
-  dynStringPushBackStr ( message, "0000000000000\r\n\r\n" );
+  dynStringPushBackStr ( message, "          \r\n\r\n" );
   int content_init = dynStringGetLen ( message );
 
   dynStringPushBackStr ( message, XMLRPC_MESSAGE_BEGIN.str );
@@ -237,7 +292,6 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   int n_params = xmlrpcParamVectorGetSize ( params );
   if ( n_params > 0 )
   {
-    char param_str[256];
     int i = 0;
     dynStringPushBackStr ( message, XMLRPC_PARAMS_TAG.str );
 
@@ -260,8 +314,14 @@ void generateXmlrpcMessage ( const char*host, unsigned short port, XmlrpcMessage
   int content_end = dynStringGetLen ( message );
   int content_len = content_end - content_init;
 
-  char content_len_str[15];
-  snprintf ( content_len_str, 15, "%.13d", content_len );
+  // Avoid writing numbers with more than the 10 digits
+  if(content_len > 9999999999L)
+  {
+     content_len = (INT_MAX < 9999999999L)?INT_MAX:9999999999L;
+     PRINT_VVDEBUG ( "generateXmlrpcMessage(): POST content too long. Trimming to %d.\n", content_len );
+  }
+  char content_len_str[12];
+  snprintf ( content_len_str, 12, "%010d", content_len );
 
   dynStringPatch ( message, content_len_str, content_len_init );
 }
@@ -270,7 +330,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
                                      DynString *method, XmlrpcParamVector *params,
                                      char host[256], int *port)
 {
-  PRINT_VDEBUG ( "parseXmlrpcMessage()\n" );
+  PRINT_VVDEBUG ( "parseXmlrpcMessage()\n" );
 
   int msg_len = dynStringGetLen ( message );
   char *msg = ( char * ) dynStringGetData ( message );
@@ -303,7 +363,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
 
   if ( body_init == NULL )
   {
-    PRINT_DEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
+    PRINT_VDEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
     return XMLRPC_PARSER_INCOMPLETE;
   }
   else if ( body_len_init == NULL )
@@ -321,7 +381,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
 
   if ( body_len > (int)strlen ( body_init ) )
   {
-    PRINT_DEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
+    PRINT_VDEBUG ( "parseXmlrpcMessage() : message incomplete\n" );
     return XMLRPC_PARSER_INCOMPLETE;
   }
 
@@ -343,7 +403,7 @@ XmlrpcParserState parseXmlrpcMessage(DynString *message, XmlrpcMessageType *type
     *port = atoi(strtok_r(NULL,":",&progress));
   }
 
-  PRINT_DEBUG ( "parseXmlrpcMessage() : body len : %d\n", body_len );
+  PRINT_VDEBUG ( "parseXmlrpcMessage() : body len : %d\n", body_len );
 
   return parseXmlrpcMessageBody ( body_init, body_len, type, method, params );
 

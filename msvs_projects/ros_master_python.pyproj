@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{539a16ec-20a8-4148-9a97-542b39a0a62f}</ProjectGuid>
+    <ProjectHome>..\master_python_source\</ProjectHome>
+    <StartupFile>runmaster.py</StartupFile>
+    <SearchPath />
+    <WorkingDirectory>.</WorkingDirectory>
+    <OutputPath>.</OutputPath>
+    <ProjectTypeGuids>{888888a0-9f3d-457c-b088-3a5042f75d52}</ProjectTypeGuids>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <InterpreterId />
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
+  <PropertyGroup>
+    <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' ">10.0</VisualStudioVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="defusedxml\cElementTree.py" />
+    <Compile Include="defusedxml\common.py" />
+    <Compile Include="defusedxml\ElementTree.py" />
+    <Compile Include="defusedxml\expatbuilder.py" />
+    <Compile Include="defusedxml\expatreader.py" />
+    <Compile Include="defusedxml\lxml.py" />
+    <Compile Include="defusedxml\minidom.py" />
+    <Compile Include="defusedxml\pulldom.py" />
+    <Compile Include="defusedxml\sax.py" />
+    <Compile Include="defusedxml\xmlrpc.py" />
+    <Compile Include="defusedxml\__init__.py" />
+    <Compile Include="rosgraph\impl\graph.py" />
+    <Compile Include="rosgraph\impl\__init__.py" />
+    <Compile Include="rosgraph\masterapi.py" />
+    <Compile Include="rosgraph\names.py" />
+    <Compile Include="rosgraph\network.py" />
+    <Compile Include="rosgraph\rosenv.py" />
+    <Compile Include="rosgraph\rosgraph_main.py" />
+    <Compile Include="rosgraph\roslogging.py" />
+    <Compile Include="rosgraph\xmlrpc.py" />
+    <Compile Include="rosgraph\__init__.py" />
+    <Compile Include="rosmaster\exceptions.py" />
+    <Compile Include="rosmaster\main.py" />
+    <Compile Include="rosmaster\master.py" />
+    <Compile Include="rosmaster\master_api.py" />
+    <Compile Include="rosmaster\paramserver.py" />
+    <Compile Include="rosmaster\registrations.py" />
+    <Compile Include="rosmaster\threadpool.py" />
+    <Compile Include="rosmaster\util.py" />
+    <Compile Include="rosmaster\validators.py" />
+    <Compile Include="rosmaster\__init__.py" />
+    <Compile Include="runmaster.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="defusedxml" />
+    <Folder Include="rosgraph" />
+    <Folder Include="rosgraph\impl" />
+    <Folder Include="rosmaster" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
+</Project>

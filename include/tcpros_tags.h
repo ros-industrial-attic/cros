@@ -9,7 +9,7 @@
 
 /*! \brief Structure that contains a TCPROS tag string and the related string length
  */
-typedef struct 
+typedef struct
 {
   char *str;
   int dim;
@@ -28,13 +28,14 @@ static TcprosTagStrDim TCPROS_LATCHING_TAG = { "latching=", 9 }; // WARNING Not 
 static TcprosTagStrDim TCPROS_PERSISTENT_TAG = { "persistent=", 11 }; // WARNING Not implemented
 static TcprosTagStrDim TCPROS_PROBE_TAG = { "probe=", 6 };
 static TcprosTagStrDim TCPROS_ERROR_TAG = { "error=", 6 };
+static TcprosTagStrDim TCPROS_EMPTY_MD5SUM_TAG = { "md5sum=*", 8 };
 
 enum
 {
   TCPROS_CALLER_ID_FLAG = 0x1,
   TCPROS_TOPIC_FLAG = 0x2,
   TCPROS_TYPE_FLAG = 0x4,
-  TCPROS_MD5SUM_FLAG = 0x8,  
+  TCPROS_MD5SUM_FLAG = 0x8,
   TCPROS_MESSAGE_DEFINITION_FLAG = 0x10,
   TCPROS_SERVICE_FLAG = 0x20,
   TCPROS_TCP_NODELAY_FLAG = 0x40,
@@ -42,7 +43,10 @@ enum
   TCPROS_PERSISTENT_FLAG = 0x100,
   TCPROS_ERROR_FLAG = 0x200,
   TCPROS_DATA_FLAG = 0x400,
-  TCPROS_PROBE_FLAG = 0x800
+  TCPROS_PROBE_FLAG = 0x800,
+  TCPROS_EMPTY_MD5SUM_FLAG = 0x1000,
+  TCPROS_SERVICE_REQUESTTYPE_FLAG = 0x2000,
+  TCPROS_SERVICE_RESPONSETYPE_FLAG = 0x4000
 };
 
 // http://wiki.ros.org/ROS/TCPROS mentions message_definition as compulsory but
@@ -57,24 +61,39 @@ static const uint32_t TCPROS_SUBCRIPTION_HEADER_FLAGS = // TCPROS_MESSAGE_DEFINI
 // or the topic as compulsory but they are sent by roscpp publishers
 static const uint32_t TCPROS_PUBLICATION_HEADER_FLAGS = TCPROS_TYPE_FLAG |
                                                         TCPROS_MD5SUM_FLAG;
-                                    
+/*
 static const uint32_t TCPROS_PUBLICATION_PACKET_FLAGS = TCPROS_CALLER_ID_FLAG |
                                                         TCPROS_TOPIC_FLAG |
                                                         TCPROS_TYPE_FLAG |
                                                         TCPROS_MD5SUM_FLAG |
-                                                        TCPROS_MESSAGE_DEFINITION_FLAG | 
+                                                        TCPROS_MESSAGE_DEFINITION_FLAG |
                                                         TCPROS_DATA_FLAG;
-
+*/
 static const uint32_t TCPROS_SERVICECALL_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
                                                         TCPROS_SERVICE_FLAG |
                                                         TCPROS_MD5SUM_FLAG |
                                                         TCPROS_PERSISTENT_FLAG;
 
+static const uint32_t TCPROS_SERVICECALL_MATLAB_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
+                                                        TCPROS_TYPE_FLAG |
+                                                        TCPROS_MESSAGE_DEFINITION_FLAG |
+                                                        TCPROS_SERVICE_FLAG |
+                                                        TCPROS_MD5SUM_FLAG |
+                                                        TCPROS_TCP_NODELAY_FLAG |
+                                                        TCPROS_PERSISTENT_FLAG;
+
 static const uint32_t TCPROS_SERVICEPROBE_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
                                                         TCPROS_SERVICE_FLAG |
                                                         TCPROS_PROBE_FLAG  |
-                                                        TCPROS_MD5SUM_FLAG ;
-                                                        
+                                                        TCPROS_EMPTY_MD5SUM_FLAG;
+
+static const uint32_t TCPROS_SERVICEPROBE_MATLAB_HEADER_FLAGS = TCPROS_CALLER_ID_FLAG |
+                                                        TCPROS_TYPE_FLAG |
+                                                        TCPROS_SERVICE_FLAG |
+                                                        TCPROS_EMPTY_MD5SUM_FLAG;
+
+static const uint32_t TCPROS_SERVICEPROVISION_HEADER_FLAGS = TCPROS_TYPE_FLAG |
+                                                        TCPROS_MD5SUM_FLAG;
 /*! @}*/
 
 #endif

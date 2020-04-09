@@ -1,6 +1,9 @@
 #ifndef _CROS_MESSAGE_INTERNAL_H_
 #define _CROS_MESSAGE_INTERNAL_H_
 
+#include "dyn_string.h"
+#include "cros_err_codes.h"
+
 static const char* FILEEXT_MSG = "msg";
 
 // e.g. std_msgs/String
@@ -32,6 +35,7 @@ static const char* HEADER_DEFAULT_TYPEDEF =
 "# 0: no frame\n"
 "string frame_id\n\n";
 
+
 struct t_msgFieldDef
 {
     CrosMessageType type;
@@ -41,6 +45,7 @@ struct t_msgFieldDef
     int array_size;
     struct t_msgFieldDef* prev;
     struct t_msgFieldDef* next;
+    cRosMessageDef* child_msg_def; // Stores the definition of a type defined trough a custom message file
 };
 
 typedef struct t_msgFieldDef msgFieldDef;
@@ -80,7 +85,7 @@ struct t_msgDep
 
 typedef struct t_msgDep msgDep;
 
-int getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps);
+cRosErrCodePack getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps);
 
 //  Compute full text of message, including text of embedded
 //  types.  The text of the main msg is listed first. Embedded
@@ -89,13 +94,13 @@ int getFileDependenciesMsg(char* filename, cRosMessageDef* msg, msgDep* deps);
 //  the text of the embedded type.
 char* computeFullTextMsg(cRosMessageDef* msg, msgDep* deps);
 
-int getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps);
+cRosErrCodePack getDependenciesMsg(cRosMessageDef* msg, msgDep* msgDeps);
 
 void cRosMD5Readable(unsigned char* data, DynString* output);
 
-void getMD5Txt(cRosMessageDef* msg, DynString* buffer);
+cRosErrCodePack getMD5Txt(cRosMessageDef* msg, DynString* buffer);
 
-void initCrosMsg(cRosMessageDef* msg);
+cRosErrCodePack initCrosMsg(cRosMessageDef* msg);
 
 void initMsgConst(msgConst *msg);
 
@@ -103,8 +108,12 @@ void initCrosDep(msgDep* dep);
 
 void initFieldDef(msgFieldDef* field);
 
-int loadFromStringMsg(char* text, cRosMessageDef* msg);
+cRosErrCodePack loadFromStringMsg(char* text, cRosMessageDef* msg);
 
-int loadFromFileMsg(char* filename, cRosMessageDef* msg);
+cRosErrCodePack loadFromFileMsg(char* filename, cRosMessageDef* msg);
+
+cRosErrCodePack cRosMessageDefCopy(cRosMessageDef** ptr_new_msg_def, cRosMessageDef* orig_msg_def );
+
+void cRosMessageDefFree(cRosMessageDef *msgDef);
 
 #endif // _CROS_MESSAGE_INTERNAL_H_

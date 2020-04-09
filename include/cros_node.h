@@ -1,17 +1,33 @@
+/*! \file cros_node.h
+ *  \brief This file declares the CrosNode structure, which codifies a ROS node in cROS. It also declares
+ *         associated substructures, functions and macros.
+ *
+ *  This ROS node can implement at the same time several:
+ *  - Topic subscribers
+ *  - Topic publishers
+ *  - Service providers (servers)
+ *  - Service callers (clients)
+ *  - Parameter subscriber
+ */
+
 #ifndef _CROS_NODE_H_
 #define _CROS_NODE_H_
 
+#include <stdio.h>
 #include <stdint.h>
+
+#include "cros_log.h"
 #include "xmlrpc_process.h"
 #include "tcpros_process.h"
 #include "cros_api_call.h"
+#include "cros_message_queue.h"
+#include "cros_err_codes.h"
 
 /*! \defgroup cros_node cROS Node */
 
 /*! \addtogroup cros_node
  *  @{
  */
-
 
 /*! Max num published topics */
 #define CN_MAX_PUBLISHED_TOPICS 5
@@ -21,6 +37,9 @@
 
 /*! Max num service providers */
 #define CN_MAX_SERVICE_PROVIDERS 8
+
+/*! Max num service callers */
+#define CN_MAX_SERVICE_CALLERS 8
 
 /*! Max num parameter subscriptions */
 #define CN_MAX_PARAMETER_SUBSCRIPTIONS 20
@@ -42,19 +61,28 @@
 
 /*!
  * Max num TCPROS connections against another subscribed nodes
- *  (first connection index reserved to roscore)
  * */
-#define CN_MAX_TCPROS_CLIENT_CONNECTIONS 1 + CN_MAX_SUBSCRIBED_TOPICS
+#define CN_MAX_TCPROS_CLIENT_CONNECTIONS CN_MAX_SUBSCRIBED_TOPICS
+
+/*!
+ * Max num RPCROS connections against other service-providing nodes
+ * (service calls are one to one, so, one TcprosProcess per ServiceCallerNode)
+ * */
+#define CN_MAX_RPCROS_CLIENT_CONNECTIONS CN_MAX_SERVICE_CALLERS
 
 /*! Node automatic XMLRPC ping cycle period (in msec) */
 #define CN_PING_LOOP_PERIOD 1000
 
 /*! Maximum I/O operations timeout (in msec) */
-#define CN_IO_TIMEOUT 2000
+#define CN_IO_TIMEOUT 3000
+
+/*! Maximum time that the node will wait for unregistering all publishers, subscribers, servicer providers... in the ROS master (in msec) */
+#define CN_UNREGISTRATION_TIMEOUT 3000
 
 typedef struct PublisherNode PublisherNode;
 typedef struct SubscriberNode SubscriberNode;
 typedef struct ServiceProviderNode ServiceProviderNode;
+typedef struct ServiceCallerNode ServiceCallerNode;
 typedef struct ParameterSubscription ParameterSubscription;
 
 typedef enum CrosNodeStatus
@@ -73,7 +101,7 @@ typedef struct CrosNodeStatusUsr
 {
   // FIXME: this is a work in progress
   // int callid; // This may be useful to track register/unregister
-  CrosNodeStatus state; // May be useful to udnerstand what the node, or the particular sub/pub/svc is doing
+  CrosNodeStatus state; // May be useful to understand what the node, or the particular sub/pub/svc is doing
   int provider_idx;
   const char *xmlrpc_host;
   int xmlrpc_port;
@@ -81,49 +109,35 @@ typedef struct CrosNodeStatusUsr
   XmlrpcParam *parameter_value;
 } CrosNodeStatusUsr;
 
-/*! \brief Callback to communicate publisher or subscriber status
- */
-typedef void (*NodeStatusCallback)(CrosNodeStatusUsr *status, void* context);
-
-typedef uint8_t CallbackResponse;
-typedef CallbackResponse (*PublisherCallback)(DynBuffer *buffer, void* context);
+/*! \brief Callback to communicate publisher or subscriber status */
+typedef void (*NodeStatusApiCallback)(CrosNodeStatusUsr *status, void* context);
 
 /*! Structure that define a published topic */
 struct PublisherNode
 {
-  char *topic_name;                             //! The published topic name
-  char *topic_type;                             //! The published topic data type (e.g., std_msgs/String, ...)
-  char *md5sum;                                 //! The md5sum of the message type
-  char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
-  int client_tcpros_id;
+  char *topic_name;                   //! The published topic name
+  char *topic_type;                   //! The published topic data type (e.g., std_msgs/String, ...)
+  char *md5sum;                       //! The MD5 sum of the message type
+  char *message_definition;           //! Full text of message definition (output of gendeps --cat)
+  int   tcpros_id_list[CN_MAX_TCPROS_SERVER_CONNECTIONS+1]; //! List of node->tcpros_server_proc IDs allocated for this publisher. The last element of the list is always -1 (sentinel)
   void *context;
-  PublisherCallback callback;                   //! The callback called to generate the (raw) packet data of type topic_type
-  NodeStatusCallback status_callback;
-  int loop_period;                              //! Period (in msec) for publication cycle 
+  int loop_period;                    //! Period (in msec) for publication cycle
+  uint64_t wake_up_time;              //! The time for the next automatic message publication (in msec, since the Epoch)
+  cRosMessageQueue msg_queue;         //! Messages on this topic wait in this queue to be send for every process
 };
 
-typedef CallbackResponse (*SubscriberCallback)(DynBuffer *buffer,  void* context);
-
-/*! Structure that define a subscribed topic 
- * WARNING : not implemented!
- */
+/*! Structure that define a subscribed topic */
 struct SubscriberNode
 {
-  char *message_definition;                     //! Full text of message definition (output of gendeps --cat)
-  char *topic_name;                             //! The subscribed topic name
-  char *topic_type;                             //! The subscribed topic data type (e.g., std_msgs/String, ...)
-  char *md5sum;                                 //! The md5sum of the message type
-  char *topic_host;                             //! The hostname of the topic already contacted.
-  int   topic_port;                             //! The host-port of the topic already contacted.
-  int   client_xmlrpc_id;                       //! The xmlrpc client that manages the subscription
-  int   client_tcpros_id;
-  int   tcpros_port;
-  void *context;
-  SubscriberCallback callback;
-  NodeStatusCallback status_callback;
+  char *message_definition;           //! Full text of message definition (output of gendeps --cat)
+  char *topic_name;                   //! The subscribed topic name
+  char *topic_type;                   //! The subscribed topic data type (e.g., std_msgs/String, ...)
+  char *md5sum;                       //! The MD5 sum of the message type
+  unsigned char tcp_nodelay;          //! If 1, the publisher should set TCP_NODELAY on the socket, if possible
+  void *context;                      //! Pointer to an internal library structure that stores received messages and its type
+  cRosMessageQueue msg_queue;         //! Each time a message on this topic is received it is queued here
+  unsigned char msg_queue_overflow;   //! If 1, the subscriber tried to insert a message in the queue but it was full
 };
-
-typedef CallbackResponse (*ServiceProviderCallback)(DynBuffer *bufferRequest, DynBuffer *bufferResponse, void* context);
 
 struct ServiceProviderNode
 {
@@ -133,8 +147,25 @@ struct ServiceProviderNode
   char *serviceresponse_type;
   char *md5sum;
   void *context;
-  ServiceProviderCallback callback;
-  NodeStatusCallback status_callback;
+};
+
+struct ServiceCallerNode
+{
+  char *service_name;
+  char *service_type;
+  char *servicerequest_type;
+  char *serviceresponse_type;
+  char *md5sum;
+  char *message_definition;           //! Full text of message definition (output of gendeps --cat)
+  int   rpcros_id;                    //! Index of the node->service_callers allocated for this ServiceCallerNode
+  char *service_host;                 //! The hostname of the service provider.
+  int   service_port;                 //! The host port of the the service provider.
+  unsigned char persistent;           //! If 1, the service RPCROS connection should be kept open for multiple requests
+  unsigned char tcp_nodelay;          //! If 1, the service caller should set TCP_NODELAY on the socket, if possible
+  void *context;
+  int loop_period;                    //! Period (in msec) for service-call cycle
+  uint64_t wake_up_time;              //! The time for the next automatic service call (in msec, since the Epoch)
+  cRosMessageQueue msg_queue;         //! Service requests and service responses for this service wait in this queue to be send
 };
 
 struct ParameterSubscription
@@ -142,62 +173,20 @@ struct ParameterSubscription
   char *parameter_key;
   XmlrpcParam parameter_value;
   void *context;
-  NodeStatusCallback status_callback;
+  NodeStatusApiCallback status_api_callback;
 };
 
-typedef struct CrosLog CrosLog;
-typedef struct CrosLogNode CrosLogNode;
-typedef struct CrosLogQueue CrosLogQueue;
-
-struct CrosLog
-{
-  uint8_t level;    //! debug level
-  char* name;       //! name of the node
-  char* msg;        //! message
-  char* file;       //! file the message came from
-  char* function;   //! function the message came from
-  uint32_t line;    //! line the message came from
-  char** pubs;    //! topic names that the node publishes
-  uint32_t secs;
-  uint32_t nsecs;
-  size_t n_pubs;
-};
-
-struct CrosLogNode
-{
-  CrosLog *call;
-  CrosLogNode* next;
-};
-
-struct CrosLogQueue
-{
-  CrosLogNode* head;
-  CrosLogNode* tail;
-  size_t count;
-};
-
-typedef enum CrosLogLevel //!Logging levels
-{
-  CROS_LOGLEVEL_DEBUG = 1,
-  CROS_LOGLEVEL_INFO = 2,
-  CROS_LOGLEVEL_WARN = 4,
-  CROS_LOGLEVEL_ERROR = 8,
-  CROS_LOGLEVEL_FATAL = 16
-} CrosLogLevel;
-
-/*! \brief CrosNode object. Don't modify its internal members: use
- *         the related functions instead */
+/*! \brief CrosNode object. Don't modify its internal members: use the related functions instead */
 typedef struct CrosNode CrosNode;
 struct CrosNode
 {
   char *name;                   //! The node name: it is the absolute name, i.e. it includes the namespace
   char *host;                   //! The node host (ipv4, e.g. 192.168.0.2)
-  unsigned short xmlrpc_port;          //! The node port for the XMLRPC protocol
-  unsigned short tcpros_port;          //! The node port for the TCPROS protocol
-  unsigned short rpcros_port;          //! The node port for the RPCROS protocol
+  unsigned short xmlrpc_port;   //! The node port for the XMLRPC protocol
+  unsigned short tcpros_port;   //! The node port for the TCPROS protocol
+  unsigned short rpcros_port;   //! The node port for the RPCROS protocol
 
-  uint64_t select_timeout;      //! Select max timeout (in ms)
-  int pid;                      //! Process ID
+  int pid;                      //! cROS node process ID
   int roscore_pid;              //! Roscore PID
 
   char *roscore_host;           //! The roscore host (ipv4, e.g. 192.168.0.1)
@@ -206,8 +195,11 @@ struct CrosNode
   char *message_root_path;      //! Directory with the message register
 
   CrosLogLevel log_level;
-  CrosLogQueue* log_queue;
-  uint32_t log_last_id;
+  int rosout_pub_idx;           //! Index of the publisher of the /rosout topic for ROS log messages
+
+  uint64_t xmlrpc_master_wake_up_time; //! The time (in msec, since the Epoch) for the next automatic operation cycle of the xmlrpc_client_proc[0] (xmlrpc master-node client proc)
+
+  uint32_t log_last_id;         //! Sequence number of the last transmitted rosout log message
 
   unsigned int next_call_id;
   ApiCallQueue master_api_queue;
@@ -217,7 +209,7 @@ struct CrosNode
   XmlrpcProcess xmlrpc_client_proc[CN_MAX_XMLRPC_CLIENT_CONNECTIONS];
   XmlrpcProcess xmlrpc_listner_proc;   //! Accept new XMLRPC connections from roscore or other nodes
   /*! Manage connections for XMLRPC calls from roscore or other nodes to this node */
-  XmlrpcProcess xmlrpc_server_proc[CN_MAX_XMLRPC_SERVER_CONNECTIONS]; 
+  XmlrpcProcess xmlrpc_server_proc[CN_MAX_XMLRPC_SERVER_CONNECTIONS];
 
   //! Manage connections for TCPROS calls from this node to others
   TcprosProcess tcpros_client_proc[CN_MAX_TCPROS_CLIENT_CONNECTIONS];
@@ -227,6 +219,7 @@ struct CrosNode
   TcprosProcess tcpros_server_proc[CN_MAX_TCPROS_SERVER_CONNECTIONS];
 
   //! Manage connections for RPCROS calls from this node to others
+  TcprosProcess rpcros_client_proc[CN_MAX_RPCROS_CLIENT_CONNECTIONS];
   TcprosProcess rpcros_listner_proc;   //! Accept new TCPROS connections from roscore or other nodes
 
   /*! Manage connections for RPCROS between this and other nodes  */
@@ -234,12 +227,14 @@ struct CrosNode
 
   PublisherNode pubs[CN_MAX_PUBLISHED_TOPICS];            //! All the published topic, defined by PublisherNode structures
   SubscriberNode subs[CN_MAX_SUBSCRIBED_TOPICS];          //! All the subscribed topic, defined by PublisherNode structures
-  ServiceProviderNode services[CN_MAX_SERVICE_PROVIDERS]; //! All the services to register
+  ServiceProviderNode service_providers[CN_MAX_SERVICE_PROVIDERS]; //! All the provided services to register
+  ServiceCallerNode service_callers[CN_MAX_SERVICE_CALLERS]; //! All the services to call
   ParameterSubscription paramsubs[CN_MAX_PARAMETER_SUBSCRIPTIONS];
 
   int n_pubs;                   //! Number of node's published topics
   int n_subs;                   //! Number of node's subscribed topics
-  int n_services;               //! Number of registered services
+  int n_service_providers;      //! Number of registered services to provide
+  int n_service_callers;        //! Number of services to call
   int n_paramsubs;
 };
 
@@ -250,60 +245,100 @@ struct CrosNode
  *
  *  \return A string with the resource name.
  */
-char* cRosNamespaceBuild(CrosNode* node, const char* resource_name);
+char *cRosNamespaceBuild(CrosNode *node, const char *resource_name);
 
 void cRosGetMsgFilePath(CrosNode *node, char *buffer, size_t bufsize, const char *topic_type);
 
-/*! \brief Dynamically create a CrosNode instance. This is the right way to create a CrosNode object. 
+/*! \brief Dynamically create a CrosNode instance. This is the right way to create a CrosNode object.
  *         Once finished, the CrosNode should be released using cRosNodeDestroy()
- * 
+ *
  *  \param node_name The node name: it is the absolute name, i.e. it should includes the namespace
  *  \param node_host The node host (ipv4, e.g. 192.168.0.2)
  *  \param roscore_host The roscore host (ipv4, e.g. 192.168.0.1)
  *  \param roscore_port The roscore port
  *  \param select_timeout_ms Max timeout for the select() in ms. NULL defaults to UINT64_MAX
- * 
+ *
  *  \return A pointer to the new CrosNode on success, NULL on failure
  */
-CrosNode *cRosNodeCreate(char* node_name, char *node_host, char *roscore_host, unsigned short roscore_port,
-                         char *message_root_path, uint64_t const *select_timeout_ms );
+CrosNode *cRosNodeCreate(const char *node_name, const char *node_host, const char *roscore_host, unsigned short roscore_port,
+                         const char *message_root_path);
 
-/*! \brief Release all the internal allocated memory for a CrosNode object previously crated with
- *         cRosNodeCreate()
- * 
+/*! \brief Unregister from ROS master and release all the internal allocated memory for a CrosNode
+ *          object previously crated with cRosNodeCreate()
+ *
  *  \param n A pointer to the CrosNode object to be released
+ *  \return CROS_SUCCESS_ERR_PACK (0) on success. Otherwise an error code pack containing one or more error codes
  */
-void cRosNodeDestroy( CrosNode *n );
+cRosErrCodePack cRosNodeDestroy( CrosNode *n );
 
-/*! \brief Perform a loop of the cROS node main cycle 
- * 
+/*! \brief Perform a loop of the cROS node main cycle
+ *
  *  \param n A pointer to a CrosNode object (e.g., created with cRosNodeCreate())
- * 
- *  cRosNodeDoEventsLoop() perform a file-based event loop: check al the read and write network 
- *  interfaces, start new write and read actions, open new connections, close dropped connections, 
- *  manage the internal state of the node (i.e., advertise new topisc, ...)
- * 
+ *  \param max_timeout Maximum time in milliseconds that this function will take to finish (it may finish before).
+ *
+ *  cRosNodeDoEventsLoop() perform a file-based event loop: check the read and write operation availability
+ *  for considered sockets, start new write and read actions, open new connections, close dropped connections,
+ *  manage the internal state of the node (i.e., advertise new topics, ...)
+ *
  *  cRosNodeDoEventsLoop() should be used inside a cycle, e.g.:
- * 
+ *
  *  while(1)
  *  {
- *    // If you want, do here something 
+ *    // If you want, do here something
  *    cRosNodeDoEventsLoop( node );
  *  }
+ *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
-void cRosNodeDoEventsLoop( CrosNode *n );
+cRosErrCodePack cRosNodeDoEventsLoop( CrosNode *n, uint64_t max_timeout );
 
-/*! \brief Start the cROS node main cycle
- * 
+/*! \brief Run the cROS node for a specific time while the exit flag provided by the user is 0
+ *
+ *  This function repeatedly calls cRosNodeDoEventsLoop() while these three conditions are met:
+ *  No error occurs, the exit_flag variable is 0 and the timeout is not reached.
  *  \param n A pointer to a CrosNode object (e.g., created with cRosNodeCreate())
- *  \param exit Pointer to an unsigned char variable: cRosNodeStart() exit if this variable 
- *              is not zero
- * 
- *  It is an utiility function that call cRosNodeDoEventsLoop() inside a endless cycle
+ *  \param time_out Time in milliseconds that this function will block running the node. If CROS_INFINITE_TIMEOUT
+ *         is specified, the function will not finish until an error occurs or the exit flag becomes different
+ *         from 0.
+ *  \param exit_flag Pointer to an unsigned char variable: the function will exit if this variable becomes
+ *         different from zero. If this pointer is NULL, the node will be run until the timeout is reached or an
+ *         an error occurs.
+ *  \return CROS_SUCCESS_ERR_PACK (0) on success
  */
-void cRosNodeStart( CrosNode *n, unsigned char *exit );
+cRosErrCodePack cRosNodeStart( CrosNode *n, unsigned long time_out, unsigned char *exit_flag );
 
-XmlrpcParam * cRosNodeGetParameterValue( CrosNode *n, const char *key);
+XmlrpcParam *cRosNodeGetParameterValue( CrosNode *n, const char *key);
 /*! @}*/
+
+/*! \brief Waits until a network port is open is a host address.
+ *
+ *  This function repeatedly tries to connect to the specified port until it succeed, an error occurs or the
+ *  specified timeout is reached. When the connection is established it is closed immediately.
+ *  \param host_addr The target address
+ *  \param host_port The target port
+ *  \param time_out Maximum time in milliseconds that this function will block trying to connect. If
+ *         CROS_INFINITE_TIMEOUT is specified, the function will not finish until an error occurs or the
+ *         the port connection is established.
+ *  \return CROS_SUCCESS_ERR_PACK if the port could be connected. CROS_SOCK_OPEN_CONN_ERR is an error
+ *          occurred when trying to connect or CROS_SOCK_OPEN_TIMEOUT_ERR if the timeout was reached before
+ *          the port could be connected.
+ */
+cRosErrCodePack cRosWaitPortOpen(const char *host_addr, unsigned short host_port, unsigned long time_out);
+
+/*! \brief Set the file stream used when printing messages locally, that is, through macros:
+ *         PRINT_INFO, PRINT_DEBUG, PRINT_VDEBUG, PRINT_VVDEBUG and PRINT_ERROR.
+ *
+ *  There are two types of message printing:
+ *   - local message printing (which are printed to a file or to stdout depending on the file stream specified
+ *     when calling this function).
+ *   - ROS log messages. These messages are not affected by this function.
+ *  \param new_stream The file stream used. It must be a valid file stream or NULL if stdout must be used.
+ */
+void cRosOutStreamSet(FILE *new_stream);
+
+/*! \brief Get the file stream used for printing local messages.
+ *
+ *  \return The file stream used. If NULL was specified when calling cRosOutStreamSet(), stdout is returned.
+ */
+FILE *cRosOutStreamGet(void);
 
 #endif

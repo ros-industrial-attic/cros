@@ -4,6 +4,9 @@
 #include "xmlrpc_params.h"
 #include "cros_node.h"
 #include "cros_message.h"
+#include "cros_err_codes.h"
+
+#define CROS_INFINITE_TIMEOUT ~0UL
 
 typedef enum CrosTransportType
 {
@@ -296,80 +299,109 @@ typedef void (*SearchParamCallback)(int callid, SearchParamResult *result, void 
 typedef void (*HasParamCallback)(int callid, HasParamResult *result, void *context);
 typedef void (*GetParamNamesCallback)(int callid, GetParamNamesResult *result, void *context);
 
+typedef uint8_t CallbackResponse;
+typedef CallbackResponse (*ServiceCallerApiCallback)(cRosMessage *request, cRosMessage *response, int call_resp_flag, void *context);
 typedef CallbackResponse (*ServiceProviderApiCallback)(cRosMessage *request, cRosMessage *response, void *context);
 typedef CallbackResponse (*SubscriberApiCallback)(cRosMessage *message,  void *context);
+/*! \brief Application-defined callback function which is called by the library */
 typedef CallbackResponse (*PublisherApiCallback)(cRosMessage *message, void *context);
 
+// Transfer data from message buffer (context_) of the Publisher/Service caller to the output ROS packet buffer (buffer)
+cRosErrCodePack cRosNodeSerializeOutgoingMessage(DynBuffer *buffer, void *context_);
+// Transfer data from packet buffer (buffer) of the Service caller to the input mesage buffer (context_)
+cRosErrCodePack cRosNodeDeserializeIncomingPacket(DynBuffer *buffer, void *context_);
+
+// Intermediary functions that call the user callback functions
+// context is a structure (object) opaque for the caller function
+cRosErrCodePack cRosNodeSubscriberCallback(void *context_);
+cRosErrCodePack cRosNodePublisherCallback(void *context_);
+cRosErrCodePack cRosNodeServiceCallerCallback(int call_resp_flag, void* contex_);
+cRosErrCodePack cRosNodeServiceProviderCallback(void *context_);
+void cRosNodeStatusCallback(CrosNodeStatusUsr *status, void* context_);
+
 // Master api: register/unregister methods
-int cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, NodeStatusCallback status_callback, void *context);
-int cRosApisUnegisterServiceProvider(CrosNode *node, int svcidx);
-int cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusCallback status_callback, void *context);
-int cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
-int cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period, PublisherApiCallback callback, NodeStatusCallback status_callback, void *context);
-int cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
+cRosErrCodePack cRosApiRegisterServiceCaller(CrosNode *node, const char *service_name, const char *service_type, int loop_period, ServiceCallerApiCallback callback, NodeStatusApiCallback status_callback, void *context, int persistent, int tcp_nodelay, int *svcidx_ptr);
+void cRosApiReleaseServiceCaller(CrosNode *node, int svcidx);
+cRosErrCodePack cRosApiRegisterServiceProvider(CrosNode *node, const char *service_name, const char *service_type, ServiceProviderApiCallback callback, NodeStatusApiCallback status_callback, void *context, int *svcidx_ptr);
+cRosErrCodePack cRosApiUnregisterServiceProvider(CrosNode *node, int svcidx);
+void cRosApiReleaseServiceProvider(CrosNode *node, int svcidx);
+cRosErrCodePack cRosApiRegisterSubscriber(CrosNode *node, const char *topic_name, const char *topic_type, SubscriberApiCallback callback, NodeStatusApiCallback status_callback, void *context, int tcp_nodelay, int *subidx_ptr);
+cRosErrCodePack cRosApiUnregisterSubscriber(CrosNode *node, int subidx);
+void cRosApiReleaseSubscriber(CrosNode *node, int subidx);
+cRosErrCodePack cRosApiRegisterPublisher(CrosNode *node, const char *topic_name, const char *topic_type, int loop_period, PublisherApiCallback callback, NodeStatusApiCallback status_callback, void *context, int *pubidx_ptr);
+cRosErrCodePack cRosApiUnregisterPublisher(CrosNode *node, int pubidx);
+void cRosApiReleasePublisher(CrosNode *node, int pubidx);
 
 // Master api: name service and system state
-int cRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback callback, void *context);
-int cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback callback, void *context);
-int cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback callback, void *context);
-int cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback callback, void *context);
-int cRosApiGetUri(CrosNode *node, GetUriCallback callback, void *context);
-int cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback callback, void *context);
+cRosErrCodePack cRosApiLookupNode(CrosNode *node, const char *node_name, LookupNodeCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiGetPublishedTopics(CrosNode *node, const char *subgraph, GetPublishedTopicsCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiGetTopicTypes(CrosNode *node, GetTopicTypesCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiGetSystemState(CrosNode *node, GetSystemStateCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiGetUri(CrosNode *node, GetUriCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiLookupService(CrosNode *node, const char *service, LookupServiceCallback callback, void *context, int *caller_id_ptr);
 
-// Slave api
-
-/*!
- *  \param host host == NULL will contact ros core
- *  \param port Used only if host != NULL
- */
-int cRosApiGetBusStats(CrosNode *node, const char* host, int port, GetBusStatsCallback callback, void *context);
+// Slave API
 
 /*!
- *  \param host host == NULL will contact ros core
- *  \param port Used only if host == NULL
+ *  \param if host == NULL, it will contact ROS Master
+ *  \param So, host and port are only used if host != NULL
  */
-int cRosApiGetBusInfo(CrosNode *node, const char* host, int port, GetBusInfoCallback callback, void *context);
+cRosErrCodePack cRosApiGetBusStats(CrosNode *node, const char* host, int port, GetBusStatsCallback callback, void *context, int *caller_id_ptr);
 
 /*!
- *  \param host host == NULL will contact ros core
- *  \param port Used only if host == NULL
+ *  \param if host == NULL, it will contact ROS Master
+ *  \param So, host and port are only used if host != NULL
  */
-int cRosApiGetMasterUri(CrosNode *node, const char* host, int port, GetMasterUriCallback callback, void *context);
+cRosErrCodePack cRosApiGetBusInfo(CrosNode *node, const char* host, int port, GetBusInfoCallback callback, void *context, int *caller_id_ptr);
 
 /*!
- *  \param host host == NULL will contact ros core
- *  \param port Used only if host == NULL
+ *  \param if host == NULL, it will contact ROS Master
+ *  \param So, host and port are only used if host != NULL
  */
-int cRosApiShutdown(CrosNode *node, const char* host, int port, const char *msg, GetMasterUriCallback callback, void *context);
+cRosErrCodePack cRosApiGetMasterUri(CrosNode *node, const char* host, int port, GetMasterUriCallback callback, void *context, int *caller_id_ptr);
 
 /*!
- *  \param host host == NULL will contact ros core
- *  \param port Used only if host == NULL
+ *  \param if host == NULL, it will contact ROS Master
+ *  \param So, host and port are only used if host != NULL
  */
-int cRosApiGetPid(CrosNode *node, const char* host, int port, GetPidCallback callback, void *context);
+cRosErrCodePack cRosApiShutdown(CrosNode *node, const char* host, int port, const char *msg, GetMasterUriCallback callback, void *context, int *caller_id_ptr);
 
 /*!
- *  \param host host == NULL will contact ros core
- *  \param port Used only if host == NULL
+ *  \param if host == NULL, it will contact ROS Master
+ *  \param So, host and port are only used if host != NULL
  */
-int cRosApiGetSubscriptions(CrosNode *node, const char* host, int port, GetSubscriptionsCallback callback, void *context);
+cRosErrCodePack cRosApiGetPid(CrosNode *node, const char* host, int port, GetPidCallback callback, void *context, int *caller_id_ptr);
 
 /*!
- *  \param host host == NULL will contact ros core
- *  \param port Used only if host == NULL
+ *  \param if host == NULL, it will contact ROS Master
+ *  \param So, host and port are only used if host != NULL
  */
-int cRosApiGetPublications(CrosNode *node, const char* host, int port, GetSubscriptionsCallback callback, void *context);
+cRosErrCodePack cRosApiGetSubscriptions(CrosNode *node, const char* host, int port, GetSubscriptionsCallback callback, void *context, int *caller_id_ptr);
+
+/*!
+ *  \param if host == NULL, it will contact ROS Master
+ *  \param So, host and port are only used if host != NULL
+ */
+cRosErrCodePack cRosApiGetPublications(CrosNode *node, const char* host, int port, GetSubscriptionsCallback callback, void *context, int *caller_id_ptr);
 
 // Parameter Server API: subscribe/unsubscribe params
-int cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusCallback callback, void *context);
-int cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx);
+cRosErrCodePack cRosApiSubscribeParam(CrosNode *node, const char *key, NodeStatusApiCallback callback, void *context, int *paramsubidx_ptr);
+cRosErrCodePack cRosApiUnsubscribeParam(CrosNode *node, int paramsubidx);
 
 // Parameter Server API: other methods
-int cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context);
-int cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context);
-int cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context);
-int cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context);
-int cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context);
-int cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context);
+cRosErrCodePack cRosApiDeleteParam(CrosNode *node, const char *key, DeleteParamCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiSetParam(CrosNode *node, const char *key, XmlrpcParam *value, SetParamCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiGetParam(CrosNode *node, const char *key, GetParamCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiSearchParam(CrosNode *node, const char *key, SearchParamCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiHasParam(CrosNode *node, const char *key, HasParamCallback callback, void *context, int *caller_id_ptr);
+cRosErrCodePack cRosApiGetParamNames(CrosNode *node, GetParamNamesCallback callback, void *context, int *caller_id_ptr);
+
+// Message polling
+cRosErrCodePack cRosNodeReceiveTopicMsg(CrosNode *node, int subidx, cRosMessage *msg, unsigned char *buff_overflow, unsigned long time_out);
+cRosErrCodePack cRosNodeQueueTopicMsg( CrosNode *node, int pubidx, cRosMessage *msg );
+cRosErrCodePack cRosNodeSendTopicMsg(CrosNode *node, int pubidx, cRosMessage *msg, unsigned long time_out);
+cRosErrCodePack cRosNodeServiceCall(CrosNode *node, int svcidx, cRosMessage *req_msg, cRosMessage *resp_msg, unsigned long time_out);
+cRosMessage *cRosApiCreatePublisherMessage(CrosNode *node, int pubidx);
+cRosMessage *cRosApiCreateServiceCallerRequest(CrosNode *node, int svcidx);
 
 #endif // _CROS_API_H_
