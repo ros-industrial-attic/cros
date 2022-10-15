@@ -20,8 +20,8 @@ extern "C"
 #include "cros_log.h"
 #include "cros_clock.h"
 
-#endif /* INCLUDE_CROS_H_ */
-
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* INCLUDE_CROS_H_ */
